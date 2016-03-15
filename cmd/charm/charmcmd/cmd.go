@@ -15,6 +15,7 @@ import (
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	esform "gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	hbform "gopkg.in/macaroon-bakery.v1/httpbakery/form"
@@ -129,8 +130,8 @@ func addAuthFlag(f *gnuflag.FlagSet, s *string) {
 
 // addChannelFlag adds the -c (--channel) flags to the given flag set.
 func addChannelFlag(f *gnuflag.FlagSet, s *string) {
-	f.StringVar(s, "c", "", "the channel the charm or bundle is assigned to")
-	f.StringVar(s, "channel", "", "")
+	f.StringVar(s, "c", string(params.StableChannel), "the channel the charm or bundle is assigned to")
+	f.StringVar(s, "channel", string(params.StableChannel), "")
 }
 
 func validateAuthFlag(flagval string) (string, string, error) {
