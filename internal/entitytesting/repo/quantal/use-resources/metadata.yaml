@@ -1,0 +1,17 @@
+name: use-resources
+summary: "test charm for resources"
+description: "Just something that has resources"
+provides:
+  endpoint:
+    interface: http
+  admin:
+    interface: http
+resources:
+  data:
+    type: file
+    filename: data.zip
+    description: "Some data for your service"
+  website:
+    type: file
+    filename: web.html
+    description: "A website for your service"

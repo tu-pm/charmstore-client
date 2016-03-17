@@ -6,7 +6,6 @@ package charmcmd
 import (
 	"bytes"
 	"fmt"
-	"net/mail"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,8 +13,10 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"launchpad.net/gnuflag"
 )
 
@@ -29,6 +30,9 @@ type pushCommand struct {
 	auth     string
 	username string
 	password string
+
+	// resources is a map of resource name to filename to be uploaded on push.
+	resources map[string]string
 }
 
 var pushDoc = `
@@ -47,6 +51,12 @@ charms and bundles available to others.
 	charm push .
 	charm push /path/to/wordpress wordpress
 	charm push . cs:~bob/trusty/wordpress
+    
+Resources may be uploaded at the same time by specifying the --resource flag.
+Following the resource flag should be a name=filepath pair.  This flag may be
+repeated more than once to upload more than one resource.
+
+  charm push . --resource website=~/some/file.tgz --resource config=./docs/cfg.xml
 `
 
 func (c *pushCommand) Info() *cmd.Info {
@@ -60,6 +70,7 @@ func (c *pushCommand) Info() *cmd.Info {
 
 func (c *pushCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
+	f.Var(cmd.StringMap{Mapping: &c.resources}, "resource", "resource to be uploaded to the charmstore")
 }
 
 func (c *pushCommand) Init(args []string) error {
@@ -152,6 +163,9 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	case ch != nil:
 		result, err = client.UploadCharm(c.id, ch)
 	case b != nil:
+		if len(c.resources) > 0 {
+			return errgo.New("resources not supported on bundles")
+		}
 		result, err = client.UploadBundle(c.id, b)
 	default:
 		panic("unreachable")
@@ -159,13 +173,68 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	fmt.Fprintf(ctxt.Stdout, "%v\n", result)
+	fmt.Fprintln(ctxt.Stdout, result)
 
 	// Update the new charm or bundle with VCS extra information.
 	if err = updateExtraInfo(c.id, srcDir, client); err != nil {
 		return errgo.Mask(err)
 	}
+
+	if ch != nil {
+		if err := c.pushResources(ctxt, client.Client, ch.Meta(), ctxt.Stdout); err != nil {
+			return errgo.Mask(err)
+		}
+	}
+
 	return nil
+}
+
+func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csclient.Client, meta *charm.Meta, stdout io.Writer) error {
+	if err := validateResources(c.resources, meta); err != nil {
+		return errgo.Mask(err)
+	}
+
+	for name, filename := range c.resources {
+		filename = ctxt.AbsPath(filename)
+		if err := c.uploadResource(client, name, filename, stdout); err != nil {
+			return errgo.Mask(err)
+		}
+	}
+	return nil
+}
+
+func (c *pushCommand) uploadResource(client *csclient.Client, name, file string, stdout io.Writer) error {
+	f, err := os.Open(file)
+	if err != nil {
+		return errgo.Mask(err)
+	}
+	defer f.Close()
+	rev, err := uploadResource(client, c.id, name, file, f)
+	if err != nil {
+		return errgo.Mask(err)
+	}
+	fmt.Fprintf(stdout, "Uploaded %q as %s-%d\n", file, name, rev)
+	return nil
+}
+
+// validateResources ensures that all the specified resources were defined in
+// the corresponding metadata.
+func validateResources(resources map[string]string, meta *charm.Meta) error {
+	var unknown []string
+
+	for name := range resources {
+		if _, ok := meta.Resources[name]; !ok {
+			unknown = append(unknown, name)
+		}
+	}
+	switch {
+	case len(unknown) > 1:
+		return errors.Errorf("unrecognized resources: %s", strings.Join(unknown, ", "))
+	case len(unknown) == 1:
+		return errors.Errorf("unrecognized resource %q", unknown[0])
+	default:
+		return nil
+	}
 }
 
 type LogEntry struct {
