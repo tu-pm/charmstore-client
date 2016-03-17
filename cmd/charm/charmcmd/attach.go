@@ -21,7 +21,7 @@ var uploadResource = func(client *csclient.Client, id *charm.URL, name, path str
 	return client.UploadResource(id, name, path, file)
 }
 
-type pushResourceCommand struct {
+type attachCommand struct {
 	cmd.CommandBase
 
 	id       *charm.URL
@@ -32,27 +32,27 @@ type pushResourceCommand struct {
 	password string
 }
 
-var pushResourceDoc = `
-The push-resource command uploads a file as a new resource for a charm.
+var attachDoc = `
+The attach command uploads a file as a new resource for a charm.
 
-   charm push-resource ~user/trusty/wordpress website-data ./foo.zip
+   charm attach ~user/trusty/wordpress website-data ./foo.zip
 
 `
 
-func (c *pushResourceCommand) Info() *cmd.Info {
+func (c *attachCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "push-resource",
+		Name:    "attach",
 		Args:    "<charm id> <resource=<file>",
 		Purpose: "upload a file as a resource for a charm",
-		Doc:     pushResourceDoc,
+		Doc:     attachDoc,
 	}
 }
 
-func (c *pushResourceCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *attachCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
 }
 
-func (c *pushResourceCommand) Init(args []string) error {
+func (c *attachCommand) Init(args []string) error {
 	// Validate and store the entity reference.
 	if len(args) == 0 {
 		return errgo.New("no charm id specified")
@@ -87,7 +87,7 @@ func (c *pushResourceCommand) Init(args []string) error {
 	return nil
 }
 
-func (c *pushResourceCommand) Run(ctxt *cmd.Context) error {
+func (c *attachCommand) Run(ctxt *cmd.Context) error {
 	client, err := newCharmStoreClient(ctxt, c.username, c.password)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")

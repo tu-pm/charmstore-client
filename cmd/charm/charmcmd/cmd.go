@@ -46,13 +46,13 @@ func New() cmd.Command {
 			DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 		},
 	})
+	chcmd.Register(&attachCommand{})
 	chcmd.Register(&grantCommand{})
 	chcmd.Register(&listCommand{})
 	chcmd.Register(&loginCommand{})
 	chcmd.Register(&publishCommand{})
 	chcmd.Register(&pullCommand{})
 	chcmd.Register(&pushCommand{})
-	chcmd.Register(&pushResourceCommand{})
 	chcmd.Register(&revokeCommand{})
 	chcmd.Register(&setCommand{})
 	chcmd.Register(&showCommand{})
