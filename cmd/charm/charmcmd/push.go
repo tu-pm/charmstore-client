@@ -6,6 +6,8 @@ package charmcmd
 import (
 	"bytes"
 	"fmt"
+	"io"
+	"net/mail"
 	"os"
 	"os/exec"
 	"path/filepath"
