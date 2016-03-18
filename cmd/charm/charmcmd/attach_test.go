@@ -48,7 +48,7 @@ func (s *pushResourceSuite) TestInitError(c *gc.C) {
 	dir := c.MkDir()
 	for i, test := range pushResourceInitErrorTests {
 		c.Logf("test %d: %q", i, test.args)
-		args := []string{"push-resource"}
+		args := []string{"attach"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
 		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
@@ -73,7 +73,7 @@ func (s *pushResourceSuite) TestRun(c *gc.C) {
 		return 1, nil
 	})
 
-	stdout, stderr, exitCode := run(dir, "push-resource", "wordpress", "foo=bar.zip")
+	stdout, stderr, exitCode := run(dir, "attach", "wordpress", "foo=bar.zip")
 	c.Check(called, gc.Equals, 1)
 	c.Check(exitCode, gc.Equals, 0)
 	c.Check(stdout, gc.Equals, "uploaded revision 1 of foo")
@@ -82,7 +82,7 @@ func (s *pushResourceSuite) TestRun(c *gc.C) {
 
 func (s *pushResourceSuite) TestCannotOpenFile(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "/not-there")
-	stdout, stderr, exitCode := run(c.MkDir(), "push-resource", "wordpress", "foo="+path)
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "wordpress", "foo="+path)
 	c.Assert(exitCode, gc.Equals, 1)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, `ERROR open .*not-there: no such file or directory`+"\n")
