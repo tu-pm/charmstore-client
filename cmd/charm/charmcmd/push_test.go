@@ -5,14 +5,19 @@ package charmcmd_test
 
 import (
 	"bytes"
+	"fmt"
+	"io"
 	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"time"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
@@ -49,6 +54,21 @@ var pushInitErrorTests = []struct {
 }, {
 	args:        []string{".", "~bob/trusty/wordpress-2"},
 	expectError: `charm or bundle id "~bob/trusty/wordpress-2" is not allowed a revision`,
+}, {
+	args:        []string{".", "~bob/trusty/wordpress", "--resource"},
+	expectError: `flag needs an argument: --resource`,
+}, {
+	args:        []string{".", "~bob/trusty/wordpress", "--resource", "foo"},
+	expectError: `.*expected key=value format.*`,
+}, {
+	args:        []string{".", "~bob/trusty/wordpress", "--resource", "foo="},
+	expectError: `.*key and value must be non-empty.*`,
+}, {
+	args:        []string{".", "~bob/trusty/wordpress", "--resource", "=bar"},
+	expectError: `.*key and value must be non-empty.*`,
+}, {
+	args:        []string{".", "~bob/trusty/wordpress", "--resource", "foo=bar", "--resource", "foo=baz"},
+	expectError: `.*duplicate key specified`,
 }}
 
 func (s *pushSuite) TestInitError(c *gc.C) {
@@ -57,9 +77,9 @@ func (s *pushSuite) TestInitError(c *gc.C) {
 		c.Logf("test %d: %q", i, test.args)
 		args := []string{"push"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "error: "+test.expectError+"\n")
-		c.Assert(code, gc.Equals, 2)
+		c.Check(stdout, gc.Equals, "")
+		c.Check(stderr, gc.Matches, "error: "+test.expectError+"\n")
+		c.Check(code, gc.Equals, 2)
 	}
 }
 
@@ -422,3 +442,86 @@ func (s *pushSuite) TestParseHgLog(c *gc.C) {
 	last := commits[0]
 	c.Assert(last.Name, gc.Equals, "Jay R. Wren")
 }
+
+func (s *pushSuite) TestUploadCharmWithResources(c *gc.C) {
+	// note the revs here correspond to the revs in the stdout check.
+	f := &fakeUploader{revs: []int{1, 2}}
+	s.PatchValue(charmcmd.UploadResource, f.UploadResource)
+
+	dir := c.MkDir()
+	datapath := filepath.Join(dir, "data.zip")
+	websitepath := filepath.Join(dir, "web.html")
+	err := ioutil.WriteFile(datapath, []byte("hi!"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	err = ioutil.WriteFile(websitepath, []byte("hi!"), 0600)
+	c.Assert(err, jc.ErrorIsNil)
+	repo := entitytesting.Repo
+	stdout, stderr, code := run(
+		dir,
+		"push",
+		filepath.Join(repo.Path(), "quantal/use-resources"),
+		"~bob/trusty/something",
+		"--resource", "data="+datapath,
+		"--resource", "website="+websitepath)
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(code, gc.Equals, 0)
+
+	// Since we store the resources in a map, the order in which they're
+	// uploaded is nondeterministic, so we need to do some contortions to allow
+	// for different orders.
+	if stdout != fmt.Sprintf(`
+cs:~bob/trusty/something-0
+Uploaded %q as data-1
+Uploaded %q as website-2
+`[1:], datapath, websitepath) && stdout != fmt.Sprintf(`
+cs:~bob/trusty/something-0
+Uploaded %q as website-1
+Uploaded %q as data-2
+`[1:], websitepath, datapath) {
+		c.Fail()
+	}
+
+	c.Assert(f.args, gc.HasLen, 2)
+
+	sort.Sort(byname(f.args))
+
+	expectedID := charm.MustParseURL("cs:~bob/trusty/something")
+
+	c.Check(f.args[0].id, gc.DeepEquals, expectedID)
+	c.Check(f.args[0].name, gc.Equals, "data")
+	c.Check(f.args[0].path, gc.Equals, datapath)
+	c.Check(f.args[0].file, gc.Equals, datapath)
+
+	c.Check(f.args[1].id, gc.DeepEquals, expectedID)
+	c.Check(f.args[1].name, gc.Equals, "website")
+	c.Check(f.args[1].path, gc.Equals, websitepath)
+	c.Check(f.args[1].file, gc.Equals, websitepath)
+}
+
+type fakeUploader struct {
+	// args holds the arguments passed to UploadResource.
+	args []uploadArgs
+	// revs holds the revisions returned by UploadResource.
+	revs []int
+}
+
+func (f *fakeUploader) UploadResource(client *csclient.Client, id *charm.URL, name, path string, file io.ReadSeeker) (revision int, err error) {
+	fl := file.(*os.File)
+	f.args = append(f.args, uploadArgs{id, name, path, fl.Name()})
+	rev := f.revs[0]
+	f.revs = f.revs[1:]
+	return rev, nil
+}
+
+type uploadArgs struct {
+	id   *charm.URL
+	name string
+	path string
+	file string
+}
+
+type byname []uploadArgs
+
+func (b byname) Less(i, j int) bool { return b[i].name < b[j].name }
+func (b byname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
+func (b byname) Len() int           { return len(b) }
