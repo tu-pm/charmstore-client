@@ -12,4 +12,5 @@ var (
 	PluginTopicText             = pluginTopicText
 	ServerURL                   = serverURL
 	UploadResource              = &uploadResource
+	PublishCharm                = &publishCharm
 )

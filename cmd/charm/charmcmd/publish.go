@@ -5,10 +5,14 @@ package charmcmd
 
 import (
 	"fmt"
+	"strconv"
+	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/errors"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
@@ -22,6 +26,8 @@ type publishCommand struct {
 	auth     string
 	username string
 	password string
+
+	resources resourceMap
 }
 
 var publishDoc = `
@@ -36,7 +42,14 @@ referenced without specifying the revision. Two channels are supported:
 To select another channel, use the --channel option, for instance:
 
     charm publish ~bob/trusty/wordpress --channel stable
-    charm publish wily/django-42 -c development
+    charm publish wily/django-42 -c development --resource website-3 --resource data-2
+
+If your charm uses resources, you must specify what revision of each resource
+will be published along with the charm, using the --resource flag (one per
+resource). Note that resource info is embedded in bundles, so you cannot use
+this flag with bundles.
+
+    charm publish wily/django-42 --resource website-3 --resource data-2
 `
 
 func (c *publishCommand) Info() *cmd.Info {
@@ -51,6 +64,7 @@ func (c *publishCommand) Info() *cmd.Info {
 func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
 	addChannelFlag(f, &c.channel)
 	addAuthFlag(f, &c.auth)
+	f.Var(&c.resources, "resource", "resource to be published with the charm")
 }
 
 func (c *publishCommand) Init(args []string) error {
@@ -67,16 +81,16 @@ func (c *publishCommand) Init(args []string) error {
 	}
 	c.id = id
 
-	if c.channel == "" {
-		c.channel = string(params.StableChannel)
-	}
-
 	c.username, c.password, err = validateAuthFlag(c.auth)
 	if err != nil {
 		return errgo.Mask(err)
 	}
 
 	return nil
+}
+
+var publishCharm = func(client *csclient.Client, id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	return client.Publish(id, channels, resources)
 }
 
 func (c *publishCommand) Run(ctxt *cmd.Context) error {
@@ -87,23 +101,51 @@ func (c *publishCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer client.jar.Save()
 
-	// Publish the entity.
-	if err := publish(client, c.id, params.Channel(c.channel)); err != nil {
+	err = publishCharm(client.Client, c.id, []params.Channel{params.Channel(c.channel)}, c.resources)
+	if err != nil {
 		return errgo.Notef(err, "cannot publish charm or bundle")
 	}
-	// TODO frankban: perhaps the publish endpoint should return the
-	// resolved entity URL and the current channels for that entity.
-	fmt.Fprintf(ctxt.Stdout, "%s\n", c.id)
 	return nil
 }
 
-// publish makes the PUT request to publish given id in the charm store.
-func publish(client *csClient, id *charm.URL, channels ...params.Channel) error {
-	val := &params.PublishRequest{
-		Channels: channels,
+// resourceMap is a type that deserializes a CLI string using gnuflag's Value
+// semantics.  It expects a name-number pair, and supports multiple copies of the
+// flag adding more pairs, though the names must be unique.
+type resourceMap map[string]int
+
+// Set implements gnuflag.Value's Set method by adding a value to the resource
+// map.
+func (m *resourceMap) Set(s string) error {
+	if *m == nil {
+		*m = map[string]int{}
 	}
-	if err := client.Put("/"+id.Path()+"/publish", val); err != nil {
-		return errgo.Mask(err)
+	// make a copy so the following code is less ugly with dereferencing.
+	mapping := *m
+
+	idx := strings.LastIndex(s, "-")
+	if idx == -1 {
+		return errors.NewNotValid(nil, "expected name-revision format")
 	}
+	name, value := s[0:idx], s[idx+1:]
+	if len(name) == 0 || len(value) == 0 {
+		return errors.NewNotValid(nil, "expected name-revision format")
+	}
+	if _, ok := mapping[name]; ok {
+		return errors.Errorf("duplicate name specified: %q", name)
+	}
+	revision, err := strconv.Atoi(value)
+	if err != nil {
+		return errors.NewNotValid(err, fmt.Sprintf("badly formatted revision %q", value))
+	}
+	mapping[name] = revision
 	return nil
+}
+
+// String implements gnuflag.Value's String method.
+func (m resourceMap) String() string {
+	pairs := make([]string, 0, len(m))
+	for name, value := range m {
+		pairs = append(pairs, fmt.Sprintf("%s-%d", name, value))
+	}
+	return strings.Join(pairs, ";")
 }

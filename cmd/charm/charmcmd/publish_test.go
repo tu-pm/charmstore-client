@@ -7,9 +7,11 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
+	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -29,22 +31,39 @@ func (s *publishSuite) SetUpTest(c *gc.C) {
 }
 
 var publishInitErrorTests = []struct {
-	args []string
-	err  string
+	about string
+	args  []string
+	err   string
 }{{
-	err: "no charm or bundle id specified",
+	about: "Empty Args",
+	args:  []string{},
+	err:   "no charm or bundle id specified",
 }, {
-	args: []string{"invalid:entity"},
-	err:  `invalid charm or bundle id: charm or bundle URL has invalid schema: "invalid:entity"`,
+	about: "Invalid Charm ID",
+	args:  []string{"invalid:entity"},
+	err:   `invalid charm or bundle id: charm or bundle URL has invalid schema: "invalid:entity"`,
 }, {
-	args: []string{"wordpress", "foo"},
-	err:  "too many arguments",
+	about: "Too Many Args",
+	args:  []string{"wordpress", "foo"},
+	err:   "too many arguments",
+}, {
+	about: "No Resource",
+	args:  []string{"wily/wordpress", "--resource"},
+	err:   "flag needs an argument: --resource",
+}, {
+	about: "No Revision",
+	args:  []string{"wily/wordpress", "--resource", "foo"},
+	err:   ".*expected name-revision format",
+}, {
+	about: "No Resource Name",
+	args:  []string{"wily/wordpress", "--resource", "-3"},
+	err:   ".*expected name-revision format",
 }}
 
 func (s *publishSuite) TestInitError(c *gc.C) {
 	dir := c.MkDir()
 	for i, test := range publishInitErrorTests {
-		c.Logf("test %d: %q", i, test.args)
+		c.Logf("test %d (%s): %q", i, test.about, test.args)
 		subcmd := []string{"publish"}
 		stdout, stderr, code := run(dir, append(subcmd, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
@@ -89,7 +108,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publish the newly uploaded charm to the development channel.
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "development")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/wily/django-42\n")
+	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	// The stable channel is not yet published, the development channel is.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
@@ -98,7 +117,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publish the newly uploaded charm to the stable channel.
 	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/wily/django-42\n")
+	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	// Both development and stable channels are published.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
@@ -107,7 +126,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publishing is idempotent.
 	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/wily/django-42\n")
+	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 }
@@ -121,7 +140,7 @@ func (s *publishSuite) TestPublishWithDefaultChannelSuccess(c *gc.C) {
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/wily/django-42\n")
+	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 }
@@ -138,8 +157,7 @@ func (s *publishSuite) TestPublishPartialURL(c *gc.C) {
 	// Publish the stable charm as development.
 	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/django", "-c", "development")
 	c.Assert(stderr, gc.Matches, "")
-	// TODO frankban: this is not really useful.
-	c.Assert(stdout, gc.Equals, "cs:~bob/django\n")
+	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
 }
@@ -157,4 +175,25 @@ func (s *publishSuite) entityRevision(id *charm.URL, channel params.Channel) int
 		return -1
 	}
 	panic(err)
+}
+
+func (s publishSuite) TestRunResource(c *gc.C) {
+	var (
+		actualID        *charm.URL
+		actualResources map[string]int
+	)
+	fakePub := func(client *csclient.Client, id *charm.URL, channels []params.Channel, resources map[string]int) error {
+		actualID = id
+		actualResources = resources
+		return nil
+	}
+	s.PatchValue(charmcmd.PublishCharm, fakePub)
+
+	stdout, stderr, code := run(c.MkDir(), "publish", "wordpress", "--resource", "foo-3", "--resource", "bar-4")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(code, gc.Equals, 0)
+
+	c.Check(actualID, gc.DeepEquals, charm.MustParseURL("wordpress"))
+	c.Check(actualResources, gc.DeepEquals, map[string]int{"foo": 3, "bar": 4})
 }
