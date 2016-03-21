@@ -53,7 +53,7 @@ func runWithInput(dir string, in string, args ...string) (stdout, stderr string,
 		Stdout: &stdoutBuf,
 		Stderr: &stderrBuf,
 	}
-	exitCode = cmd.Main(charmcmd.New(), ctxt, args)
+	exitCode = charmcmd.Main(charmcmd.New(), ctxt, args)
 	return stdoutBuf.String(), stderrBuf.String(), exitCode
 }
 

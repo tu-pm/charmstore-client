@@ -15,19 +15,14 @@ import (
 	"syscall"
 
 	"github.com/juju/cmd"
-	"launchpad.net/gnuflag"
 )
 
 const pluginPrefix = cmdName + "-"
 
 func runPlugin(ctx *cmd.Context, subcommand string, args []string) error {
-	cmdName := pluginPrefix + subcommand
 	plugin := &pluginCommand{
-		name: cmdName,
+		name: subcommand,
 	}
-	flags := gnuflag.NewFlagSet(cmdName, gnuflag.ContinueOnError)
-	flags.SetOutput(ioutil.Discard)
-	plugin.SetFlags(flags)
 	if err := plugin.Init(args); err != nil {
 		return err
 	}
@@ -43,14 +38,31 @@ func runPlugin(ctx *cmd.Context, subcommand string, args []string) error {
 
 type pluginCommand struct {
 	cmd.CommandBase
-	name string
-	args []string
+	name    string
+	args    []string
+	purpose string
+	doc     string
 }
 
-// Info is just a stub so that pluginCommand implements cmd.Command.
-// Since this is never actually called, we can happily return nil.
-func (*pluginCommand) Info() *cmd.Info {
-	return nil
+// Info returns informationa bout the Command.
+func (pc *pluginCommand) Info() *cmd.Info {
+	purpose := pc.purpose
+	if purpose == "" {
+		purpose = "support charm plugins"
+	}
+	name := pc.name
+	if name == "" {
+		name = pc.name
+	}
+	doc := pc.doc
+	if doc == "" {
+		doc = pluginTopicText
+	}
+	return &cmd.Info{
+		Name:    name,
+		Purpose: purpose,
+		Doc:     doc,
+	}
 }
 
 func (c *pluginCommand) Init(args []string) error {
@@ -59,7 +71,7 @@ func (c *pluginCommand) Init(args []string) error {
 }
 
 func (c *pluginCommand) Run(ctx *cmd.Context) error {
-	command := exec.Command(c.name, c.args...)
+	command := exec.Command(pluginPrefix+c.name, c.args...)
 	command.Stdin = ctx.Stdin
 	command.Stdout = ctx.Stdout
 	command.Stderr = ctx.Stderr
@@ -100,10 +112,16 @@ func pluginHelpTopic() string {
 	return output.String()
 }
 
+// getPluginDescriptionsResults holds memoized results for getPluginDescriptions.
+var getPluginDescriptionsResults []pluginDescription
+
 // getPluginDescriptions runs each plugin with "--description".  The calls to
 // the plugins are run in parallel, so the function should only take as long
 // as the longest call.
 func getPluginDescriptions() []pluginDescription {
+	if len(getPluginDescriptionsResults) > 0 {
+		return getPluginDescriptionsResults
+	}
 	plugins := findPlugins()
 	results := []pluginDescription{}
 	if len(plugins) == 0 {
@@ -111,8 +129,9 @@ func getPluginDescriptions() []pluginDescription {
 	}
 	// Create a channel with enough backing for each plugin.
 	description := make(chan pluginDescription, len(plugins))
+	help := make(chan pluginDescription, len(plugins))
 
-	// Exec the --description command.
+	// Exec the --description and --help commands.
 	for _, plugin := range plugins {
 		go func(plugin string) {
 			result := pluginDescription{
@@ -132,26 +151,48 @@ func getPluginDescriptions() []pluginDescription {
 				logger.Errorf("'%s --description': %s", plugin, err)
 			}
 		}(plugin)
+		go func(plugin string) {
+			result := pluginDescription{
+				name: plugin,
+			}
+			defer func() {
+				help <- result
+			}()
+			helpcmd := exec.Command(plugin, "--help")
+			output, err := helpcmd.CombinedOutput()
+			if err == nil {
+				result.doc = string(output)
+			} else {
+				result.doc = fmt.Sprintf("error occured running '%s --help'", plugin)
+				logger.Errorf("'%s --help': %s", plugin, err)
+			}
+		}(plugin)
 	}
-	resultMap := map[string]pluginDescription{}
+	resultDescriptionMap := map[string]pluginDescription{}
+	resultHelpMap := map[string]pluginDescription{}
 	// Gather the results at the end.
-	for range plugins {
+	for _ = range plugins {
 		result := <-description
-		resultMap[result.name] = result
+		resultDescriptionMap[result.name] = result
+		helpResult := <-help
+		resultHelpMap[helpResult.name] = helpResult
 	}
 	// plugins array is already sorted, use this to get the results in order.
 	for _, plugin := range plugins {
 		// Strip the 'charm-' off the start of the plugin name in the results.
-		result := resultMap[plugin]
+		result := resultDescriptionMap[plugin]
 		result.name = result.name[len(pluginPrefix):]
+		result.doc = resultHelpMap[plugin].doc
 		results = append(results, result)
 	}
+	getPluginDescriptionsResults = results
 	return results
 }
 
 type pluginDescription struct {
 	name        string
 	description string
+	doc         string
 }
 
 // findPlugins searches the current PATH for executable files that start with
