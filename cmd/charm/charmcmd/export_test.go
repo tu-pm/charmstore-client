@@ -3,6 +3,8 @@
 
 package charmcmd
 
+import "gopkg.in/juju/charm.v6-unstable"
+
 var (
 	ClientGetArchive            = &clientGetArchive
 	CSClientServerURL           = &csclientServerURL
@@ -14,3 +16,21 @@ var (
 	UploadResource              = &uploadResource
 	PublishCharm                = &publishCharm
 )
+
+func NewListResourcesCommand(
+	newCharmstoreClient NewCharmstoreClientFn,
+	formatTabular func(interface{}) ([]byte, error),
+	username,
+	password string,
+	charmID *charm.URL,
+) *listResourcesCommand {
+	return &listResourcesCommand{
+		NewCharmstoreClient: newCharmstoreClient,
+		formatTabular:       formatTabular,
+		username:            username,
+		password:            password,
+		charmID:             charmID,
+	}
+}
+
+var FormatTabular = formatTabular
