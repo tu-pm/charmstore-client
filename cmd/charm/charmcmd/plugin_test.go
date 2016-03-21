@@ -23,7 +23,8 @@ import (
 
 type pluginSuite struct {
 	testing.IsolationSuite
-	dir string
+	dir  string
+	dir2 string
 }
 
 var _ = gc.Suite(&pluginSuite{})
@@ -34,7 +35,9 @@ func (s *pluginSuite) SetUpTest(c *gc.C) {
 	}
 	s.IsolationSuite.SetUpTest(c)
 	s.dir = c.MkDir()
-	s.PatchEnvironment("PATH", s.dir)
+	s.dir2 = c.MkDir()
+	s.PatchEnvironment("PATH", s.dir+":"+s.dir2)
+	charmcmd.ResetGetPluginDescriptionsResults()
 }
 
 func (*pluginSuite) TestPluginHelpNoPlugins(c *gc.C) {
@@ -68,7 +71,13 @@ func (s *pluginSuite) TestPluginHelpSpecificCommand(c *gc.C) {
 	stdout, stderr, code := run(c.MkDir(), "help", "foo")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, `foo longer help
+	c.Assert(stdout, gc.Equals, `Usage: charm foo
+
+Summary:
+foo --description
+
+Details:
+foo longer help
 
 something useful
 `)
@@ -96,7 +105,7 @@ func (s *pluginSuite) TestPluginHelpRunInParallel(c *gc.C) {
 	outputChan := make(chan string)
 	go func() {
 		stdout, stderr := runHelp(c)
-		c.Assert(stderr, gc.Equals, "ERROR 'charm-error --description': exit status 1\n")
+		c.Assert(stderr, gc.Equals, "")
 		outputChan <- stdout
 	}()
 	// 10 seconds is arbitrary but should always be generously long. Test
@@ -109,10 +118,10 @@ func (s *pluginSuite) TestPluginHelpRunInParallel(c *gc.C) {
 	case <-time.After(wait):
 		c.Fatalf("took longer than %fs to complete", wait.Seconds())
 	}
-	c.Assert(output, gc.Equals, `bar    bar description
-baz    baz description
+	c.Assert(output, gc.Equals, `bar    bar --description
+baz    baz --description
 error  error occurred running 'charm-error --description'
-foo    foo description
+foo    foo --description
 `)
 }
 
@@ -137,7 +146,13 @@ func (s *pluginSuite) TestPluginRunWithHelpFlag(c *gc.C) {
 	stdout, stderr, code := run(c.MkDir(), "foo", "--help")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, `foo longer help
+	c.Assert(stdout, gc.Equals, `Usage: charm foo
+
+Summary:
+foo --description
+
+Details:
+foo longer help
 
 something useful
 `)
@@ -146,7 +161,7 @@ something useful
 func (s *pluginSuite) TestPluginRunWithDebugFlag(c *gc.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	stdout, stderr, code := run(c.MkDir(), "foo", "--debug")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stderr, gc.Matches, ".*?INFO cmd supercommand.go:\\d+ command finished\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(stdout, gc.Equals, "some debug\n")
 }
@@ -160,6 +175,24 @@ func (s *pluginSuite) TestPluginRunWithEnvVars(c *gc.C) {
 	c.Assert(stdout, gc.Equals, "foo\nanswer is 42\n")
 }
 
+func (s *pluginSuite) TestPluginRunWithMultipleNamesInPath(c *gc.C) {
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	s.PatchEnvironment("ANSWER", "42")
+	s.makeFullPluginInSecondDir(pluginParams{Name: "foo"})
+	stdout, stderr, code := run(c.MkDir(), "foo")
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, gc.Equals, "foo\nanswer is 42\n")
+}
+
+func (s *pluginSuite) TestPluginRunWithUnknownFlag(c *gc.C) {
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	stdout, stderr, code := run(c.MkDir(), "foo", "--unknown-to-juju")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, gc.Equals, "the flag was still there.\n")
+}
+
 func (s *pluginSuite) makePlugin(name string, perm os.FileMode) {
 	content := fmt.Sprintf("#!/bin/bash --norc\necho %s $*", name)
 	writePlugin(s.dir, name, content, perm)
@@ -170,21 +203,29 @@ func (s *pluginSuite) makeFailingPlugin(name string, exitStatus int) {
 	writePlugin(s.dir, name, content, 0755)
 }
 
+func (s *pluginSuite) makeFullPluginInSecondDir(params pluginParams) {
+	makeFullPluginToDir(params, s.dir2)
+}
+
 func (s *pluginSuite) makeFullPlugin(params pluginParams) {
+	makeFullPluginToDir(params, s.dir)
+}
+
+func makeFullPluginToDir(params pluginParams, dir string) {
 	// Create a new template and parse the plugin into it.
 	t := template.Must(template.New("plugin").Parse(pluginTemplate))
 	content := &bytes.Buffer{}
 	// Create the files in a temp dir, so we don't pollute the working space.
 	if params.Creates != "" {
-		params.Creates = filepath.Join(s.dir, params.Creates)
+		params.Creates = filepath.Join(dir, params.Creates)
 	}
 	if params.DependsOn != "" {
-		params.DependsOn = filepath.Join(s.dir, params.DependsOn)
+		params.DependsOn = filepath.Join(dir, params.DependsOn)
 	}
 	if err := t.Execute(content, params); err != nil {
 		panic(err)
 	}
-	writePlugin(s.dir, params.Name, content.String(), 0755)
+	writePlugin(dir, params.Name, content.String(), 0755)
 }
 
 func writePlugin(dir, name, content string, perm os.FileMode) {
@@ -192,6 +233,7 @@ func writePlugin(dir, name, content string, perm os.FileMode) {
 	if err := ioutil.WriteFile(path, []byte(content), perm); err != nil {
 		panic(err)
 	}
+	fmt.Println("wrote ", path)
 }
 
 type pluginParams struct {
@@ -211,7 +253,7 @@ if [ "$1" = "--description" ]; then
     # Sleep 10ms while waiting to allow other stuff to do work
     while [ ! -e "{{.DependsOn}}" ]; do /bin/sleep 0.010; done
   fi
-  echo "{{.Name}} description"
+  echo "{{.Name}} --description"
   exit {{.ExitStatus}}
 fi
 
@@ -224,6 +266,11 @@ fi
 
 if [ "$1" = "--debug" ]; then
   echo "some debug"
+  exit {{.ExitStatus}}
+fi
+
+if [ "$1" = "--unknown-to-juju" ]; then
+  echo "the flag was still there."
   exit {{.ExitStatus}}
 fi
 

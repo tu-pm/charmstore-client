@@ -4,6 +4,8 @@
 package charmcmd
 
 import (
+	"fmt"
+	"io/ioutil"
 	"os"
 	"strings"
 
@@ -35,6 +37,46 @@ that access the Juju charm store.
 `
 )
 
+var pluginMap map[string]*pluginCommand
+
+// Main is like cmd.Main but without dying on unknown args, allowing for
+// plugins to accept any arguments.
+func Main(c cmd.Command, ctx *cmd.Context, args []string) int {
+	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
+	f.SetOutput(ioutil.Discard)
+	c.SetFlags(f)
+	err := f.Parse(false, args)
+	if err != nil {
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		return 2
+	}
+	// Since SuperCommands can also return gnuflag.ErrHelp errors, we need to
+	// handle both those types of errors as well as "real" errors.
+	err = c.Init(f.Args())
+	// Plugins are special. Ignore their Init errors.
+	if err != nil && !isPlugin(c, args) {
+		if cmd.IsRcPassthroughError(err) {
+			return err.(*cmd.RcPassthroughError).Code
+		}
+		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		return 2
+	}
+	// SuperCommand eats args. Call init directly on the plugin to set correct args.
+	if isPlugin(c, args) {
+		pluginMap[args[0]].Init(args[1:])
+	}
+	if err = c.Run(ctx); err != nil {
+		if cmd.IsRcPassthroughError(err) {
+			return err.(*cmd.RcPassthroughError).Code
+		}
+		if err != cmd.ErrSilent {
+			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
+		}
+		return 1
+	}
+	return 0
+}
+
 // New returns a command that can execute juju-charm
 // commands.
 func New() cmd.Command {
@@ -63,8 +105,46 @@ func New() cmd.Command {
 		newCharmstoreClient: charmstoreClientAdapter(newCharmStoreClient),
 		formatTabular:       tabularFormatter,
 	})
+	registerPlugins(chcmd)
 	chcmd.AddHelpTopicCallback("plugins", "Show "+cmdName+" plugins", pluginHelpTopic)
 	return chcmd
+}
+
+func registerPlugins(cmd *cmd.SuperCommand) {
+	plugins := getPluginDescriptions()
+	pluginMap = make(map[string]*pluginCommand, len(plugins))
+	for _, plugin := range plugins {
+		if isNotRegsitered(plugin.name) {
+			pc := &pluginCommand{
+				name:    plugin.name,
+				purpose: plugin.description,
+				doc:     plugin.doc,
+			}
+			cmd.Register(pc)
+			pluginMap[plugin.name] = pc
+		}
+	}
+}
+
+func isNotRegsitered(name string) bool {
+	// help is a special case because NewSuperCommand registers it.
+	if name == "help" {
+		return false
+	}
+	_, ok := pluginMap[name]
+	return !ok
+}
+
+func isPlugin(c cmd.Command, args []string) bool {
+	if len(args) == 0 {
+		return false // Cannot really know without args. Assume It is not a plugin.
+	}
+	for name := range pluginMap {
+		if args[0] == name {
+			return true
+		}
+	}
+	return false
 }
 
 // Expose the charm store server URL so that

@@ -50,3 +50,7 @@ func (c *listResourcesCommand) Password() string {
 func (c *listResourcesCommand) Channel() string {
 	return c.channel
 }
+
+func ResetGetPluginDescriptionsResults() {
+	getPluginDescriptionsResults = nil
+}

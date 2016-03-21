@@ -20,5 +20,5 @@ func main() {
 		Stderr: os.Stderr,
 		Stdin:  os.Stdin,
 	}
-	os.Exit(cmd.Main(charmcmd.New(), ctxt, os.Args[1:]))
+	os.Exit(charmcmd.Main(charmcmd.New(), ctxt, os.Args[1:]))
 }
