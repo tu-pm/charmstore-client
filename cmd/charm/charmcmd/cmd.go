@@ -60,7 +60,7 @@ func New() cmd.Command {
 	chcmd.Register(&termsCommand{})
 	chcmd.Register(&whoamiCommand{})
 	chcmd.Register(&listResourcesCommand{
-		NewCharmstoreClient: charmstoreClientAdapter(newCharmStoreClient),
+		newCharmstoreClient: charmstoreClientAdapter(newCharmStoreClient),
 		formatTabular:       tabularFormatter,
 	})
 	chcmd.AddHelpTopicCallback("plugins", "Show "+cmdName+" plugins", pluginHelpTopic)

@@ -16,15 +16,15 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-var info = cmd.Info{
+var listResourcesInfo = cmd.Info{
 	Name:    "list-resources",
-	Args:    "<charm> [--channel <channel>]",
+	Args:    "<charm>",
 	Purpose: "display the resources for a charm in the charm store",
 	Doc: `
 This command will report the resources for a charm in the charm store.
 
-<charm> can be a charm URL, or an unambiguously condensed form of it,
-just like the deploy command. So the following forms will be accepted:
+<charm> can be a charm URL, or an unambiguously condensed form of
+it. So the following forms will be accepted:
 
 For cs:trusty/mysql
   mysql
@@ -38,12 +38,22 @@ Thus the above examples imply that the local series is trusty.
 `,
 }
 
+// ListResourceCharmstoreClient is the charmstore client the
+// listResourcesCommand requires to perform work.
 type ListResourcesCharmstoreClient interface {
+	// ListResources returns a list map of charm URL to slice of
+	// params.Resource.
 	ListResources([]*charm.URL) (map[string][]params.Resource, error)
+
+	// SaveJAR saves the cookies to the persistent cookie file.
+	// Before the file is written, it reads any cookies that have been
+	// stored from it and merges them into j.
 	SaveJAR() error
 }
 
-type NewCharmstoreClientFn func(*cmd.Context, string, string) (ListResourcesCharmstoreClient, error)
+// NewCharmstoreClientFn defines a function signature that will return
+// a new ListResourcesCharmstoreClient when called.
+type NewCharmstoreClientFn func(_ *cmd.Context, username, password string) (ListResourcesCharmstoreClient, error)
 
 func charmstoreClientAdapter(newCharmstoreClient func(*cmd.Context, string, string) (*csClient, error)) NewCharmstoreClientFn {
 	return func(ctx *cmd.Context, username, password string) (ListResourcesCharmstoreClient, error) {
@@ -55,7 +65,7 @@ type listResourcesCommand struct {
 	cmd.CommandBase
 	cmd.Output
 
-	NewCharmstoreClient NewCharmstoreClientFn
+	newCharmstoreClient NewCharmstoreClientFn
 	formatTabular       func(interface{}) ([]byte, error)
 	charmID             *charm.URL
 	channel             string
@@ -64,10 +74,12 @@ type listResourcesCommand struct {
 	password            string
 }
 
+// Info implements cmd.Command.
 func (c *listResourcesCommand) Info() *cmd.Info {
-	return &info
+	return &listResourcesInfo
 }
 
+// SetFlags implements cmd.Command.
 func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	addChannelFlag(f, &c.channel)
 	addAuthFlag(f, &c.auth)
@@ -78,13 +90,15 @@ func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
+// Init implements cmd.Command.
 func (c *listResourcesCommand) Init(args []string) (err error) {
 	c.username, c.password, c.charmID, err = parseArgs(c.auth, args)
 	return err
 }
 
+// Run implements cmd.Command.
 func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
-	client, err := c.NewCharmstoreClient(ctx, c.username, c.password)
+	client, err := c.newCharmstoreClient(ctx, c.username, c.password)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
@@ -104,9 +118,8 @@ func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
 }
 
 func parseArgs(auth string, args []string) (string, string, *charm.URL, error) {
-	// The valid combination of arguments is 1 or 3.
-	if len(args) != 1 {
-		return "", "", nil, errgo.New("no charm ID specified")
+	if err := cmd.CheckEmpty(args); err == nil {
+		return "", "", nil, errgo.Notef(err, "no charm ID specified")
 	}
 	username, password, err := validateAuthFlag(auth)
 	if err != nil {

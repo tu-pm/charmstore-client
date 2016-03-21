@@ -48,6 +48,48 @@ func (s *listResourcesSuite) TestListResources_SubCmdRegistered(c *gc.C) {
 	c.Check(stderr, gc.Matches, "ERROR no resources associated with this charm\n")
 }
 
+func (s *listResourcesSuite) TestListResources_BadArgsGivesCorrectErr(c *gc.C) {
+	listResourcesCmd := charmcmd.NewListResourcesCommand(nil, nil, "", "", nil)
+	err := listResourcesCmd.Init([]string{})
+	c.Check(err, gc.ErrorMatches, "no charm ID specified")
+}
+
+func (s *listResourcesSuite) TestListResources_CharmIDParsedCorrectly(c *gc.C) {
+	listResourcesCmd := charmcmd.NewListResourcesCommand(nil, nil, "", "", nil)
+	err := listResourcesCmd.Init([]string{"fake-id"})
+	c.Assert(err, gc.IsNil)
+	c.Check(listResourcesCmd.CharmID(), gc.DeepEquals, charm.MustParseURL("fake-id"))
+}
+
+func (s *listResourcesSuite) TestListResources_UsernamePasswordParsedCorrectly(c *gc.C) {
+	listResourcesCmd := charmcmd.NewListResourcesCommand(nil, charmcmd.TabularFormatter, "", "", nil)
+
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f.SetOutput(ioutil.Discard)
+	listResourcesCmd.SetFlags(f)
+	f.Set("auth", "user:pass")
+
+	err := listResourcesCmd.Init([]string{"fake-id"})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(listResourcesCmd.Username(), gc.Equals, "user")
+	c.Check(listResourcesCmd.Password(), gc.Equals, "pass")
+}
+
+func (s *listResourcesSuite) TestListResources_ChannelParsedCorrectly(c *gc.C) {
+	listResourcesCmd := charmcmd.NewListResourcesCommand(nil, charmcmd.TabularFormatter, "", "", nil)
+
+	f := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	f.SetOutput(ioutil.Discard)
+	listResourcesCmd.SetFlags(f)
+	f.Set("channel", "fake-channel")
+
+	err := listResourcesCmd.Init([]string{"fake-id"})
+	c.Assert(err, gc.IsNil)
+
+	c.Check(listResourcesCmd.Channel(), gc.Equals, "fake-channel")
+}
+
 func (s *listResourcesSuite) TestListResources_NoResourcesReturnedGivesCorrectErr(c *gc.C) {
 	newCharmstoreClient := func(*cmd.Context, string, string) (charmcmd.ListResourcesCharmstoreClient, error) {
 		return &MockCharmstoreClient{}, nil

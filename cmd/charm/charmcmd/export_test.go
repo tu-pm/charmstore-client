@@ -15,6 +15,8 @@ var (
 	ServerURL                   = serverURL
 	UploadResource              = &uploadResource
 	PublishCharm                = &publishCharm
+	FormatTabular               = formatTabular
+	TabularFormatter            = tabularFormatter
 )
 
 func NewListResourcesCommand(
@@ -25,7 +27,7 @@ func NewListResourcesCommand(
 	charmID *charm.URL,
 ) *listResourcesCommand {
 	return &listResourcesCommand{
-		NewCharmstoreClient: newCharmstoreClient,
+		newCharmstoreClient: newCharmstoreClient,
 		formatTabular:       formatTabular,
 		username:            username,
 		password:            password,
@@ -33,4 +35,18 @@ func NewListResourcesCommand(
 	}
 }
 
-var FormatTabular = formatTabular
+func (c *listResourcesCommand) CharmID() *charm.URL {
+	return c.charmID
+}
+
+func (c *listResourcesCommand) Username() string {
+	return c.username
+}
+
+func (c *listResourcesCommand) Password() string {
+	return c.password
+}
+
+func (c *listResourcesCommand) Channel() string {
+	return c.channel
+}
