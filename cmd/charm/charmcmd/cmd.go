@@ -59,6 +59,10 @@ func New() cmd.Command {
 	chcmd.Register(&showCommand{})
 	chcmd.Register(&termsCommand{})
 	chcmd.Register(&whoamiCommand{})
+	chcmd.Register(&listResourcesCommand{
+		newCharmstoreClient: charmstoreClientAdapter(newCharmStoreClient),
+		formatTabular:       tabularFormatter,
+	})
 	chcmd.AddHelpTopicCallback("plugins", "Show "+cmdName+" plugins", pluginHelpTopic)
 	return chcmd
 }
@@ -84,6 +88,12 @@ type csClient struct {
 	jar    *cookiejar.Jar
 	ctxt   *cmd.Context
 	filler esform.Filler
+}
+
+// SaveJAR calls save on the jar member variable. This follows the Law
+// of Demeter and allows csClient to meet interfaces.
+func (c *csClient) SaveJAR() error {
+	return c.jar.Save()
 }
 
 // newCharmStoreClient creates and return a charm store client with access to
