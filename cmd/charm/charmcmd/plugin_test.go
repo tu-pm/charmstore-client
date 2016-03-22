@@ -37,7 +37,7 @@ func (s *pluginSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	s.dir2 = c.MkDir()
 	s.PatchEnvironment("PATH", s.dir+":"+s.dir2)
-	charmcmd.ResetGetPluginDescriptionsResults()
+	charmcmd.ResetPluginDescriptionsResults()
 }
 
 func (*pluginSuite) TestPluginHelpNoPlugins(c *gc.C) {
