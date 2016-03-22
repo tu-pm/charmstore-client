@@ -51,6 +51,6 @@ func (c *listResourcesCommand) Channel() string {
 	return c.channel
 }
 
-func ResetGetPluginDescriptionsResults() {
-	getPluginDescriptionsResults = nil
+func ResetPluginDescriptionsResults() {
+	pluginDescriptionsResults = nil
 }

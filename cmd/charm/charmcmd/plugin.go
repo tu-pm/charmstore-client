@@ -44,22 +44,18 @@ type pluginCommand struct {
 	doc     string
 }
 
-// Info returns informationa bout the Command.
+// Info returns information about the Command.
 func (pc *pluginCommand) Info() *cmd.Info {
 	purpose := pc.purpose
 	if purpose == "" {
 		purpose = "support charm plugins"
-	}
-	name := pc.name
-	if name == "" {
-		name = pc.name
 	}
 	doc := pc.doc
 	if doc == "" {
 		doc = pluginTopicText
 	}
 	return &cmd.Info{
-		Name:    name,
+		Name:    pc.name,
 		Purpose: purpose,
 		Doc:     doc,
 	}
@@ -112,15 +108,15 @@ func pluginHelpTopic() string {
 	return output.String()
 }
 
-// getPluginDescriptionsResults holds memoized results for getPluginDescriptions.
-var getPluginDescriptionsResults []pluginDescription
+// pluginDescriptionsResults holds memoized results for getPluginDescriptions.
+var pluginDescriptionsResults []pluginDescription
 
 // getPluginDescriptions runs each plugin with "--description".  The calls to
 // the plugins are run in parallel, so the function should only take as long
 // as the longest call.
 func getPluginDescriptions() []pluginDescription {
-	if len(getPluginDescriptionsResults) > 0 {
-		return getPluginDescriptionsResults
+	if len(pluginDescriptionsResults) > 0 {
+		return pluginDescriptionsResults
 	}
 	plugins := findPlugins()
 	results := []pluginDescription{}
@@ -185,7 +181,7 @@ func getPluginDescriptions() []pluginDescription {
 		result.doc = resultHelpMap[plugin].doc
 		results = append(results, result)
 	}
-	getPluginDescriptionsResults = results
+	pluginDescriptionsResults = results
 	return results
 }
 
