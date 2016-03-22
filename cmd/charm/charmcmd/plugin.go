@@ -144,7 +144,7 @@ func getPluginDescriptions() []pluginDescription {
 				result.description = strings.SplitN(string(output), "\n", 2)[0]
 			} else {
 				result.description = fmt.Sprintf("error occurred running '%s --description'", plugin)
-				logger.Errorf("'%s --description': %s", plugin, err)
+				logger.Debugf("'%s --description': %s", plugin, err)
 			}
 		}(plugin)
 		go func(plugin string) {
@@ -160,7 +160,7 @@ func getPluginDescriptions() []pluginDescription {
 				result.doc = string(output)
 			} else {
 				result.doc = fmt.Sprintf("error occured running '%s --help'", plugin)
-				logger.Errorf("'%s --help': %s", plugin, err)
+				logger.Debugf("'%s --help': %s", plugin, err)
 			}
 		}(plugin)
 	}
