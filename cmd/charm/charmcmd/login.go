@@ -13,7 +13,7 @@ type loginCommand struct {
 }
 
 var loginDoc = `
-The login command uses Ubuntu SSO to obtain security credentials for JAAS.
+The login command uses Ubuntu SSO to obtain security credentials for the charm store.
 
    charm login
 `
@@ -21,7 +21,7 @@ The login command uses Ubuntu SSO to obtain security credentials for JAAS.
 func (c *loginCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "login",
-		Purpose: "login to jaas",
+		Purpose: "login to the charm store",
 		Doc:     loginDoc,
 	}
 }
