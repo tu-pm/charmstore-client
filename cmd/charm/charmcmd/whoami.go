@@ -5,15 +5,19 @@ package charmcmd
 
 import (
 	"fmt"
+	"launchpad.net/gnuflag"
 	"net/url"
+	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 )
 
 type whoamiCommand struct {
 	cmd.CommandBase
+	out cmd.Output
 }
 
 var whoamiDoc = `
@@ -29,6 +33,24 @@ func (c *whoamiCommand) Info() *cmd.Info {
 		Purpose: "display jaas user id and group membership",
 		Doc:     whoamiDoc,
 	}
+}
+
+func (c *whoamiCommand) SetFlags(f *gnuflag.FlagSet) {
+	c.out.AddFlags(f, "text", map[string]cmd.Formatter{
+		"yaml": cmd.FormatYaml,
+		"json": cmd.FormatJson,
+		"text": c.formatText,
+	})
+}
+
+func (c *whoamiCommand) formatText(value interface{}) ([]byte, error) {
+	resp := value.(*params.WhoAmIResponse)
+	out := fmt.Sprintln("User:", resp.User)
+	if len(resp.Groups) > 0 {
+		sort.Strings(resp.Groups)
+		out = fmt.Sprint(out, "Group membership: ", strings.Join(resp.Groups, ", "))
+	}
+	return []byte(out), nil
 }
 
 func (c *whoamiCommand) Run(ctxt *cmd.Context) error {
@@ -51,10 +73,6 @@ func (c *whoamiCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errgo.Notef(err, "cannot retrieve identity")
 	}
-	fmt.Fprintln(ctxt.Stdout, resp.User)
-	if len(resp.Groups) > 0 {
-		fmt.Fprintln(ctxt.Stdout, strings.Join(resp.Groups, " "))
-	}
 
-	return nil
+	return c.out.Write(ctxt, resp)
 }
