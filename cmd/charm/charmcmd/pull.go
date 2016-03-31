@@ -45,10 +45,7 @@ will be named after the charm or bundle, so:
 will fetch the wordpress charm into the
 directory "wordpress" in the current directory.
 
-When a specific charm or bundle revision is provided,
-the channel parameter is ignored. Otherwise the "stable"
-channel is used by default. To select another channel,
-use the --channel option, for instance:
+To select a channel, use the --channel option, for instance:
 
 	charm pull wordpress --channel development
 `

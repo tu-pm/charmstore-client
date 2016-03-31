@@ -38,10 +38,7 @@ The --acl parameter accepts "read" and "write" values. By default all permission
 
     charm revoke ~johndoe/wordpress --acl write fred
 
-When a specific charm or bundle revision is provided,
-the channel parameter is ignored. Otherwise the "stable"
-channel is used by default. To select another channel,
-use the --channel option, for instance:
+To select a channel, use the --channel option, for instance:
 
     charm revoke ~johndoe/wordpress --channel development --acl write fred,bob
 `

@@ -48,10 +48,7 @@ The --set parameters is used to overwrite any existing ACLs for the charm or bun
 
     charm grant ~johndoe/wordpress --acl write --set fred,bob
 
-When a specific charm or bundle revision is provided,
-the channel parameter is ignored. Otherwise the "stable"
-channel is used by default. To select another channel,
-use the --channel option, for instance:
+To select a channel, use the --channel option, for instance:
 
     charm grant ~johndoe/wordpress --channel development --acl write --set fred,bob
 `
@@ -132,7 +129,7 @@ func (c *grantCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer client.jar.Save()
 
-	if c.id.Revision == -1 {
+	if c.channel != "" {
 		client.Client = client.Client.WithChannel(params.Channel(c.channel))
 	}
 	// Perform the request to change the permissions on the charm store.
