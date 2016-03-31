@@ -13,7 +13,7 @@ github.com/juju/juju	git	45cc6aa81dc491d292b0e5731652017409e71f1c	2016-03-16T08:
 github.com/juju/loggo	git	8477fc936adf0e382d680310047ca27e128a309a	2015-05-27T03:58:39Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/names	git	ef19de31613af3735aa69ba3b40accce2faf7316	2016-03-01T22:07:10Z
-github.com/juju/persistent-cookiejar	git	fa866b33e350f6357a566d1b4f1c09c5493cfbdb	2016-02-22T17:00:27Z
+github.com/juju/persistent-cookiejar	git	e710b897c13ca52828ca2fc9769465186fd6d15c	2016-03-31T17:12:27Z
 github.com/juju/schema	git	1e25943f8c6fd6815282d6f1ac87091d21e14e19	2016-03-01T11:16:46Z
 github.com/juju/testing	git	4d5a7d64948aae30698f5d97b4c0d1a85a4504b7	2016-03-07T02:41:09Z
 github.com/juju/txn	git	99ec629d0066a4d73c54d8e021a7fc1dc07df614	2015-06-09T16:58:27Z

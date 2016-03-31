@@ -92,6 +92,7 @@ func New() commandWithPlugins {
 	chcmd.register(&grantCommand{})
 	chcmd.register(&listCommand{})
 	chcmd.register(&loginCommand{})
+	chcmd.register(&logoutCommand{})
 	chcmd.register(&publishCommand{})
 	chcmd.register(&pullCommand{})
 	chcmd.register(&pushCommand{})
@@ -151,7 +152,7 @@ func newCharmStoreClient(ctxt *cmd.Context, authUsername, authPassword string) (
 	}
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Jar = jar
-	tokenStore := ussologin.NewFileTokenStore(osenv.JujuXDGDataHomePath("store-usso-token"))
+	tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
 	filler := &esform.IOFiller{
 		In:  ctxt.Stdin,
 		Out: ctxt.Stdout,
@@ -195,4 +196,8 @@ func validateAuthFlag(flagval string) (string, string, error) {
 		return "", "", errgo.Newf(`invalid auth credentials: expected "user:passwd", got %q`, flagval)
 	}
 	return parts[0], parts[1], nil
+}
+
+func ussoTokenPath() string {
+	return osenv.JujuXDGDataHomePath("store-usso-token")
 }

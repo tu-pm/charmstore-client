@@ -61,6 +61,7 @@ func runWithInput(dir string, in string, args ...string) (stdout, stderr string,
 // server suitable for using to test the client commands against.
 type commonSuite struct {
 	testing.IsolatedMgoSuite
+	testing.FakeHomeSuite
 
 	// initDischarger is called in SetUpTest to find the location of
 	// the discharger and its public key. By default it is
@@ -83,11 +84,18 @@ type commonSuite struct {
 
 func (s *commonSuite) SetUpSuite(c *gc.C) {
 	s.IsolatedMgoSuite.SetUpSuite(c)
+	s.FakeHomeSuite.SetUpSuite(c)
 	s.initDischarger = s.startDischarger
+}
+
+func (s *commonSuite) TearDownSuite(c *gc.C) {
+	s.FakeHomeSuite.TearDownSuite(c)
+	s.IsolatedMgoSuite.TearDownSuite(c)
 }
 
 func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.IsolatedMgoSuite.SetUpTest(c)
+	s.FakeHomeSuite.SetUpTest(c)
 	s.startServer(c, s.Session)
 	s.client = csclient.New(csclient.Params{
 		URL:      s.srv.URL,
@@ -98,7 +106,7 @@ func (s *commonSuite) SetUpTest(c *gc.C) {
 	s.cookieFile = filepath.Join(c.MkDir(), "cookies")
 	s.PatchEnvironment("GOCOOKIES", s.cookieFile)
 	s.PatchEnvironment("JUJU_LOGGING_CONFIG", "DEBUG")
-	osenv.SetJujuXDGDataHome(c.MkDir())
+	osenv.SetJujuXDGDataHome(testing.JujuXDGDataHomePath())
 }
 
 func (s *commonSuite) TearDownTest(c *gc.C) {
@@ -108,6 +116,7 @@ func (s *commonSuite) TearDownTest(c *gc.C) {
 	}
 	s.srv.Close()
 	s.handler.Close()
+	s.FakeHomeSuite.TearDownTest(c)
 	s.IsolatedMgoSuite.TearDownTest(c)
 }
 

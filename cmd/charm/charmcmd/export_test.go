@@ -17,6 +17,7 @@ var (
 	PublishCharm                = &publishCharm
 	FormatTabular               = formatTabular
 	TabularFormatter            = tabularFormatter
+	USSOTokenPath               = ussoTokenPath
 )
 
 func NewListResourcesCommand(
