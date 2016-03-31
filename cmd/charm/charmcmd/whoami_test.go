@@ -4,12 +4,14 @@
 package charmcmd_test
 
 import (
+	"encoding/json"
 	"io/ioutil"
 	"net/http/httptest"
 	"net/url"
 	"os"
 	"time"
 
+	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/idmclient/idmtest"
 	"github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
@@ -20,8 +22,7 @@ import (
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
-
-	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	"gopkg.in/yaml.v2"
 )
 
 type whoamiSuite struct {
@@ -85,7 +86,63 @@ func (s *whoamiSuite) TestLoggedIn(c *gc.C) {
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "test-user\ntest-group1 test-group2\n")
+	c.Assert(stdout, gc.Equals, "User: test-user\nGroup membership: test-group1, test-group2\n")
+}
+
+func (s *whoamiSuite) TestSortedGroup(c *gc.C) {
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: s.cookieFile,
+	})
+	c.Assert(err, gc.IsNil)
+	s.idsrv.AddUser("test-user", "AAA", "ZZZ", "BBB")
+	addFakeCookieToJar(c, jar)
+	err = jar.Save()
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(exitCode, gc.Equals, 0)
+	c.Assert(stdout, gc.Equals, "User: test-user\nGroup membership: AAA, BBB, ZZZ\n")
+}
+
+func (s *whoamiSuite) TestSuccessJSON(c *gc.C) {
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: s.cookieFile,
+	})
+	c.Assert(err, gc.IsNil)
+	addFakeCookieToJar(c, jar)
+	err = jar.Save()
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, exitCode := run(c.MkDir(), "whoami", "--format=json")
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(exitCode, gc.Equals, 0)
+	var result map[string]interface{}
+	err = json.Unmarshal([]byte(stdout), &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result["User"], gc.Equals, "test-user")
+	c.Assert(result["Groups"], gc.DeepEquals, []interface{}{"test-group1", "test-group2"})
+
+}
+
+func (s *whoamiSuite) TestSuccessYAML(c *gc.C) {
+	jar, err := cookiejar.New(&cookiejar.Options{
+		Filename: s.cookieFile,
+	})
+	c.Assert(err, gc.IsNil)
+	addFakeCookieToJar(c, jar)
+	err = jar.Save()
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, exitCode := run(c.MkDir(), "whoami", "--format=yaml")
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(exitCode, gc.Equals, 0)
+	var result map[string]interface{}
+	err = yaml.Unmarshal([]byte(stdout), &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(result["user"], gc.Equals, "test-user")
+	c.Assert(result["groups"], gc.DeepEquals, []interface{}{"test-group1", "test-group2"})
+
 }
 
 func (s *whoamiSuite) TestInvalidServerURL(c *gc.C) {
