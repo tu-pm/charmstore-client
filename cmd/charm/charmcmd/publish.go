@@ -33,9 +33,10 @@ type publishCommand struct {
 var publishDoc = `
 The publish command publishes a charm or bundle in the charm store.
 Publishing is the action of assigning one channel to a specific charm
-or bundle revision, so that it can be shared with other users and also
-referenced without specifying the revision. Two channels are supported:
-"stable" and "development", the "stable" channel is used by default.
+or bundle revision (revision need to be specified), so that it can be shared
+with other users and also referenced without specifying the revision.
+Two channels are supported: "stable" and "development"; the "stable" channel is
+used by default.
 
     charm publish ~bob/trusty/wordpress
 
@@ -83,6 +84,10 @@ func (c *publishCommand) Init(args []string) error {
 	if err != nil {
 		return errgo.Notef(err, "invalid charm or bundle id")
 	}
+	if id.Revision == -1 {
+		return errgo.Newf("revision needs to be specified")
+	}
+
 	c.id = id
 
 	c.username, c.password, err = validateAuthFlag(c.auth)
@@ -109,6 +114,8 @@ func (c *publishCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errgo.Notef(err, "cannot publish charm or bundle")
 	}
+	fmt.Fprintln(ctxt.Stdout, "url:", c.id)
+	fmt.Fprintln(ctxt.Stdout, "channel:", c.channel)
 	return nil
 }
 
