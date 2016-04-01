@@ -102,3 +102,10 @@ func (s *termsSuite) TestUnknownArgument(c *gc.C) {
 	c.Assert(stderr, gc.Equals, `error: unrecognized args: ["foobar"]
 `)
 }
+
+func (s *termsSuite) TestNoTerms(c *gc.C) {
+	stdout, stderr, code := run(c.MkDir(), "terms", "-u", "test-user")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, gc.Equals, "No terms found.\n")
+	c.Assert(stderr, gc.Equals, "")
+}

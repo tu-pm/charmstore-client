@@ -1,4 +1,5 @@
 package charmcmd_test
+
 // Licensed under the GPLv3, see LICENCE file for details.
 
 import (
@@ -53,7 +54,7 @@ func (s *listSuite) TestListUserProvidedEmpty(c *gc.C) {
 	dir := c.MkDir()
 	stdout, stderr, code := run(dir, "list", "-u", "test-user")
 	c.Assert(stderr, gc.Equals, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "No charms found.\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
