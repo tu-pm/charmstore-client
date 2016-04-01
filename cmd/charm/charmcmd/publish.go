@@ -75,6 +75,10 @@ func (c *publishCommand) Init(args []string) error {
 		return errgo.New("too many arguments")
 	}
 
+	if c.channel == "" {
+		c.channel = string(params.StableChannel)
+	}
+
 	id, err := charm.ParseURL(args[0])
 	if err != nil {
 		return errgo.Notef(err, "invalid charm or bundle id")

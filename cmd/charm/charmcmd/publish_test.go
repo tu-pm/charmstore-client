@@ -4,6 +4,8 @@
 package charmcmd_test
 
 import (
+	"encoding/json"
+
 	gc "gopkg.in/check.v1"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
@@ -160,6 +162,31 @@ func (s *publishSuite) TestPublishPartialURL(c *gc.C) {
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+}
+
+func (s *publishSuite) TestPublishAndShow(c *gc.C) {
+	id := charm.MustParseURL("~bob/wily/django-42")
+	ch := entitytesting.Repo.CharmDir("wordpress")
+
+	// Upload a couple of charms and and publish a stable charm.
+	s.uploadCharmDir(c, id, -1, ch)
+	s.uploadCharmDir(c, id.WithRevision(43), -1, ch)
+
+	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+
+	stdout, stderr, code = run(c.MkDir(), "show", "--format=json", "~bob/wily/django-42", "published")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(code, gc.Equals, 0)
+	var result map[string]interface{}
+	err := json.Unmarshal([]byte(stdout), &result)
+	c.Assert(err, gc.IsNil)
+	c.Assert(len(result), gc.Equals, 1)
+	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface {})[0], gc.DeepEquals,
+		map[string]interface {}{"Channel":"development", "Current":true})
 }
 
 // entityRevision returns the entity revision for the given id and channel.

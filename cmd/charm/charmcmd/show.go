@@ -35,10 +35,7 @@ or bundle. By default, all known metadata is printed.
 
    charm show trusty/wordpress
 
-When a specific charm or bundle revision is provided,
-the channel parameter is ignored. Otherwise the "stable"
-channel is used by default. To select another channel,
-use the --channel option, for instance:
+To select a channel, use the --channel option, for instance:
 
    charm show wordpress --channel development
 
