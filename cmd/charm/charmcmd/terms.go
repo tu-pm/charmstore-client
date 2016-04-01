@@ -4,6 +4,7 @@
 package charmcmd
 
 import (
+	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -47,9 +48,10 @@ func (c *termsCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.SetFlags.
 func (c *termsCommand) SetFlags(f *gnuflag.FlagSet) {
-	c.out.AddFlags(f, "yaml", map[string]cmd.Formatter{
-		"yaml": cmd.FormatYaml,
-		"json": cmd.FormatJson,
+	c.out.AddFlags(f, "tabular", map[string]cmd.Formatter{
+		"yaml":    cmd.FormatYaml,
+		"json":    cmd.FormatJson,
+		"tabular": formatTermsTabular,
 	})
 	f.StringVar(&c.user, "u", "", "the given user name")
 	addAuthFlag(f, &c.auth)
@@ -109,4 +111,29 @@ func (c *termsCommand) Run(ctxt *cmd.Context) error {
 		}
 	}
 	return c.out.Write(ctxt, output)
+}
+
+// formatTermsTabular returns a tabular summary of terms owned by the user.
+func formatTermsTabular(value interface{}) ([]byte, error) {
+	terms, ok := value.(map[string][]string)
+	if !ok {
+		return nil, errgo.Newf("expected value of type %T, got %T", terms, value)
+	}
+
+	table := uitable.New()
+	table.MaxColWidth = 50
+	table.Wrap = true
+
+	table.AddRow("TERM", "CHARM")
+	for term, charms := range terms {
+		for i, charm := range charms {
+			if i == 0 {
+				table.AddRow(term, charm)
+			} else {
+				table.AddRow("", charm)
+			}
+		}
+	}
+
+	return []byte(table.String()), nil
 }
