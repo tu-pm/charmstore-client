@@ -75,9 +75,9 @@ func (s *publishSuite) TestInitError(c *gc.C) {
 }
 
 func (s *publishSuite) TestRunNoSuchCharm(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "publish", "no-such-entity", "--channel", "stable")
+	stdout, stderr, code := run(c.MkDir(), "publish", "no-such-entity-55", "--channel", "stable")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR cannot publish charm or bundle: no matching charm or bundle for cs:no-such-entity\n")
+	c.Assert(stderr, gc.Matches, "ERROR cannot publish charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
 	c.Assert(code, gc.Equals, 1)
 }
 
@@ -110,7 +110,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publish the newly uploaded charm to the development channel.
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "development")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
 	c.Assert(code, gc.Equals, 0)
 	// The stable channel is not yet published, the development channel is.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
@@ -119,7 +119,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publish the newly uploaded charm to the stable channel.
 	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\n")
 	c.Assert(code, gc.Equals, 0)
 	// Both development and stable channels are published.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
@@ -128,7 +128,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publishing is idempotent.
 	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 }
@@ -142,9 +142,19 @@ func (s *publishSuite) TestPublishWithDefaultChannelSuccess(c *gc.C) {
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+}
+
+func (s *publishSuite) TestPublishWithNoRevision(c *gc.C) {
+	id := charm.MustParseURL("~bob/wily/django")
+
+	// Upload a charm.
+	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
+	c.Assert(stderr, gc.Matches, "error: revision needs to be specified\n")
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(code, gc.Equals, 2)
 }
 
 func (s *publishSuite) TestPublishPartialURL(c *gc.C) {
@@ -157,9 +167,9 @@ func (s *publishSuite) TestPublishPartialURL(c *gc.C) {
 	s.publish(c, id, params.StableChannel)
 
 	// Publish the stable charm as development.
-	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/django", "-c", "development")
+	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
 }
@@ -174,7 +184,7 @@ func (s *publishSuite) TestPublishAndShow(c *gc.C) {
 
 	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
 
@@ -216,11 +226,11 @@ func (s publishSuite) TestRunResource(c *gc.C) {
 	}
 	s.PatchValue(charmcmd.PublishCharm, fakePub)
 
-	stdout, stderr, code := run(c.MkDir(), "publish", "wordpress", "--resource", "foo-3", "--resource", "bar-4")
+	stdout, stderr, code := run(c.MkDir(), "publish", "wordpress-43", "--resource", "foo-3", "--resource", "bar-4")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stdout, gc.Equals, "url: cs:wordpress-43\nchannel: stable\n")
 	c.Assert(code, gc.Equals, 0)
 
-	c.Check(actualID, gc.DeepEquals, charm.MustParseURL("wordpress"))
+	c.Check(actualID, gc.DeepEquals, charm.MustParseURL("wordpress-43"))
 	c.Check(actualResources, gc.DeepEquals, map[string]int{"foo": 3, "bar": 4})
 }

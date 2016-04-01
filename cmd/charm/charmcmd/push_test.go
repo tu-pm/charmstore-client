@@ -169,7 +169,7 @@ func (s *pushSuite) TestUploadBundle(c *gc.C) {
 	// Run the command.
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "bundle/wordpress-simple"), "~bob/bundle/something")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/bundle/something-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/bundle/something-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -189,7 +189,7 @@ func (s *pushSuite) TestUploadBundleNoId(c *gc.C) {
 	// Run the command.
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "bundle/wordpress-simple"))
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/bundle/wordpress-simple-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/bundle/wordpress-simple-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -209,7 +209,7 @@ func (s *pushSuite) TestUploadBundleNoUser(c *gc.C) {
 	// Run the command.
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "bundle/wordpress-simple"), "mybundle")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/bundle/mybundle-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/bundle/mybundle-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -218,7 +218,7 @@ func (s *pushSuite) TestUploadCharm(c *gc.C) {
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/wordpress"), "~bob/trusty/something")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/trusty/something-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/trusty/something-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -233,14 +233,14 @@ func (s *pushSuite) TestUploadCharmNoIdFromRelativeDir(c *gc.C) {
 
 	stdout, stderr, code := run(".", "push", ".")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/multi-series-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/multi-series-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 
 	err = os.Chdir(filepath.Join(charmDir, "hooks"))
 	c.Assert(err, gc.IsNil)
 	stdout, stderr, code = run(".", "push", "../")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/multi-series-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/multi-series-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -258,7 +258,7 @@ func (s *pushSuite) TestUploadCharmNoId(c *gc.C) {
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/multi-series"))
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/multi-series-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/multi-series-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -276,7 +276,7 @@ func (s *pushSuite) TestUploadCharmNoUserNoSeries(c *gc.C) {
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/multi-series"), "mycharm")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/mycharm-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/mycharm-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -285,7 +285,7 @@ func (s *pushSuite) TestUploadCharmNoUser(c *gc.C) {
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/wordpress"), "trusty/mycharm")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "cs:~bob/trusty/mycharm-0\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/trusty/mycharm-0\nchannel: unpublished\n")
 	c.Assert(code, gc.Equals, 0)
 }
 
@@ -470,11 +470,13 @@ func (s *pushSuite) TestUploadCharmWithResources(c *gc.C) {
 	// uploaded is nondeterministic, so we need to do some contortions to allow
 	// for different orders.
 	if stdout != fmt.Sprintf(`
-cs:~bob/trusty/something-0
+url: cs:~bob/trusty/something-0
+channel: unpublished
 Uploaded %q as data-1
 Uploaded %q as website-2
 `[1:], datapath, websitepath) && stdout != fmt.Sprintf(`
-cs:~bob/trusty/something-0
+url: cs:~bob/trusty/something-0
+channel: unpublished
 Uploaded %q as website-1
 Uploaded %q as data-2
 `[1:], websitepath, datapath) {

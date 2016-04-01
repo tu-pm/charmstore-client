@@ -175,7 +175,8 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	fmt.Fprintln(ctxt.Stdout, result)
+	fmt.Fprintln(ctxt.Stdout, "url:", result)
+	fmt.Fprintln(ctxt.Stdout, "channel: unpublished")
 
 	// Update the new charm or bundle with VCS extra information.
 	if err = updateExtraInfo(c.id, srcDir, client); err != nil {
