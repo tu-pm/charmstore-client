@@ -14,6 +14,7 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/loggo"
 	"github.com/juju/persistent-cookiejar"
+	"github.com/juju/usso"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
@@ -200,4 +201,43 @@ func validateAuthFlag(flagval string) (string, string, error) {
 
 func ussoTokenPath() string {
 	return osenv.JujuXDGDataHomePath("store-usso-token")
+}
+
+// errorMessage translates err into a user understandable error message,
+// and outputs the message ctxt.Stderr. If a message is output then
+// cmd.ErrSilent is returned, othewise err is returned unchanged.
+func errorMessage(ctxt *cmd.Context, err error) error {
+	if err == nil {
+		return err
+	}
+	cause := errgo.Cause(err)
+	switch {
+	case httpbakery.IsInteractionError(cause):
+		return interactionErrorMessage(ctxt, cause.(*httpbakery.InteractionError))
+	}
+	return err
+}
+
+// interactionErrorMessage translates err into a user understandable error message,
+// and outputs the message ctxt.Stderr.
+func interactionErrorMessage(ctxt *cmd.Context, err *httpbakery.InteractionError) error {
+	reason := err.Reason.Error()
+	if ussoError, ok := errgo.Cause(err.Reason).(*usso.Error); ok {
+		reason = ussoError.Error()
+		if ussoError.Code == "INVALID_DATA" && len(ussoError.Extra) > 0 {
+			for k, v := range ussoError.Extra {
+				// Only report the first error
+				if k == "email" {
+					// Translate email to username so that it matches the prompt.
+					k = "username"
+				}
+				if v1, ok := v.([]interface{}); ok && len(v1) > 0 {
+					v = v1[0]
+				}
+				reason = fmt.Sprintf("%s: %s", k, v)
+			}
+		}
+	}
+	fmt.Fprintf(ctxt.Stderr, "login failed: %s\n", reason)
+	return cmd.ErrSilent
 }
