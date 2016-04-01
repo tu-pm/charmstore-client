@@ -38,6 +38,9 @@ func (c *listCommand) Info() *cmd.Info {
 
 func formatText(value interface{}) ([]byte, error) {
 	val := value.([]params.EntityResult)
+	if len(val) == 0 {
+		return []byte("No charms found."), nil
+	}
 	ids := make([]string, len(val))
 	for i, result := range val {
 		ids[i] = result.Id.String()

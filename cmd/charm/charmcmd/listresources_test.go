@@ -9,6 +9,8 @@ import (
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/cmd"
+	"github.com/juju/cmd/cmdtesting"
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -41,11 +43,13 @@ func (m *MockCharmstoreClient) ListResources(charmURLs []*charm.URL) (map[string
 }
 
 func (s *listResourcesSuite) TestListResources_SubCmdRegistered(c *gc.C) {
-	_, stderr, _ := run(c.MkDir(), "list-resources", "wordpress")
+	stdout, _, retCode := run(c.MkDir(), "list-resources", "wordpress")
+
 	// This is currently the best way to check to see if the command
 	// is registered. When the charmstore has support for resources,
 	// we can then do an end-to-end test.
-	c.Check(stderr, gc.Matches, "ERROR no resources associated with this charm\n")
+	c.Assert(retCode, gc.Equals, 0)
+	c.Assert(stdout, gc.Equals, "No resources found.\n")
 }
 
 func (s *listResourcesSuite) TestListResources_BadArgsGivesCorrectErr(c *gc.C) {
@@ -85,19 +89,20 @@ func (s *listResourcesSuite) TestListResources_ChannelParsedCorrectly(c *gc.C) {
 	f.Set("channel", "fake-channel")
 
 	err := listResourcesCmd.Init([]string{"fake-id"})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 
 	c.Check(listResourcesCmd.Channel(), gc.Equals, "fake-channel")
 }
 
-func (s *listResourcesSuite) TestListResources_NoResourcesReturnedGivesCorrectErr(c *gc.C) {
+func (s *listResourcesSuite) TestListResources_NoResourcesReturnedNoResourcesFound(c *gc.C) {
 	newCharmstoreClient := func(*cmd.Context, string, string) (charmcmd.ListResourcesCharmstoreClient, error) {
 		return &MockCharmstoreClient{}, nil
 	}
 
 	listResourcesCmd := charmcmd.NewListResourcesCommand(newCharmstoreClient, nil, "", "", charm.MustParseURL("fake-id"))
-	err := listResourcesCmd.Run(&cmd.Context{})
-	c.Check(err, gc.ErrorMatches, "no resources associated with this charm")
+	ctx, err := cmdtesting.RunCommand(c, listResourcesCmd, "wordpress")
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(cmdtesting.Stdout(ctx), gc.Equals, "No resources found.\n")
 }
 
 func (s *listResourcesSuite) TestListResources_UsesTabularFormatterArg(c *gc.C) {
@@ -131,7 +136,7 @@ func (s *listResourcesSuite) TestListResources_UsesTabularFormatterArg(c *gc.C) 
 	f.SetOutput(ioutil.Discard)
 	listResourcesCmd.SetFlags(f)
 	err := listResourcesCmd.Run(&cmd.Context{})
-	c.Check(err, gc.IsNil)
+	c.Assert(err, jc.ErrorIsNil)
 	c.Check(formatTabularCalled, gc.Equals, true)
 }
 

@@ -4,6 +4,8 @@
 package charmcmd
 
 import (
+	"sort"
+
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
@@ -119,13 +121,25 @@ func formatTermsTabular(value interface{}) ([]byte, error) {
 	if !ok {
 		return nil, errgo.Newf("expected value of type %T, got %T", terms, value)
 	}
+	if len(terms) == 0 {
+		return []byte("No terms found."), nil
+	}
+
+	sortedTerms := make([]string, len(terms))
+	i := 0
+	for term := range terms {
+		sortedTerms[i] = term
+		i++
+	}
+	sort.Strings(sortedTerms)
 
 	table := uitable.New()
 	table.MaxColWidth = 50
 	table.Wrap = true
 
 	table.AddRow("TERM", "CHARM")
-	for term, charms := range terms {
+	for _, term := range sortedTerms {
+		charms := terms[term]
 		for i, charm := range charms {
 			if i == 0 {
 				table.AddRow(term, charm)

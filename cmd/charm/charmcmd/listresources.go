@@ -105,16 +105,11 @@ func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
 	defer client.SaveJAR()
 
 	charmID2resources, err := client.ListResources([]*charm.URL{c.charmID})
-	var resources []params.Resource
 	if err != nil {
 		return errgo.Notef(err, "could not retrieve resource information")
 	}
-	resources, ok := charmID2resources[c.charmID.String()]
-	if ok == false {
-		return errgo.New("no resources associated with this charm")
-	}
 
-	return c.Write(ctx, resources)
+	return c.Write(ctx, charmID2resources[c.charmID.String()])
 }
 
 func parseArgs(auth string, args []string) (string, string, *charm.URL, error) {
@@ -146,6 +141,10 @@ func tabularFormatter(resources interface{}) ([]byte, error) {
 }
 
 func formatTabular(out io.Writer, resources []params.Resource) {
+	if len(resources) == 0 {
+		fmt.Fprintf(out, "No resources found.")
+		return
+	}
 
 	fmt.Fprintln(out, "[Service]")
 	tw := tabwriter.NewWriter(out, 0, 1, 1, ' ', 0)

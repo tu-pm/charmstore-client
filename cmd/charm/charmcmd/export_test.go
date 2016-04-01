@@ -27,13 +27,17 @@ func NewListResourcesCommand(
 	password string,
 	charmID *charm.URL,
 ) *listResourcesCommand {
-	return &listResourcesCommand{
+	cmd := &listResourcesCommand{
 		newCharmstoreClient: newCharmstoreClient,
 		formatTabular:       formatTabular,
 		username:            username,
 		password:            password,
 		charmID:             charmID,
 	}
+	if cmd.formatTabular == nil {
+		cmd.formatTabular = tabularFormatter
+	}
+	return cmd
 }
 
 func (c *listResourcesCommand) CharmID() *charm.URL {
