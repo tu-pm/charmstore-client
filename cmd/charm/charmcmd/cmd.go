@@ -203,41 +203,44 @@ func ussoTokenPath() string {
 	return osenv.JujuXDGDataHomePath("store-usso-token")
 }
 
-// errorMessage translates err into a user understandable error message,
-// and outputs the message ctxt.Stderr. If a message is output then
-// cmd.ErrSilent is returned, othewise err is returned unchanged.
-func errorMessage(ctxt *cmd.Context, err error) error {
+// translateError translates err into a new error with a more
+// understandable error message. If err is not translated then it will be
+// returned unchanged.
+func translateError(err error) error {
 	if err == nil {
 		return err
 	}
 	cause := errgo.Cause(err)
 	switch {
 	case httpbakery.IsInteractionError(cause):
-		return interactionErrorMessage(ctxt, cause.(*httpbakery.InteractionError))
+		err := translateInteractionError(cause.(*httpbakery.InteractionError))
+		return errgo.Notef(err, "login failed")
 	}
 	return err
 }
 
-// interactionErrorMessage translates err into a user understandable error message,
-// and outputs the message ctxt.Stderr.
-func interactionErrorMessage(ctxt *cmd.Context, err *httpbakery.InteractionError) error {
-	reason := err.Reason.Error()
-	if ussoError, ok := errgo.Cause(err.Reason).(*usso.Error); ok {
-		reason = ussoError.Error()
-		if ussoError.Code == "INVALID_DATA" && len(ussoError.Extra) > 0 {
-			for k, v := range ussoError.Extra {
-				// Only report the first error
-				if k == "email" {
-					// Translate email to username so that it matches the prompt.
-					k = "username"
-				}
-				if v1, ok := v.([]interface{}); ok && len(v1) > 0 {
-					v = v1[0]
-				}
-				reason = fmt.Sprintf("%s: %s", k, v)
-			}
-		}
+// translateInteractionError translates err into a new error with a user
+// understandable error message.
+func translateInteractionError(err *httpbakery.InteractionError) error {
+	ussoError, ok := errgo.Cause(err.Reason).(*usso.Error)
+	if !ok {
+		return err.Reason
 	}
-	fmt.Fprintf(ctxt.Stderr, "login failed: %s\n", reason)
-	return cmd.ErrSilent
+	if ussoError.Code != "INVALID_DATA" {
+		return ussoError
+	}
+	for k, v := range ussoError.Extra {
+		// Only report the first error, this will be an arbitrary
+		// field from the extra information. In general the extra
+		// information only contains one item.
+		if k == "email" {
+			// Translate email to username so that it matches the prompt.
+			k = "username"
+		}
+		if v1, ok := v.([]interface{}); ok && len(v1) > 0 {
+			v = v1[0]
+		}
+		return errgo.Newf("%s: %s", k, v)
+	}
+	return ussoError
 }
