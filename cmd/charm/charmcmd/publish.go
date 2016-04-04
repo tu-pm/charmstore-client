@@ -116,6 +116,31 @@ func (c *publishCommand) Run(ctxt *cmd.Context) error {
 	}
 	fmt.Fprintln(ctxt.Stdout, "url:", c.id)
 	fmt.Fprintln(ctxt.Stdout, "channel:", c.channel)
+	if "stable" == c.channel {
+		var result params.MetaAnyResponse
+		var unset string
+		verb := "is"
+		client.Get("/"+c.id.Path()+"/meta/any?include=common-info", &result)
+		commonInfo, ok := result.Meta["common-info"].(map[string]interface{})
+		if !ok {
+			unset = "bugs-url and homepage"
+			verb = "are"
+		} else {
+			if v, ok := commonInfo["bugs-url"].(string); !ok || v == "" {
+				unset = "bugs-url"
+			}
+			if v, ok := commonInfo["homepage"].(string); !ok || v == "" {
+				if unset != "" {
+					unset += " and "
+					verb = "are"
+				}
+				unset += "homepage"
+			}
+		}
+		if unset != "" {
+			fmt.Fprintf(ctxt.Stdout, "warning: %s %s not set.  See set command.\n", unset, verb)
+		}
+	}
 	return nil
 }
 

@@ -119,7 +119,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publish the newly uploaded charm to the stable channel.
 	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
 	// Both development and stable channels are published.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
@@ -128,7 +128,7 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// Publishing is idempotent.
 	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 }
@@ -142,9 +142,56 @@ func (s *publishSuite) TestPublishWithDefaultChannelSuccess(c *gc.C) {
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+}
+
+var publishDefaultChannelWarnings = []struct {
+	about        string
+	commonFields map[string]interface{}
+	name         string
+	warning      string
+}{{
+	about:   "missing bugs-url and homepage",
+	name:    "foo",
+	warning: "warning: bugs-url and homepage are not set.  See set command.\n",
+}, {
+	about:        "missing homepage",
+	commonFields: map[string]interface{}{"bugs-url": "http://bugs.example.com"},
+	name:         "bar",
+	warning:      "warning: homepage is not set.  See set command.\n",
+}, {
+	about:        "missing bugs-url",
+	commonFields: map[string]interface{}{"homepage": "http://www.example.com"},
+	name:         "baz",
+	warning:      "warning: bugs-url is not set.  See set command.\n",
+}, {
+	about: "not missing things, no warning is displayed",
+	commonFields: map[string]interface{}{"homepage": "http://www.example.com",
+		"bugs-url": " http://bugs.example.com"},
+	name:    "zaz",
+	warning: "",
+}}
+
+func (s *publishSuite) TestPublishWithDefaultChannelSuccessWithWarningIfBugsUrlAndHomePageAreNotSet(c *gc.C) {
+	for i, test := range publishDefaultChannelWarnings {
+		c.Logf("test %d (%s): [%q]", i, test.about, test.commonFields)
+		id := charm.MustParseURL("~bob/wily/" + test.name + "-42")
+
+		// Upload a charm.
+		s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
+		// Set bugs-url & homepage
+		err := s.client.PutCommonInfo(id, test.commonFields)
+		c.Assert(err, gc.IsNil)
+		// The stable entity is not published yet.
+		c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
+		stdout, stderr, code := run(c.MkDir(), "publish", id.String())
+		c.Assert(stderr, gc.Matches, "")
+		c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/"+test.name+"-42\nchannel: stable\n"+test.warning)
+		c.Assert(code, gc.Equals, 0)
+		c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+	}
 }
 
 func (s *publishSuite) TestPublishWithNoRevision(c *gc.C) {
@@ -195,8 +242,8 @@ func (s *publishSuite) TestPublishAndShow(c *gc.C) {
 	err := json.Unmarshal([]byte(stdout), &result)
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result), gc.Equals, 1)
-	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface {})[0], gc.DeepEquals,
-		map[string]interface {}{"Channel":"development", "Current":true})
+	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface{})[0], gc.DeepEquals,
+		map[string]interface{}{"Channel": "development", "Current": true})
 }
 
 // entityRevision returns the entity revision for the given id and channel.
@@ -228,7 +275,7 @@ func (s publishSuite) TestRunResource(c *gc.C) {
 
 	stdout, stderr, code := run(c.MkDir(), "publish", "wordpress-43", "--resource", "foo-3", "--resource", "bar-4")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:wordpress-43\nchannel: stable\n")
+	c.Assert(stdout, gc.Equals, "url: cs:wordpress-43\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
 
 	c.Check(actualID, gc.DeepEquals, charm.MustParseURL("wordpress-43"))
