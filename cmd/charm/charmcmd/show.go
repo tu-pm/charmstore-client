@@ -122,7 +122,7 @@ func (c *showCommand) Run(ctxt *cmd.Context) error {
 
 	var result params.MetaAnyResponse
 
-	if c.id.Revision == -1 {
+	if c.channel != "" {
 		client.Client = client.Client.WithChannel(params.Channel(c.channel))
 	}
 
