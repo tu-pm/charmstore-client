@@ -13,6 +13,7 @@ import (
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"launchpad.net/gnuflag"
 )
 
@@ -38,40 +39,20 @@ Thus the above examples imply that the local series is trusty.
 `,
 }
 
-// ListResourceCharmstoreClient is the charmstore client the
-// listResourcesCommand requires to perform work.
-type ListResourcesCharmstoreClient interface {
-	// ListResources returns a list map of charm URL to slice of
-	// params.Resource.
-	ListResources([]*charm.URL) (map[string][]params.Resource, error)
-
-	// SaveJAR saves the cookies to the persistent cookie file.
-	// Before the file is written, it reads any cookies that have been
-	// stored from it and merges them into j.
-	SaveJAR() error
-}
-
-// NewCharmstoreClientFn defines a function signature that will return
-// a new ListResourcesCharmstoreClient when called.
-type NewCharmstoreClientFn func(_ *cmd.Context, username, password string) (ListResourcesCharmstoreClient, error)
-
-func charmstoreClientAdapter(newCharmstoreClient func(*cmd.Context, string, string) (*csClient, error)) NewCharmstoreClientFn {
-	return func(ctx *cmd.Context, username, password string) (ListResourcesCharmstoreClient, error) {
-		return newCharmstoreClient(ctx, username, password)
-	}
-}
-
 type listResourcesCommand struct {
 	cmd.CommandBase
 	cmd.Output
 
-	newCharmstoreClient NewCharmstoreClientFn
-	formatTabular       func(interface{}) ([]byte, error)
-	charmID             *charm.URL
+	id                  *charm.URL
 	channel             string
+
 	auth                string
 	username            string
 	password            string
+}
+
+var listResources = func (csClient *csclient.Client, id *charm.URL) (map[string][]params.Resource, error) {
+	return csClient.ListResources([]*charm.URL{id})
 }
 
 // Info implements cmd.Command.
@@ -86,47 +67,55 @@ func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	c.Output.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
 		"yaml":    cmd.FormatYaml,
-		"tabular": c.formatTabular,
+		"tabular": tabularFormatter,
 	})
 }
 
 // Init implements cmd.Command.
 func (c *listResourcesCommand) Init(args []string) (err error) {
-	c.username, c.password, c.charmID, err = parseArgs(c.auth, args)
+	c.username, c.password, c.id, err = parseArgs(c.auth, args)
 	return err
 }
 
 // Run implements cmd.Command.
 func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
-	client, err := c.newCharmstoreClient(ctx, c.username, c.password)
+	client, err := newCharmStoreClient(ctx, c.username, c.password)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.SaveJAR()
 
-	charmID2resources, err := client.ListResources([]*charm.URL{c.charmID})
+	if c.channel != "" {
+		client.Client = client.Client.WithChannel(params.Channel(c.channel))
+	}
+
+	charmID2resources, err := listResources(client.Client, c.id)
+
 	if err != nil {
 		return errgo.Notef(err, "could not retrieve resource information")
 	}
 
-	return c.Write(ctx, charmID2resources[c.charmID.String()])
+	return c.Write(ctx, charmID2resources[c.id.String()])
 }
 
 func parseArgs(auth string, args []string) (string, string, *charm.URL, error) {
-	if err := cmd.CheckEmpty(args); err == nil {
-		return "", "", nil, errgo.Notef(err, "no charm ID specified")
+	if len(args) == 0 {
+		return "", "", nil, errgo.New("no charm id specified")
+	}
+	if len(args) > 1 {
+		return "", "", nil, errgo.New("too many arguments")
 	}
 	username, password, err := validateAuthFlag(auth)
 	if err != nil {
 		return "", "", nil, err
 	}
 
-	charmID, err := charm.ParseURL(args[0])
+	id, err := charm.ParseURL(args[0])
 	if err != nil {
-		return "", "", nil, err
+		return "", "", nil, errgo.Notef(err, "invalid charm id")
 	}
 
-	return username, password, charmID, err
+	return username, password, id, err
 }
 
 func tabularFormatter(resources interface{}) ([]byte, error) {

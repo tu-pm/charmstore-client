@@ -108,7 +108,7 @@ func (c *setCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer client.jar.Save()
 
-	if c.id.Revision == -1 {
+	if c.channel != "" {
 		client.Client = client.Client.WithChannel(params.Channel(c.channel))
 	}
 

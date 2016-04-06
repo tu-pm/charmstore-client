@@ -102,10 +102,7 @@ func New() commandWithPlugins {
 	chcmd.register(&showCommand{})
 	chcmd.register(&termsCommand{})
 	chcmd.register(&whoamiCommand{})
-	chcmd.register(&listResourcesCommand{
-		newCharmstoreClient: charmstoreClientAdapter(newCharmStoreClient),
-		formatTabular:       tabularFormatter,
-	})
+	chcmd.register(&listResourcesCommand{})
 	chcmd.registerPlugins()
 	return chcmd
 }
