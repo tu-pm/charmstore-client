@@ -351,34 +351,23 @@ func (s *pushSuite) TestMapLogEntriesToVcsRevisions(c *gc.C) {
 func git(c *gc.C, tempDir string, arg ...string) {
 	cmd := exec.Command("git", arg...)
 	cmd.Dir = tempDir
-	output, err := cmd.Output()
-	errbuf := &bytes.Buffer{}
-	cmd.Stderr = errbuf
-	if err != nil {
-		c.Logf("result of git %v:%v with err: %v and stderr: %v", arg, output, err, errbuf.Bytes())
-	}
+	_, err := cmd.Output()
 	c.Assert(err, gc.IsNil)
 }
+
+// TODO frankban: really test the process of pushing VCS extra information,
+// including error cases. There is no need to export internal implementation
+// functions. Moreover, Bazaar tests seem to be missing.
+
 func (s *pushSuite) TestUpdateExtraInfoGit(c *gc.C) {
-	// Test suite deletes PATH, so add path for test git
-	// OSX may use brew to get git. Keep /usr/local/bin in this PATH.
-	os.Setenv("PATH", "/usr/bin:/usr/local/bin")
-	defer os.Setenv("PATH", "")
-	tempDir, err := ioutil.TempDir("", "charmcmd-push-test")
-	defer func() {
-		cmd := exec.Command("/bin/rm", "-r", tempDir)
-		err := cmd.Run()
-		c.Assert(err, gc.IsNil)
-	}()
-	c.Assert(err, gc.IsNil)
+	// Under OSX git is placed in /usr/local/bin by HomeBrew
+	s.PatchEnvironment("PATH", "/usr/bin:/usr/local/bin")
+	tempDir := c.MkDir()
 	git(c, tempDir, "init")
-	{
-		foo, err := os.Create(tempDir + "/foo")
-		c.Assert(err, gc.IsNil)
-		defer foo.Close()
-		_, err = foo.WriteString("bar")
-		c.Assert(err, gc.IsNil)
-	}
+
+	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
+	c.Assert(err, gc.IsNil)
+
 	git(c, tempDir, "config", "user.name", "test")
 	git(c, tempDir, "config", "user.email", "test")
 	git(c, tempDir, "add", "foo")
@@ -398,25 +387,14 @@ func hg(c *gc.C, tempDir string, arg ...string) {
 }
 
 func (s *pushSuite) TestUpdateExtraInfoHg(c *gc.C) {
-	// Test suite deletes PATH, so add path for test hg
-	// OSX uses brew to get hg. Keep /usr/local/bin in this PATH.
-	os.Setenv("PATH", "/usr/bin:/usr/local/bin")
-	defer os.Setenv("PATH", "")
-	tempDir, err := ioutil.TempDir("", "charmcmd-push-test")
-	defer func() {
-		cmd := exec.Command("/bin/rm", "-r", tempDir)
-		err := cmd.Run()
-		c.Assert(err, gc.IsNil)
-	}()
-	c.Assert(err, gc.IsNil)
+	// Under OSX hg is placed in /usr/local/bin by HomeBrew.
+	s.PatchEnvironment("PATH", "/usr/bin:/usr/local/bin")
+	tempDir := c.MkDir()
 	hg(c, tempDir, "init")
-	{
-		foo, err := os.Create(tempDir + "/foo")
-		c.Assert(err, gc.IsNil)
-		defer foo.Close()
-		_, err = foo.WriteString("bar")
-		c.Assert(err, gc.IsNil)
-	}
+
+	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
+	c.Assert(err, gc.IsNil)
+
 	hg(c, tempDir, "add", "foo")
 	hg(c, tempDir, "commit", "-madd foo")
 
@@ -484,10 +462,8 @@ Uploaded %q as data-2
 	}
 
 	c.Assert(f.args, gc.HasLen, 2)
-
 	sort.Sort(byname(f.args))
-
-	expectedID := charm.MustParseURL("cs:~bob/trusty/something")
+	expectedID := charm.MustParseURL("cs:~bob/trusty/something-0")
 
 	c.Check(f.args[0].id, gc.DeepEquals, expectedID)
 	c.Check(f.args[0].name, gc.Equals, "data")

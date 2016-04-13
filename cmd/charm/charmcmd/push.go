@@ -53,7 +53,7 @@ charms and bundles available to others.
 	charm push .
 	charm push /path/to/wordpress wordpress
 	charm push . cs:~bob/trusty/wordpress
-    
+
 Resources may be uploaded at the same time by specifying the --resource flag.
 Following the resource flag should be a name=filepath pair.  This flag may be
 repeated more than once to upload more than one resource.
@@ -157,35 +157,34 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 			c.id.Series = "bundle"
 		}
 	}
-	var result *charm.URL
 	// Upload the entity if we've found one.
 	switch {
 	case err != nil:
 		return errgo.Mask(err)
 	case ch != nil:
-		result, err = client.UploadCharm(c.id, ch)
+		c.id, err = client.UploadCharm(c.id, ch)
 	case b != nil:
 		if len(c.resources) > 0 {
 			return errgo.New("resources not supported on bundles")
 		}
-		result, err = client.UploadBundle(c.id, b)
+		c.id, err = client.UploadBundle(c.id, b)
 	default:
 		panic("unreachable")
 	}
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	fmt.Fprintln(ctxt.Stdout, "url:", result)
+	fmt.Fprintln(ctxt.Stdout, "url:", c.id)
 	fmt.Fprintln(ctxt.Stdout, "channel: unpublished")
 
 	// Update the new charm or bundle with VCS extra information.
 	if err = updateExtraInfo(c.id, srcDir, client); err != nil {
-		return errgo.Mask(err)
+		return errgo.Notef(err, "cannot add extra information")
 	}
 
 	if ch != nil {
 		if err := c.pushResources(ctxt, client.Client, ch.Meta(), ctxt.Stdout); err != nil {
-			return errgo.Mask(err)
+			return errgo.Notef(err, "cannot push charm resources")
 		}
 	}
 

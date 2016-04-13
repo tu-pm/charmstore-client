@@ -17,15 +17,14 @@ type listResourcesSuite struct {
 
 var _ = gc.Suite(&listResourcesSuite{})
 
-func (s *listResourcesSuite) TestListResources_SubCmdRegistered(c *gc.C) {
-	stdout, stderr, retCode := run(c.MkDir(), "list-resources", "wordpress")
+// TODO frankban: add end-to-end tests.
 
-	// This is currently the best way to check to see if the command
-	// is registered. When the charmstore has support for resources,
-	// we can then do an end-to-end test.
-	c.Assert(retCode, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "No resources found.\n")
-	c.Assert(stderr, gc.Equals, "")
+func (s *listResourcesSuite) TestListResourcesErrorCharmNotFound(c *gc.C) {
+	stdout, stderr, retCode := run(c.MkDir(), "list-resources", "no-such")
+	c.Assert(retCode, gc.Equals, 1)
+	c.Assert(stderr, gc.Equals, "ERROR could not retrieve resource information: cannot get resource metadata from the charm store: no matching charm or bundle for cs:no-such\n")
+	c.Assert(stdout, gc.Equals, "")
+
 }
 
 var listResourcesInitErrorTests = []struct {
@@ -56,7 +55,7 @@ func (s *listResourcesSuite) TestInitError(c *gc.C) {
 func (s *listResourcesSuite) TestIdParsedCorrectly(c *gc.C) {
 	called := 0
 	dir := c.MkDir()
-	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) (map[string][]params.Resource, error) {
+	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
 		called++
 		c.Assert(csClient, gc.NotNil)
 		c.Assert(id, gc.DeepEquals, charm.MustParseURL("wordpress"))
@@ -69,7 +68,7 @@ func (s *listResourcesSuite) TestIdParsedCorrectly(c *gc.C) {
 func (s *listResourcesSuite) TestNoResouces(c *gc.C) {
 	called := 0
 	dir := c.MkDir()
-	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) (map[string][]params.Resource, error) {
+	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
 		called++
 		return nil, nil
 	})
@@ -83,17 +82,14 @@ func (s *listResourcesSuite) TestNoResouces(c *gc.C) {
 func (s *listResourcesSuite) TestListResource(c *gc.C) {
 	called := 0
 	dir := c.MkDir()
-	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) (map[string][]params.Resource, error) {
+	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
 		called++
 		c.Assert(csClient, gc.NotNil)
 		c.Assert(id, gc.DeepEquals, charm.MustParseURL("wordpress"))
-		return map[string][]params.Resource{
-			"cs:wordpress": {
-				{
-					Name:     "my-resource",
-					Revision: 1,
-				},
-			}}, nil
+		return []params.Resource{{
+			Name:     "my-resource",
+			Revision: 1,
+		}}, nil
 	})
 	stdout, stderr, code := run(dir, "list-resources", "wordpress")
 	c.Check(called, gc.Equals, 1)

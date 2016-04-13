@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
 
@@ -43,16 +43,16 @@ type listResourcesCommand struct {
 	cmd.CommandBase
 	cmd.Output
 
-	id                  *charm.URL
-	channel             string
+	id      *charm.URL
+	channel string
 
-	auth                string
-	username            string
-	password            string
+	auth     string
+	username string
+	password string
 }
 
-var listResources = func (csClient *csclient.Client, id *charm.URL) (map[string][]params.Resource, error) {
-	return csClient.ListResources([]*charm.URL{id})
+var listResources = func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
+	return csClient.ListResources(id)
 }
 
 // Info implements cmd.Command.
@@ -89,13 +89,13 @@ func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
 		client.Client = client.Client.WithChannel(params.Channel(c.channel))
 	}
 
-	charmID2resources, err := listResources(client.Client, c.id)
+	resources, err := listResources(client.Client, c.id)
 
 	if err != nil {
 		return errgo.Notef(err, "could not retrieve resource information")
 	}
 
-	return c.Write(ctx, charmID2resources[c.id.String()])
+	return c.Write(ctx, resources)
 }
 
 func parseArgs(auth string, args []string) (string, string, *charm.URL, error) {
