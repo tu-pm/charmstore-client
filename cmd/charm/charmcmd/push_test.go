@@ -365,10 +365,7 @@ func (s *pushSuite) TestUpdateExtraInfoGit(c *gc.C) {
 	tempDir := c.MkDir()
 	git(c, tempDir, "init")
 
-	foo, err := os.Create(tempDir + "/foo")
-	c.Assert(err, gc.IsNil)
-	defer foo.Close()
-	_, err = foo.WriteString("bar")
+	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
 	c.Assert(err, gc.IsNil)
 
 	git(c, tempDir, "config", "user.name", "test")
@@ -395,10 +392,7 @@ func (s *pushSuite) TestUpdateExtraInfoHg(c *gc.C) {
 	tempDir := c.MkDir()
 	hg(c, tempDir, "init")
 
-	foo, err := os.Create(tempDir + "/foo")
-	c.Assert(err, gc.IsNil)
-	defer foo.Close()
-	_, err = foo.WriteString("bar")
+	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
 	c.Assert(err, gc.IsNil)
 
 	hg(c, tempDir, "add", "foo")

@@ -12,8 +12,8 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
 
@@ -43,15 +43,15 @@ type listResourcesCommand struct {
 	cmd.CommandBase
 	cmd.Output
 
-	id                  *charm.URL
-	channel             string
+	id      *charm.URL
+	channel string
 
-	auth                string
-	username            string
-	password            string
+	auth     string
+	username string
+	password string
 }
 
-var listResources = func (csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
+var listResources = func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
 	return csClient.ListResources(id)
 }
 
