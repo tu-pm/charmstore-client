@@ -13,7 +13,7 @@ var (
 	ServerURL                   = serverURL
 	UploadResource              = &uploadResource
 	PublishCharm                = &publishCharm
-	ListResources		    = &listResources
+	ListResources               = &listResources
 	TranslateError              = translateError
 	USSOTokenPath               = ussoTokenPath
 )
