@@ -233,7 +233,6 @@ func writePlugin(dir, name, content string, perm os.FileMode) {
 	if err := ioutil.WriteFile(path, []byte(content), perm); err != nil {
 		panic(err)
 	}
-	fmt.Println("wrote ", path)
 }
 
 type pluginParams struct {
