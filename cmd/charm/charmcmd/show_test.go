@@ -34,7 +34,7 @@ var showInitErrorTests = []struct {
 	expectStderr: `error: cannot specify charm or bundle with --list`,
 }, {
 	args:         []string{"wordpress", "--auth", "bad-wolf"},
-	expectStderr: `error: invalid auth credentials: expected "user:passwd", got "bad-wolf"`,
+	expectStderr: `error: invalid value "bad-wolf" for flag --auth: invalid auth credentials: expected "user:passwd"`,
 }}
 
 func (s *showSuite) TestInitError(c *gc.C) {

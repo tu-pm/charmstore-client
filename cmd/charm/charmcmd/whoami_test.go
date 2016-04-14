@@ -11,7 +11,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/idmclient/idmtest"
 	"github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
@@ -23,6 +22,8 @@ import (
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	"gopkg.in/macaroon.v1"
 	"gopkg.in/yaml.v2"
+
+	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 )
 
 type whoamiSuite struct {

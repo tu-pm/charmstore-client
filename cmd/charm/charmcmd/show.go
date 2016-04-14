@@ -24,9 +24,7 @@ type showCommand struct {
 	includes []string
 	list     bool
 
-	auth     string
-	username string
-	password string
+	auth authInfo
 }
 
 var showDoc = `
@@ -85,16 +83,12 @@ func (c *showCommand) Init(args []string) error {
 		return errgo.Notef(err, "invalid charm or bundle id")
 	}
 	c.id = id
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return err
-	}
 
 	return nil
 }
 
 func (c *showCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

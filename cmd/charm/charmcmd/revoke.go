@@ -14,13 +14,10 @@ import (
 type revokeCommand struct {
 	cmd.CommandBase
 
-	id       *charm.URL
-	auth     string
-	username string
-	password string
-
+	id      *charm.URL
 	acl     string
 	channel string
+	auth    authInfo
 
 	// Validated options used in Run(...).
 	removeReads  []string
@@ -97,16 +94,11 @@ func (c *revokeCommand) Init(args []string) error {
 		c.removeWrites = users
 	}
 
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
-
 	return nil
 }
 
 func (c *revokeCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

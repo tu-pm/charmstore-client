@@ -5,31 +5,24 @@ package charmcmd
 
 import (
 	"fmt"
-	"io"
 	"os"
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
-
-var uploadResource = func(client *csclient.Client, id *charm.URL, name, path string, file io.ReadSeeker) (revision int, err error) {
-	return client.UploadResource(id, name, path, file)
-}
 
 type attachCommand struct {
 	cmd.CommandBase
 
-	id       *charm.URL
-	name     string
-	file     string
-	auth     string
-	username string
-	password string
+	channel string
+	id      *charm.URL
+	name    string
+	file    string
+	auth    authInfo
 }
 
 var attachDoc = `
@@ -50,6 +43,7 @@ func (c *attachCommand) Info() *cmd.Info {
 
 func (c *attachCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
+	addChannelFlag(f, &c.channel)
 }
 
 func (c *attachCommand) Init(args []string) error {
@@ -79,32 +73,30 @@ func (c *attachCommand) Init(args []string) error {
 	c.name = name
 	c.file = filename
 
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return err
-	}
-
 	return nil
 }
 
 func (c *attachCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
+	if c.channel != "" {
+		client.Client = client.Client.WithChannel(params.Channel(c.channel))
+	}
 
 	f, err := os.Open(ctxt.AbsPath(c.file))
 	if err != nil {
 		return errgo.Mask(err)
 	}
 	defer f.Close()
-	rev, err := uploadResource(client.Client, c.id, c.name, c.file, f)
+	rev, err := client.Client.UploadResource(c.id, c.name, c.file, f)
 	if err != nil {
 		return errgo.Notef(err, "can't upload resource")
 	}
 
-	fmt.Fprintf(ctxt.Stdout, "uploaded revision %d of %s", rev, c.name)
+	fmt.Fprintf(ctxt.Stdout, "uploaded revision %d of %s\n", rev, c.name)
 
 	return nil
 }
@@ -122,7 +114,7 @@ func parseResourceFileArg(raw string) (name string, filename string, err error) 
 		return "", "", errgo.New("missing resource name")
 	}
 	if filename == "" {
-		return "", "", errors.New("missing filename")
+		return "", "", errgo.New("missing filename")
 	}
 	return name, filename, nil
 }

@@ -9,7 +9,6 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
@@ -22,10 +21,7 @@ type publishCommand struct {
 
 	id      *charm.URL
 	channel string
-
-	auth     string
-	username string
-	password string
+	auth    authInfo
 
 	resources resourceMap
 }
@@ -65,7 +61,8 @@ func (c *publishCommand) Info() *cmd.Info {
 func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
 	addChannelFlag(f, &c.channel)
 	addAuthFlag(f, &c.auth)
-	f.Var(&c.resources, "resource", "resource to be published with the charm")
+	f.Var(&c.resources, "resource", "")
+	f.Var(&c.resources, "r", "resource to be published with the charm")
 }
 
 func (c *publishCommand) Init(args []string) error {
@@ -85,15 +82,9 @@ func (c *publishCommand) Init(args []string) error {
 		return errgo.Notef(err, "invalid charm or bundle id")
 	}
 	if id.Revision == -1 {
-		return errgo.Newf("revision needs to be specified")
+		return errgo.Newf("charm revision needs to be specified")
 	}
-
 	c.id = id
-
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
 
 	return nil
 }
@@ -104,7 +95,7 @@ var publishCharm = func(client *csclient.Client, id *charm.URL, channels []param
 
 func (c *publishCommand) Run(ctxt *cmd.Context) error {
 	// Instantiate the charm store client.
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
@@ -151,29 +142,28 @@ type resourceMap map[string]int
 
 // Set implements gnuflag.Value's Set method by adding a value to the resource
 // map.
-func (m *resourceMap) Set(s string) error {
-	if *m == nil {
-		*m = map[string]int{}
+func (m0 *resourceMap) Set(s string) error {
+	if *m0 == nil {
+		*m0 = make(map[string]int)
 	}
-	// make a copy so the following code is less ugly with dereferencing.
-	mapping := *m
+	m := *m0
 
 	idx := strings.LastIndex(s, "-")
 	if idx == -1 {
-		return errors.NewNotValid(nil, "expected name-revision format")
+		return errgo.New("expected name-revision format")
 	}
 	name, value := s[0:idx], s[idx+1:]
 	if len(name) == 0 || len(value) == 0 {
-		return errors.NewNotValid(nil, "expected name-revision format")
+		return errgo.New("expected name-revision format")
 	}
-	if _, ok := mapping[name]; ok {
-		return errors.Errorf("duplicate name specified: %q", name)
+	if _, ok := m[name]; ok {
+		return errgo.New("duplicate resource name")
 	}
 	revision, err := strconv.Atoi(value)
 	if err != nil {
-		return errors.NewNotValid(err, fmt.Sprintf("badly formatted revision %q", value))
+		return errgo.New("invalid revision number")
 	}
-	mapping[name] = revision
+	m[name] = revision
 	return nil
 }
 

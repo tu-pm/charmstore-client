@@ -21,10 +21,7 @@ type setCommand struct {
 	commonFields map[string]interface{}
 	extraFields  map[string]interface{}
 	channel      string
-
-	auth     string
-	username string
-	password string
+	auth         authInfo
 }
 
 // allowedCommonFields lists the limited info available for charm show or set.
@@ -93,16 +90,11 @@ func (c *setCommand) Init(args []string) error {
 		return errgo.Mask(err)
 	}
 
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
-
 	return nil
 }
 
 func (c *setCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

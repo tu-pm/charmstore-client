@@ -5,15 +5,16 @@ package charmcmd_test
 
 import (
 	"encoding/json"
+	"strings"
 
+	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	charmtesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
-	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -37,37 +38,41 @@ var publishInitErrorTests = []struct {
 	args  []string
 	err   string
 }{{
-	about: "Empty Args",
+	about: "empty args",
 	args:  []string{},
 	err:   "no charm or bundle id specified",
 }, {
-	about: "Invalid Charm ID",
+	about: "invalid charm id",
 	args:  []string{"invalid:entity"},
 	err:   `invalid charm or bundle id: charm or bundle URL has invalid schema: "invalid:entity"`,
 }, {
-	about: "Too Many Args",
+	about: "too many args",
 	args:  []string{"wordpress", "foo"},
 	err:   "too many arguments",
 }, {
-	about: "No Resource",
+	about: "no resource",
 	args:  []string{"wily/wordpress", "--resource"},
 	err:   "flag needs an argument: --resource",
 }, {
-	about: "No Revision",
+	about: "no revision",
 	args:  []string{"wily/wordpress", "--resource", "foo"},
-	err:   ".*expected name-revision format",
+	err:   `invalid value "foo" for flag --resource: expected name-revision format`,
 }, {
-	about: "No Resource Name",
+	about: "no resource name",
 	args:  []string{"wily/wordpress", "--resource", "-3"},
-	err:   ".*expected name-revision format",
+	err:   `invalid value "-3" for flag --resource: expected name-revision format`,
+}, {
+	about: "bad revision number",
+	args:  []string{"wily/wordpress", "--resource", "someresource-bad"},
+	err:   `invalid value "someresource-bad" for flag --resource: invalid revision number`,
 }}
 
 func (s *publishSuite) TestInitError(c *gc.C) {
 	dir := c.MkDir()
 	for i, test := range publishInitErrorTests {
-		c.Logf("test %d (%s): %q", i, test.about, test.args)
-		subcmd := []string{"publish"}
-		stdout, stderr, code := run(dir, append(subcmd, test.args...)...)
+		c.Logf("test %d: %s; %q", i, test.about, test.args)
+		args := []string{"publish"}
+		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
 		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
 		c.Assert(code, gc.Equals, 2)
@@ -199,7 +204,7 @@ func (s *publishSuite) TestPublishWithNoRevision(c *gc.C) {
 
 	// Upload a charm.
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
-	c.Assert(stderr, gc.Matches, "error: revision needs to be specified\n")
+	c.Assert(stderr, gc.Matches, "error: charm revision needs to be specified\n")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 2)
 }
@@ -246,6 +251,55 @@ func (s *publishSuite) TestPublishAndShow(c *gc.C) {
 		map[string]interface{}{"Channel": "development", "Current": true})
 }
 
+func (s *publishSuite) TestPublishWithResources(c *gc.C) {
+	// Note we include one resource with a hyphen in the name,
+	// just to make sure the resource flag parsing code works OK
+	// in that case.
+	id, err := s.client.UploadCharm(
+		charm.MustParseURL("~bob/precise/wordpress"),
+		charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "resource1-name", "resource2")),
+	)
+	c.Assert(err, gc.IsNil)
+
+	_, err = s.client.UploadResource(id, "resource1-name", "", strings.NewReader("resource1 content"))
+	c.Assert(err, gc.IsNil)
+	_, err = s.client.UploadResource(id, "resource2", "", strings.NewReader("resource2 content"))
+	c.Assert(err, gc.IsNil)
+	_, err = s.client.UploadResource(id, "resource2", "", strings.NewReader("resource2 content rev 1"))
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/precise/wordpress-0", "--resource=resource1-name-0", "-r", "resource2-1")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(stdout, gc.Equals, `
+url: cs:~bob/precise/wordpress-0
+channel: stable
+warning: bugs-url and homepage are not set.  See set command.
+`[1:])
+	c.Assert(code, gc.Equals, 0)
+
+	resources, err := s.client.WithChannel(params.StableChannel).ListResources(id)
+	c.Assert(err, gc.IsNil)
+	c.Assert(resources, jc.DeepEquals, []params.Resource{{
+		Name:        "resource1-name",
+		Type:        "file",
+		Path:        "resource1-name-file",
+		Origin:      "store",
+		Revision:    0,
+		Fingerprint: hashOfString("resource1 content"),
+		Size:        int64(len("resource1 content")),
+		Description: "resource1-name description",
+	}, {
+		Name:        "resource2",
+		Type:        "file",
+		Path:        "resource2-file",
+		Origin:      "store",
+		Revision:    1,
+		Fingerprint: hashOfString("resource2 content rev 1"),
+		Size:        int64(len("resource2 content rev 1")),
+		Description: "resource2 description",
+	}})
+}
+
 // entityRevision returns the entity revision for the given id and channel.
 // The function returns -1 if the entity is not found.
 func (s *publishSuite) entityRevision(id *charm.URL, channel params.Channel) int {
@@ -259,25 +313,4 @@ func (s *publishSuite) entityRevision(id *charm.URL, channel params.Channel) int
 		return -1
 	}
 	panic(err)
-}
-
-func (s *publishSuite) TestRunResource(c *gc.C) {
-	var (
-		actualID        *charm.URL
-		actualResources map[string]int
-	)
-	fakePub := func(client *csclient.Client, id *charm.URL, channels []params.Channel, resources map[string]int) error {
-		actualID = id
-		actualResources = resources
-		return nil
-	}
-	s.PatchValue(charmcmd.PublishCharm, fakePub)
-
-	stdout, stderr, code := run(c.MkDir(), "publish", "wordpress-43", "--resource", "foo-3", "--resource", "bar-4")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:wordpress-43\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
-	c.Assert(code, gc.Equals, 0)
-
-	c.Check(actualID, gc.DeepEquals, charm.MustParseURL("wordpress-43"))
-	c.Check(actualResources, gc.DeepEquals, map[string]int{"foo": 3, "bar": 4})
 }
