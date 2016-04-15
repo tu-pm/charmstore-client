@@ -40,7 +40,7 @@ func (c *logoutCommand) Run(ctxt *cmd.Context) error {
 	if err := os.Remove(ussoTokenPath()); err != nil && !os.IsNotExist(err) {
 		return errgo.New("cannot remove Ubuntu SSO token")
 	}
-	client, err := newCharmStoreClient(ctxt, "", "")
+	client, err := newCharmStoreClient(ctxt, authInfo{})
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

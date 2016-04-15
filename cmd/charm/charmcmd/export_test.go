@@ -8,9 +8,6 @@ var (
 	CSClientServerURL = &csclientServerURL
 	PluginTopicText   = pluginTopicText
 	ServerURL         = serverURL
-	UploadResource    = &uploadResource
-	PublishCharm      = &publishCharm
-	ListResources     = &listResources
 	TranslateError    = translateError
 	USSOTokenPath     = ussoTokenPath
 )

@@ -65,7 +65,7 @@ var setInitErrorTests = []struct {
 	err:  `invalid set arguments: key "homepage" specified more than once`,
 }, {
 	args: []string{"wordpress", "name=value", "--auth", "bad-wolf"},
-	err:  `invalid auth credentials: expected "user:passwd", got "bad-wolf"`,
+	err:  `invalid value "bad-wolf" for flag --auth: invalid auth credentials: expected "user:passwd"`,
 }}
 
 func (s *setSuite) TestInitError(c *gc.C) {

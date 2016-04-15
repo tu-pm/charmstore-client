@@ -5,7 +5,6 @@ package charmcmd
 
 import (
 	"fmt"
-	"launchpad.net/gnuflag"
 	"net/url"
 	"sort"
 	"strings"
@@ -13,6 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"launchpad.net/gnuflag"
 )
 
 type whoamiCommand struct {
@@ -54,7 +54,7 @@ func (c *whoamiCommand) formatText(value interface{}) ([]byte, error) {
 }
 
 func (c *whoamiCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, "", "")
+	client, err := newCharmStoreClient(ctxt, authInfo{})
 	if err != nil {
 		return errgo.Notef(err, "could not load the cookie from file")
 	}

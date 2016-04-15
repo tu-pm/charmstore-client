@@ -140,7 +140,7 @@ func (c *csClient) SaveJAR() error {
 // the associated HTTP client and cookie jar used to save authorization
 // macaroons. If authUsername and authPassword are provided, the resulting
 // client will use HTTP basic auth with the given credentials.
-func newCharmStoreClient(ctxt *cmd.Context, authUsername, authPassword string) (*csClient, error) {
+func newCharmStoreClient(ctxt *cmd.Context, auth authInfo) (*csClient, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 		Filename:         cookiejar.DefaultCookieFile(),
@@ -164,8 +164,8 @@ func newCharmStoreClient(ctxt *cmd.Context, authUsername, authPassword string) (
 		Client: csclient.New(csclient.Params{
 			URL:          serverURL(),
 			BakeryClient: bakeryClient,
-			User:         authUsername,
-			Password:     authPassword,
+			User:         auth.username,
+			Password:     auth.password,
 		}),
 		jar:  jar,
 		ctxt: ctxt,
@@ -174,8 +174,8 @@ func newCharmStoreClient(ctxt *cmd.Context, authUsername, authPassword string) (
 }
 
 // addAuthFlag adds the authentication flag to the given flag set.
-func addAuthFlag(f *gnuflag.FlagSet, s *string) {
-	f.StringVar(s, "auth", "", "user:passwd to use for basic HTTP authentication")
+func addAuthFlag(f *gnuflag.FlagSet, info *authInfo) {
+	f.Var(info, "auth", "user:passwd to use for basic HTTP authentication")
 }
 
 // addChannelFlag adds the -c (--channel) flags to the given flag set.
@@ -184,16 +184,35 @@ func addChannelFlag(f *gnuflag.FlagSet, s *string) {
 	f.StringVar(s, "channel", "", "")
 }
 
-func validateAuthFlag(flagval string) (string, string, error) {
-	// Validate the authentication flag.
-	if flagval == "" {
-		return "", "", nil
+type authInfo struct {
+	username string
+	password string
+}
+
+// Set implements gnuflag.Value.Set by validating
+// the authentication flag.
+func (a *authInfo) Set(s string) error {
+	if s == "" {
+		*a = authInfo{}
+		return nil
 	}
-	parts := strings.SplitN(flagval, ":", 2)
+	parts := strings.SplitN(s, ":", 2)
 	if len(parts) != 2 {
-		return "", "", errgo.Newf(`invalid auth credentials: expected "user:passwd", got %q`, flagval)
+		return errgo.New(`invalid auth credentials: expected "user:passwd"`)
 	}
-	return parts[0], parts[1], nil
+	if parts[0] == "" {
+		return errgo.Newf("empty username")
+	}
+	a.username, a.password = parts[0], parts[1]
+	return nil
+}
+
+// String implements gnuflag.Value.String.
+func (a *authInfo) String() string {
+	if a.username == "" && a.password == "" {
+		return ""
+	}
+	return a.username + ":" + a.password
 }
 
 func ussoTokenPath() string {

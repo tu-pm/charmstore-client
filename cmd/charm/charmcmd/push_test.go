@@ -5,21 +5,16 @@ package charmcmd_test
 
 import (
 	"fmt"
-	"io"
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"sort"
 
 	jc "github.com/juju/testing/checkers"
-
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 
-	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -281,84 +276,54 @@ func (s *pushSuite) TestUploadCharmNoUser(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmWithResources(c *gc.C) {
-	// note the revs here correspond to the revs in the stdout check.
-	f := &fakeUploader{revs: []int{1, 2}}
-	s.PatchValue(charmcmd.UploadResource, f.UploadResource)
-
 	dir := c.MkDir()
-	datapath := filepath.Join(dir, "data.zip")
-	websitepath := filepath.Join(dir, "web.html")
-	err := ioutil.WriteFile(datapath, []byte("hi!"), 0600)
+	dataPath := filepath.Join(dir, "data.zip")
+	err := ioutil.WriteFile(dataPath, []byte("data content"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
-	err = ioutil.WriteFile(websitepath, []byte("hi!"), 0600)
+
+	websitePath := filepath.Join(dir, "web.html")
+	err = ioutil.WriteFile(websitePath, []byte("web content"), 0666)
 	c.Assert(err, jc.ErrorIsNil)
-	repo := entitytesting.Repo
 	stdout, stderr, code := run(
 		dir,
 		"push",
-		filepath.Join(repo.Path(), "quantal/use-resources"),
+		entitytesting.Repo.CharmDir("use-resources").Path,
 		"~bob/trusty/something",
-		"--resource", "data="+datapath,
-		"--resource", "website="+websitepath)
+		"--resource", "data=data.zip",
+		"--resource", "website=web.html")
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(code, gc.Equals, 0)
 
-	// Since we store the resources in a map, the order in which they're
-	// uploaded is nondeterministic, so we need to do some contortions to allow
-	// for different orders.
-	if stdout != fmt.Sprintf(`
+	expectOutput := fmt.Sprintf(`
 url: cs:~bob/trusty/something-0
 channel: unpublished
-Uploaded %q as data-1
-Uploaded %q as website-2
-`[1:], datapath, websitepath) && stdout != fmt.Sprintf(`
-url: cs:~bob/trusty/something-0
-channel: unpublished
-Uploaded %q as website-1
-Uploaded %q as data-2
-`[1:], websitepath, datapath) {
-		c.Fail()
-	}
+Uploaded %q as data-0
+Uploaded %q as website-0
+`[1:], dataPath, websitePath,
+	)
+	c.Assert(stdout, gc.Equals, expectOutput)
 
-	c.Assert(f.args, gc.HasLen, 2)
-	sort.Sort(byname(f.args))
-	expectedID := charm.MustParseURL("cs:~bob/trusty/something-0")
+	client := s.client.WithChannel(params.UnpublishedChannel)
+	resources, err := client.ListResources(charm.MustParseURL("cs:~bob/trusty/something-0"))
 
-	c.Check(f.args[0].id, gc.DeepEquals, expectedID)
-	c.Check(f.args[0].name, gc.Equals, "data")
-	c.Check(f.args[0].path, gc.Equals, datapath)
-	c.Check(f.args[0].file, gc.Equals, datapath)
-
-	c.Check(f.args[1].id, gc.DeepEquals, expectedID)
-	c.Check(f.args[1].name, gc.Equals, "website")
-	c.Check(f.args[1].path, gc.Equals, websitepath)
-	c.Check(f.args[1].file, gc.Equals, websitepath)
+	c.Assert(err, jc.ErrorIsNil)
+	c.Assert(resources, jc.DeepEquals, []params.Resource{{
+		Name:        "data",
+		Type:        "file",
+		Path:        "data.zip",
+		Origin:      "store",
+		Revision:    0,
+		Fingerprint: hashOfString("data content"),
+		Size:        int64(len("data content")),
+		Description: "Some data for your service",
+	}, {
+		Name:        "website",
+		Type:        "file",
+		Path:        "web.html",
+		Origin:      "store",
+		Revision:    0,
+		Fingerprint: hashOfString("web content"),
+		Size:        int64(len("web content")),
+		Description: "A website for your service",
+	}})
 }
-
-type fakeUploader struct {
-	// args holds the arguments passed to UploadResource.
-	args []uploadArgs
-	// revs holds the revisions returned by UploadResource.
-	revs []int
-}
-
-func (f *fakeUploader) UploadResource(client *csclient.Client, id *charm.URL, name, path string, file io.ReadSeeker) (revision int, err error) {
-	fl := file.(*os.File)
-	f.args = append(f.args, uploadArgs{id, name, path, fl.Name()})
-	rev := f.revs[0]
-	f.revs = f.revs[1:]
-	return rev, nil
-}
-
-type uploadArgs struct {
-	id   *charm.URL
-	name string
-	path string
-	file string
-}
-
-type byname []uploadArgs
-
-func (b byname) Less(i, j int) bool { return b[i].name < b[j].name }
-func (b byname) Swap(i, j int)      { b[i], b[j] = b[j], b[i] }
-func (b byname) Len() int           { return len(b) }

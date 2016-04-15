@@ -25,9 +25,7 @@ type pullCommand struct {
 	destDir string
 	channel string
 
-	auth     string
-	username string
-	password string
+	auth authInfo
 }
 
 // These values are exposed as variables so that
@@ -82,11 +80,6 @@ func (c *pullCommand) Init(args []string) error {
 	} else {
 		c.destDir = id.Name
 	}
-
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
 	return nil
 }
 
@@ -95,7 +88,7 @@ func (c *pullCommand) Run(ctxt *cmd.Context) error {
 	if _, err := os.Stat(destDir); err == nil || !os.IsNotExist(err) {
 		return errgo.Newf("directory %q already exists", destDir)
 	}
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

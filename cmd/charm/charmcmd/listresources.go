@@ -12,7 +12,6 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
@@ -45,14 +44,7 @@ type listResourcesCommand struct {
 
 	id      *charm.URL
 	channel string
-
-	auth     string
-	username string
-	password string
-}
-
-var listResources = func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
-	return csClient.ListResources(id)
+	auth    authInfo
 }
 
 // Info implements cmd.Command.
@@ -72,14 +64,25 @@ func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 // Init implements cmd.Command.
-func (c *listResourcesCommand) Init(args []string) (err error) {
-	c.username, c.password, c.id, err = parseArgs(c.auth, args)
-	return err
+func (c *listResourcesCommand) Init(args []string) error {
+	if len(args) == 0 {
+		return errgo.New("no charm id specified")
+	}
+	if len(args) > 1 {
+		return errgo.New("too many arguments")
+	}
+
+	id, err := charm.ParseURL(args[0])
+	if err != nil {
+		return errgo.Notef(err, "invalid charm id")
+	}
+	c.id = id
+	return nil
 }
 
 // Run implements cmd.Command.
 func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
-	client, err := newCharmStoreClient(ctx, c.username, c.password)
+	client, err := newCharmStoreClient(ctx, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
@@ -89,33 +92,12 @@ func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
 		client.Client = client.Client.WithChannel(params.Channel(c.channel))
 	}
 
-	resources, err := listResources(client.Client, c.id)
-
+	resources, err := client.Client.ListResources(c.id)
 	if err != nil {
 		return errgo.Notef(err, "could not retrieve resource information")
 	}
 
 	return c.Write(ctx, resources)
-}
-
-func parseArgs(auth string, args []string) (string, string, *charm.URL, error) {
-	if len(args) == 0 {
-		return "", "", nil, errgo.New("no charm id specified")
-	}
-	if len(args) > 1 {
-		return "", "", nil, errgo.New("too many arguments")
-	}
-	username, password, err := validateAuthFlag(auth)
-	if err != nil {
-		return "", "", nil, err
-	}
-
-	id, err := charm.ParseURL(args[0])
-	if err != nil {
-		return "", "", nil, errgo.Notef(err, "invalid charm id")
-	}
-
-	return username, password, id, err
 }
 
 func tabularFormatter(resources interface{}) ([]byte, error) {

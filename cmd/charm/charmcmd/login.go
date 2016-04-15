@@ -27,7 +27,7 @@ func (c *loginCommand) Info() *cmd.Info {
 }
 
 func (c *loginCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, "", "")
+	client, err := newCharmStoreClient(ctxt, authInfo{})
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

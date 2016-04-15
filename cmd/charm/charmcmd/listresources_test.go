@@ -4,11 +4,13 @@
 package charmcmd_test
 
 import (
-	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	"strings"
+
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	charmtesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
+	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
 )
 
 type listResourcesSuite struct {
@@ -17,7 +19,14 @@ type listResourcesSuite struct {
 
 var _ = gc.Suite(&listResourcesSuite{})
 
-// TODO frankban: add end-to-end tests.
+func (s *listResourcesSuite) SetUpTest(c *gc.C) {
+	s.commonSuite.SetUpTest(c)
+	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
+		return []checkers.Caveat{
+			checkers.DeclaredCaveat("username", "bob"),
+		}, nil
+	}
+}
 
 func (s *listResourcesSuite) TestListResourcesErrorCharmNotFound(c *gc.C) {
 	stdout, stderr, retCode := run(c.MkDir(), "list-resources", "no-such")
@@ -52,48 +61,42 @@ func (s *listResourcesSuite) TestInitError(c *gc.C) {
 	}
 }
 
-func (s *listResourcesSuite) TestIdParsedCorrectly(c *gc.C) {
-	called := 0
-	dir := c.MkDir()
-	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
-		called++
-		c.Assert(csClient, gc.NotNil)
-		c.Assert(id, gc.DeepEquals, charm.MustParseURL("wordpress"))
-		return nil, nil
-	})
-	_, _, _ = run(dir, "list-resources", "wordpress")
-	c.Check(called, gc.Equals, 1)
-}
-
 func (s *listResourcesSuite) TestNoResouces(c *gc.C) {
-	called := 0
-	dir := c.MkDir()
-	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
-		called++
-		return nil, nil
-	})
-	stdout, stderr, code := run(dir, "list-resources", "wordpress")
-	c.Check(called, gc.Equals, 1)
+	id, err := s.client.UploadCharm(
+		charm.MustParseURL("~bob/precise/wordpress"),
+		charmtesting.NewCharmMeta(nil),
+	)
+	c.Assert(err, gc.IsNil)
+	err = s.client.Publish(id, []params.Channel{params.StableChannel}, nil)
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, code := run(".", "list-resources", "~bob/wordpress")
+	c.Check(stdout, gc.Equals, "No resources found.\n")
+	c.Check(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "No resources found.\n")
-	c.Assert(stderr, gc.Equals, "")
 }
 
 func (s *listResourcesSuite) TestListResource(c *gc.C) {
-	called := 0
-	dir := c.MkDir()
-	s.PatchValue(charmcmd.ListResources, func(csClient *csclient.Client, id *charm.URL) ([]params.Resource, error) {
-		called++
-		c.Assert(csClient, gc.NotNil)
-		c.Assert(id, gc.DeepEquals, charm.MustParseURL("wordpress"))
-		return []params.Resource{{
-			Name:     "my-resource",
-			Revision: 1,
-		}}, nil
+	id, err := s.client.UploadCharm(
+		charm.MustParseURL("~bob/precise/wordpress"),
+		charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "someResource")),
+	)
+	c.Assert(err, gc.IsNil)
+	_, err = s.client.UploadResource(id, "someResource", "", strings.NewReader("content"))
+	c.Assert(err, gc.IsNil)
+
+	err = s.client.Publish(id, []params.Channel{params.StableChannel}, map[string]int{
+		"someResource": 0,
 	})
-	stdout, stderr, code := run(dir, "list-resources", "wordpress")
-	c.Check(called, gc.Equals, 1)
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, code := run(".", "list-resources", "~bob/wordpress")
+	c.Check(stdout, gc.Equals, `
+[Service]
+RESOURCE     REVISION
+someResource 0
+
+`[1:])
+	c.Check(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "[Service]\nRESOURCE    REVISION\nmy-resource 1\n\n")
-	c.Assert(stderr, gc.Equals, "")
 }

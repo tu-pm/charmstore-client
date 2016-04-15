@@ -10,12 +10,12 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/juju/cmd"
-	"github.com/juju/errors"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
@@ -28,10 +28,7 @@ type pushCommand struct {
 	id      *charm.URL
 	srcDir  string
 	publish bool
-
-	auth     string
-	username string
-	password string
+	auth    authInfo
 
 	// resources is a map of resource name to filename to be uploaded on push.
 	resources map[string]string
@@ -59,6 +56,9 @@ Following the resource flag should be a name=filepath pair.  This flag may be
 repeated more than once to upload more than one resource.
 
   charm push . --resource website=~/some/file.tgz --resource config=./docs/cfg.xml
+
+See also the attach subcommand, which can be used to push resources
+independently of a charm.
 `
 
 func (c *pushCommand) Info() *cmd.Info {
@@ -72,7 +72,8 @@ func (c *pushCommand) Info() *cmd.Info {
 
 func (c *pushCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
-	f.Var(cmd.StringMap{Mapping: &c.resources}, "resource", "resource to be uploaded to the charmstore")
+	f.Var(cmd.StringMap{Mapping: &c.resources}, "resource", "")
+	f.Var(cmd.StringMap{Mapping: &c.resources}, "r", "resource to be uploaded to the charmstore")
 }
 
 func (c *pushCommand) Init(args []string) error {
@@ -84,26 +85,22 @@ func (c *pushCommand) Init(args []string) error {
 	}
 	c.srcDir = args[0]
 	args = args[1:]
-	if len(args) == 1 {
-		id, err := charm.ParseURL(args[0])
-		if err != nil {
-			return errgo.Notef(err, "invalid charm or bundle id %q", args[0])
-		}
-		if id.Revision != -1 {
-			return errgo.Newf("charm or bundle id %q is not allowed a revision", args[0])
-		}
-		c.id = id
+	if len(args) == 0 {
+		return nil
 	}
-	var err error
-	c.username, c.password, err = validateAuthFlag(c.auth)
+	id, err := charm.ParseURL(args[0])
 	if err != nil {
-		return errgo.Mask(err)
+		return errgo.Notef(err, "invalid charm or bundle id %q", args[0])
 	}
+	if id.Revision != -1 {
+		return errgo.Newf("charm or bundle id %q is not allowed a revision", args[0])
+	}
+	c.id = id
 	return nil
 }
 
 func (c *pushCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
@@ -154,6 +151,12 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 			c.id.Series = "bundle"
 		}
 	}
+	if ch != nil {
+		// Validate resources before pushing the charm.
+		if err := validateResources(c.resources, ch.Meta()); err != nil {
+			return errgo.Mask(err)
+		}
+	}
 	// Upload the entity if we've found one.
 	switch {
 	case err != nil:
@@ -189,12 +192,15 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 }
 
 func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csclient.Client, meta *charm.Meta, stdout io.Writer) error {
-	if err := validateResources(c.resources, meta); err != nil {
-		return errgo.Mask(err)
+	// Upload resources in alphabetical order so we do things
+	// deterministically.
+	resourceNames := make([]string, 0, len(c.resources))
+	for name := range c.resources {
+		resourceNames = append(resourceNames, name)
 	}
-
-	for name, filename := range c.resources {
-		filename = ctxt.AbsPath(filename)
+	sort.Strings(resourceNames)
+	for _, name := range resourceNames {
+		filename := ctxt.AbsPath(c.resources[name])
 		if err := c.uploadResource(client, name, filename, stdout); err != nil {
 			return errgo.Mask(err)
 		}
@@ -208,7 +214,7 @@ func (c *pushCommand) uploadResource(client *csclient.Client, name, file string,
 		return errgo.Mask(err)
 	}
 	defer f.Close()
-	rev, err := uploadResource(client, c.id, name, file, f)
+	rev, err := client.UploadResource(c.id, name, file, f)
 	if err != nil {
 		return errgo.Mask(err)
 	}
@@ -228,9 +234,10 @@ func validateResources(resources map[string]string, meta *charm.Meta) error {
 	}
 	switch {
 	case len(unknown) > 1:
-		return errors.Errorf("unrecognized resources: %s", strings.Join(unknown, ", "))
+		sort.Strings(unknown) // Ensure deterministic output.
+		return errgo.Newf("unrecognized resources: %s", strings.Join(unknown, ", "))
 	case len(unknown) == 1:
-		return errors.Errorf("unrecognized resource %q", unknown[0])
+		return errgo.Newf("unrecognized resource %q", unknown[0])
 	default:
 		return nil
 	}

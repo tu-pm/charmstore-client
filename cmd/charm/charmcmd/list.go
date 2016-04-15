@@ -14,12 +14,9 @@ import (
 
 type listCommand struct {
 	cmd.CommandBase
-	auth string
-
-	username string
-	password string
-	out      cmd.Output
-	user     string
+	auth authInfo
+	out  cmd.Output
+	user string
 }
 
 var listDoc = `
@@ -60,16 +57,11 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 }
 
 func (c *listCommand) Init(args []string) error {
-	var err error
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
-	return nil
+	return cmd.CheckEmpty(args)
 }
 
 func (c *listCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

@@ -15,12 +15,10 @@ import (
 
 type termsCommand struct {
 	cmd.CommandBase
-	auth string
+	auth authInfo
 
-	username string
-	password string
-	out      cmd.Output
-	user     string
+	out  cmd.Output
+	user string
 }
 
 // TODO (mattyw) As of 16Mar2016 this is implemented
@@ -61,11 +59,6 @@ func (c *termsCommand) SetFlags(f *gnuflag.FlagSet) {
 
 // Init implements cmd.Command.Init.
 func (c *termsCommand) Init(args []string) error {
-	var err error
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
 	return cmd.CheckEmpty(args)
 }
 
@@ -75,7 +68,7 @@ type termsResponse struct {
 
 // Run implements cmd.Command.Run.
 func (c *termsCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

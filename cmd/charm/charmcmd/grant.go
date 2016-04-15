@@ -17,14 +17,11 @@ import (
 type grantCommand struct {
 	cmd.CommandBase
 
-	id   *charm.URL
-	auth string
-
-	username string
-	password string
-	acl      string
-	set      bool
-	channel  string
+	id      *charm.URL
+	auth    authInfo
+	acl     string
+	set     bool
+	channel string
 
 	// Validated options used in Run(...).
 	addReads  []string
@@ -114,16 +111,11 @@ func (c *grantCommand) Init(args []string) error {
 		}
 	}
 
-	c.username, c.password, err = validateAuthFlag(c.auth)
-	if err != nil {
-		return errgo.Mask(err)
-	}
-
 	return nil
 }
 
 func (c *grantCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.username, c.password)
+	client, err := newCharmStoreClient(ctxt, c.auth)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
