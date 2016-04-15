@@ -5,6 +5,7 @@ package main
 
 import (
 	"os"
+	"fmt"
 
 	"github.com/juju/cmd"
 	"github.com/juju/juju/juju/osenv"
@@ -14,11 +15,10 @@ import (
 
 func main() {
 	osenv.SetJujuXDGDataHome(osenv.JujuXDGDataHomeDir())
-	ctxt := &cmd.Context{
-		Dir:    ".",
-		Stdout: os.Stdout,
-		Stderr: os.Stderr,
-		Stdin:  os.Stdin,
+	ctxt, err := cmd.DefaultContext()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "error: %v\n", err)
+		os.Exit(2)
 	}
 	os.Exit(charmcmd.Main(charmcmd.New(), ctxt, os.Args[1:]))
 }

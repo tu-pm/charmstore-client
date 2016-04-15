@@ -261,7 +261,7 @@ func (s *publishSuite) entityRevision(id *charm.URL, channel params.Channel) int
 	panic(err)
 }
 
-func (s publishSuite) TestRunResource(c *gc.C) {
+func (s *publishSuite) TestRunResource(c *gc.C) {
 	var (
 		actualID        *charm.URL
 		actualResources map[string]int

@@ -4,13 +4,13 @@
 package charmcmd
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/mail"
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -110,10 +110,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	defer client.jar.Save()
 
 	// Retrieve the source directory where the charm or bundle lives.
-	srcDir, err := filepath.Abs(c.srcDir)
-	if err != nil {
-		return errgo.Notef(err, "cannot access charm or bundle")
-	}
+	srcDir := ctxt.AbsPath(c.srcDir)
 	if _, err := os.Stat(srcDir); err != nil {
 		return errgo.Notef(err, "cannot access charm or bundle")
 	}
@@ -130,7 +127,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	if c.id.User == "" {
 		resp, err := client.WhoAmI()
 		if err != nil {
-			return errgo.Notef(err, "cannot retrieve identity")
+			return errgo.Notef(err, "cannot retrieve current username")
 		}
 		c.id.User = resp.User
 	}
@@ -178,7 +175,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	fmt.Fprintln(ctxt.Stdout, "channel: unpublished")
 
 	// Update the new charm or bundle with VCS extra information.
-	if err = updateExtraInfo(c.id, srcDir, client); err != nil {
+	if err := updateExtraInfo(c.id, srcDir, client); err != nil {
 		return errgo.Notef(err, "cannot add extra information")
 	}
 
@@ -239,179 +236,133 @@ func validateResources(resources map[string]string, meta *charm.Meta) error {
 	}
 }
 
-type LogEntry struct {
-	Commit  string
-	Name    string
-	Email   string
-	Date    time.Time
-	Message string
+func updateExtraInfo(id *charm.URL, srcDir string, client *csClient) error {
+	info := getExtraInfo(srcDir)
+	if info == nil {
+		return nil
+	}
+	return client.PutExtraInfo(id, info)
 }
 
-func getExtraInfo(srcDir string) map[string]interface{} {
-	for _, vcs := range []struct {
-		dir string
-		f   func(string) (map[string]interface{}, error)
-	}{
-		{".git", gitParseLog},
-		{".bzr", bzrParseLog},
-		{".hg", hgParseLog},
-	} {
-		var vcsRevisions map[string]interface{}
-		if _, err := os.Stat(filepath.Join(srcDir, vcs.dir)); !os.IsNotExist(err) {
-			vcsRevisions, err = vcs.f(srcDir)
-			if err == nil {
-				return vcsRevisions
-			} else {
-				fmt.Fprintf(os.Stderr, "%v\n", err)
-			}
+type vcsRevision struct {
+	Authors []vcsAuthor `json:"authors"`
+	Date    time.Time   `json:"date"`
+	Message string      `json:"message,omitempty"`
+	Commit  string      `json:"commit,omitempty"`
+	Revno   int         `json:"revno,omitempty"`
+}
 
+type vcsAuthor struct {
+	Name  string `json:"name,omitempty"`
+	Email string `json:"email,omitempty"`
+}
+
+const (
+	// entrySep holds the string used to separate individual
+	// commits in the formatted log output.
+	entrySep = "\x1E"
+	// fieldSep holds the string used to separate fields
+	// in each entry of the formatted log output.
+	fieldSep = "\x1F"
+)
+
+var gitLogFormat = strings.Join([]string{
+	"%H",
+	"%an",
+	"%ae",
+	"%ai",
+	"%B",
+}, fieldSep) + entrySep
+
+var hgLogFormat = strings.Join([]string{
+	"{node|short}",
+	"{author|person}",
+	"{author|email}",
+	"{date|isodatesec}",
+	"{desc}",
+}, fieldSep) + entrySep + "\n"
+
+type vcsLogParser struct {
+	name  string
+	parse func(output string) ([]vcsRevision, error)
+	args  []string
+}
+
+var vcsLogParsers = []vcsLogParser{{
+	name:  "git",
+	parse: parseLogOutput,
+	args:  []string{"log", "-n10", "--pretty=format:" + gitLogFormat},
+}, {
+	name:  "bzr",
+	parse: parseBzrLogOutput,
+	args:  []string{"log", "-l10", "--show-ids"},
+}, {
+	name:  "hg",
+	parse: parseLogOutput,
+	args:  []string{"log", "-l10", "--template", hgLogFormat},
+}}
+
+func getExtraInfo(srcDir string) map[string]interface{} {
+	for _, vcs := range vcsLogParsers {
+		if _, err := os.Stat(filepath.Join(srcDir, "."+vcs.name)); err != nil {
+			continue
 		}
+		revisions, err := vcs.getRevisions(srcDir)
+		if err == nil {
+			return map[string]interface{}{
+				"vcs-revisions": revisions,
+			}
+		}
+		logger.Errorf("cannot parse %s log: %v", vcs.name, err)
 	}
 	return nil
 }
 
-func updateExtraInfo(id *charm.URL, srcDir string, client *csClient) (err error) {
-	vcsRevisions := getExtraInfo(srcDir)
-	if vcsRevisions != nil {
-		err = client.PutExtraInfo(id, vcsRevisions)
-	}
-	return
-}
-
-func gitParseLog(srcDir string) (map[string]interface{}, error) {
-	// get the last 10 log in a format  with unit and record separator (ASCII 30, 31)
-	cmd := exec.Command("git", "log", "-n10", `--pretty=format:%H%x1F%an%x1F%ae%x1F%ai%x1F%B%x1E`)
+func (p vcsLogParser) getRevisions(srcDir string) ([]vcsRevision, error) {
+	cmd := exec.Command(p.name, p.args...)
 	cmd.Dir = srcDir
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-
-	if err := cmd.Run(); err != nil {
-		return nil, errgo.Notef(err, "git command failed")
-	}
-	logs, err := parseGitLog(&buf)
+	output, err := cmd.CombinedOutput()
 	if err != nil {
-		return nil, err
+		return nil, errgo.Notef(err, "%s command failed", p.name)
 	}
-	return mapLogEntriesToVcsRevisions(logs), nil
+	revisions, err := p.parse(string(output))
+	if err != nil {
+		return nil, outputErr(output, err)
+	}
+	return revisions, nil
 }
 
-func bzrParseLog(srcDir string) (map[string]interface{}, error) {
-	output, err := bzrLog(srcDir)
-	if err != nil {
-		return nil, err
-	}
-	logs, err := parseBzrLog(output)
-	if err != nil {
-		return nil, err
-	}
-	var revisions []map[string]interface{}
-	for _, log := range logs {
-		as, err := parseEmailAddresses(getApparentAuthors(log))
-		if err != nil {
-			return nil, err
-		}
-		authors := []map[string]interface{}{}
-		for _, a := range as {
-			authors = append(authors, map[string]interface{}{
-				"name":  a.Name,
-				"email": a.Email,
-			})
-		}
-		revisions = append(revisions, map[string]interface{}{
-			"authors": authors,
-			"date":    log.Timestamp,
-			"message": log.Message,
-			"revno":   log.Revno,
-		})
-	}
-	vcsRevisions := map[string]interface{}{
-		"vcs-revisions": revisions,
-	}
-	return vcsRevisions, nil
-}
-
-func hgParseLog(srcDir string) (map[string]interface{}, error) {
-	cmd := exec.Command("hg", "log", "-l10", "--template", "{node|short}\x1F{author|person}\x1F{author|email}\x1F{date|isodatesec}\x1F{desc}\x1E\x0a")
-	cmd.Dir = srcDir
-	var buf bytes.Buffer
-	cmd.Stdout = &buf
-	cmd.Stderr = &buf
-
-	if err := cmd.Run(); err != nil {
-		return nil, errgo.Notef(err, "hg command failed")
-	}
-	logs, err := parseGitLog(&buf)
-	if err != nil {
-		return nil, err
-	}
-	return mapLogEntriesToVcsRevisions(logs), nil
-}
-
-func mapLogEntriesToVcsRevisions(logs []LogEntry) map[string]interface{} {
-	var revisions []map[string]interface{}
-	for _, log := range logs {
-		authors := []map[string]interface{}{{
-			"name":  log.Name,
-			"email": log.Email,
-		}}
-		revisions = append(revisions, map[string]interface{}{
-			"authors": authors,
-			"date":    log.Date,
-			"message": log.Message,
-			"revno":   log.Commit,
-		})
-	}
-	vcsRevisions := map[string]interface{}{
-		"vcs-revisions": revisions,
-	}
-	return vcsRevisions
-}
-
-func parseGitLog(buf *bytes.Buffer) ([]LogEntry, error) {
-	var logs []LogEntry
-	// Split on unit separator
-	commits := bytes.Split(buf.Bytes(), []byte("\x1E"))
+// parseLogOutput parses the log output from bzr or git.
+// Each commit is terminated with entrySep, and within
+// a commit, each field is separated with fieldSep.
+func parseLogOutput(output string) ([]vcsRevision, error) {
+	var entries []vcsRevision
+	commits := strings.Split(output, entrySep)
 	for _, commit := range commits {
-		commit = bytes.TrimSpace(commit)
+		commit = strings.TrimSpace(commit)
 		if string(commit) == "" {
 			continue
 		}
 		// Split on record separator
-		fields := bytes.Split(commit, []byte("\x1F"))
-		date, err := time.Parse("2006-01-02 15:04:05 -0700", string(fields[3]))
-		if err != nil {
-			return nil, err
+		fields := strings.Split(commit, fieldSep)
+		if len(fields) < 5 {
+			return nil, errgo.Newf("unexpected field count in commit log")
 		}
-		logs = append(logs, LogEntry{
-			Commit:  string(fields[0]),
-			Name:    string(fields[1]),
-			Email:   string(fields[2]),
+		date, err := time.Parse("2006-01-02 15:04:05 -0700", fields[3])
+		if err != nil {
+			return nil, errgo.Notef(err, "cannot parse commit timestamp")
+		}
+		entries = append(entries, vcsRevision{
+			Authors: []vcsAuthor{{
+				Name:  fields[1],
+				Email: fields[2],
+			}},
 			Date:    date,
-			Message: string(fields[4]),
+			Message: fields[4],
+			Commit:  fields[0],
 		})
 	}
-	return logs, nil
-}
-
-type bzrLogEntry struct {
-	Revno      string
-	Author     string
-	Committer  string
-	BranchNick string
-	Timestamp  time.Time
-	Message    string
-}
-
-// bzrLog returns 10 most recent entries ofthe Bazaar log for the branch in branchDir.
-func bzrLog(branchDir string) ([]byte, error) {
-	cmd := exec.Command("bzr", "log", "-l10")
-	cmd.Dir = branchDir
-	output, err := cmd.CombinedOutput()
-	if err != nil {
-		return nil, outputErr(output, err)
-	}
-	return output, nil
+	return entries, nil
 }
 
 // outputErr returns an error that assembles some command's output and its
@@ -423,76 +374,114 @@ func outputErr(output []byte, err error) error {
 	return err
 }
 
-// parseBzrLog reads the raw bytes output from bzr log and returns
-// a slice of bzrLogEntry.
-func parseBzrLog(bzrlog []byte) ([]bzrLogEntry, error) {
-	logs := bytes.Split(bzrlog, []byte("------------------------------------------------------------"))
+// bzrLogDivider holds the text dividing individual bzr log entries.
+// TODO this isn't sufficient, because log output can have
+// this divider inside messages. Instead, it would probably
+// be better to parse on a line-by-line basis.
+const bzrLogDivider = "------------------------------------------------------------"
+
+// parseBzrLogOutput reads the raw bytes output from bzr log and returns
+// the entries to be added to extra-info.
+func parseBzrLogOutput(bzrlog string) ([]vcsRevision, error) {
+	logs := strings.Split(bzrlog, bzrLogDivider)
 	lastindex := len(logs) - 1
-	if string(logs[lastindex]) == "\nUse --include-merged or -n0 to see merged revisions.\n" {
+	if logs[lastindex] == "\nUse --include-merged or -n0 to see merged revisions.\n" {
 		logs = logs[:lastindex]
 	}
-	logs = logs[1:]
-	entries := make([]bzrLogEntry, len(logs))
-	for i, log := range logs {
-		var entry bzrLogEntry
-		err := parseBzrLogEntry(log, &entry)
-		entries[i] = entry
-		if err != nil {
-			return nil, errgo.Notef(err, "cannot parse bzr log entry %s", log)
-		}
+	// Skip the empty item before the first divider.
+	if len(logs) > 0 && logs[0] == "" {
+		logs = logs[1:]
 	}
-	return entries, nil
+	if len(logs) == 0 {
+		return nil, errgo.Newf("no log entries")
+	}
+	var revisions []vcsRevision
+	for _, log := range logs {
+		entry, err := parseBzrLogEntry(log)
+		if err != nil {
+			return nil, errgo.Notef(err, "cannot parse bzr log entry")
+		}
+		revisions = append(revisions, vcsRevision{
+			Date:    entry.Date,
+			Message: entry.Message,
+			Revno:   entry.Revno,
+			Commit:  entry.Commit,
+			Authors: parseEmailAddresses(getApparentAuthors(entry)),
+		})
+	}
+	return revisions, nil
 }
 
-func parseBzrLogEntry(entryBytes []byte, entry *bzrLogEntry) error {
-	lines := bytes.Split(entryBytes, []byte("\n"))
+type bzrLogEntry struct {
+	Revno     int
+	Commit    string
+	Author    string
+	Committer string
+	Date      time.Time
+	Message   string
+}
+
+// parseBzrLogEntry parses a single bzr log commit entry.
+func parseBzrLogEntry(entryText string) (bzrLogEntry, error) {
+	var entry bzrLogEntry
+	lines := strings.Split(entryText, "\n")
 	for i, line := range lines {
-		if strings.TrimSpace(string(line)) == "" {
+		if strings.TrimSpace(line) == "" {
 			continue
 		}
-		kvp := strings.SplitN(string(line), ":", 2)
+		kvp := strings.SplitN(line, ":", 2)
 		if len(kvp) != 2 {
-			logger.Errorf("unexpected line: %s", string(line))
+			logger.Errorf("unexpected line in bzr output: %q", string(line))
 			continue
 		}
 		val := strings.TrimLeft(kvp[1], " ")
 		switch kvp[0] {
 		case "revno":
-			entry.Revno = val
+			revno, err := strconv.Atoi(val)
+			if err != nil {
+				return bzrLogEntry{}, errgo.Newf("invalid revision number %q", val)
+			}
+			entry.Revno = revno
+		case "revision-id":
+			entry.Commit = val
 		case "author":
 			entry.Author = val
 		case "committer":
 			entry.Committer = val
-		case "branch nick":
-			entry.BranchNick = val
 		case "timestamp":
 			t, err := time.Parse("Mon 2006-01-02 15:04:05 Z0700", val)
 			if err != nil {
-				logger.Errorf("cannot parse timestamp %q: %v", val, err)
-			} else {
-				entry.Timestamp = t
+				return bzrLogEntry{}, errgo.Mask(err)
 			}
+			entry.Date = t
 		case "message":
-			entry.Message = string(bytes.Join(lines[i+1:], []byte("\n")))
-			return nil
+			// TODO this doesn't preserve the message intact. We
+			// should strip off the final \n and the leading two
+			// space characters from each line.
+			entry.Message = strings.Join(lines[i+1:], "\n")
+			return entry, nil
 		}
 	}
-	return nil
+	return bzrLogEntry{}, errgo.Newf("no commit message found in bzr log entry")
 }
 
 // parseEmailAddresses is not as flexible as
 // https://hg.python.org/cpython/file/430aaeaa8087/Lib/email/utils.py#l222
-func parseEmailAddresses(emails string) ([]author, error) {
+func parseEmailAddresses(emails string) []vcsAuthor {
 	addresses, err := mail.ParseAddressList(emails)
 	if err != nil {
-		return nil, err
+		// The address list is invalid. Don't abort because of
+		// this - just add the email as a name.
+		return []vcsAuthor{{
+			Name: emails,
+		}}
 	}
-	authors := make([]author, len(addresses))
+	authors := make([]vcsAuthor, len(addresses))
 	for i, address := range addresses {
 		authors[i].Name = address.Name
 		authors[i].Email = address.Address
 	}
-	return authors, nil
+	return authors
 }
 
 // getApparentAuthors returns author if it is not empty otherwise, returns committer
@@ -504,9 +493,4 @@ func getApparentAuthors(entry bzrLogEntry) string {
 		authors = entry.Committer
 	}
 	return authors
-}
-
-type author struct {
-	Email string `json:"email"`
-	Name  string `json:"name"`
 }
