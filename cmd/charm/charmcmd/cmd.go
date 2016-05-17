@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2016 Canonical Ltd.
 // Licensed under the GPLv3, see LICENCE file for details.
 
 package charmcmd
@@ -39,15 +39,10 @@ that access the Juju charm store.
 
 // New returns a command that can execute charm commands.
 func New() *cmd.SuperCommand {
-	// Maintain a map of the registered commands so that we can
-	// avoid registering plugins with those names.
-	names := map[string]bool{
-		"help": true,
-	}
 	var c *cmd.SuperCommand
 	notifyHelp := func(arg []string) {
 		if len(arg) == 0 {
-			registerPlugins(c, names)
+			registerPlugins(c)
 		}
 	}
 
@@ -61,29 +56,25 @@ func New() *cmd.SuperCommand {
 		},
 		NotifyHelp: notifyHelp,
 	})
-	register := func(subc cmd.Command) {
-		names[subc.Info().Name] = true
-		c.Register(subc)
-	}
-	register(&attachCommand{})
-	register(&grantCommand{})
-	register(&listCommand{})
-	register(&loginCommand{})
-	register(&logoutCommand{})
-	register(&publishCommand{})
-	register(&pullCommand{})
-	register(&pushCommand{})
-	register(&revokeCommand{})
-	register(&setCommand{})
-	register(&showCommand{})
-	register(&termsCommand{})
-	register(&whoamiCommand{})
-	register(&listResourcesCommand{})
+	c.Register(&attachCommand{})
+	c.Register(&grantCommand{})
+	c.Register(&listCommand{})
+	c.Register(&loginCommand{})
+	c.Register(&logoutCommand{})
+	c.Register(&publishCommand{})
+	c.Register(&pullCommand{})
+	c.Register(&pushCommand{})
+	c.Register(&revokeCommand{})
+	c.Register(&setCommand{})
+	c.Register(&showCommand{})
+	c.Register(&termsCommand{})
+	c.Register(&whoamiCommand{})
+	c.Register(&listResourcesCommand{})
 	c.AddHelpTopicCallback(
 		"plugins",
 		"Show "+c.Name+" plugins",
 		func() string {
-			return pluginHelpTopic(names)
+			return pluginHelpTopic()
 		},
 	)
 	return c

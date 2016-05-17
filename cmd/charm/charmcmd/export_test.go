@@ -1,13 +1,19 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2016 Canonical Ltd.
 // Licensed under the GPLv3, see LICENCE file for details.
 
 package charmcmd
 
 var (
-	ClientGetArchive  = &clientGetArchive
-	CSClientServerURL = &csclientServerURL
-	PluginTopicText   = pluginTopicText
-	ServerURL         = serverURL
-	TranslateError    = translateError
-	USSOTokenPath     = ussoTokenPath
+	ClientGetArchive                       = &clientGetArchive
+	CSClientServerURL                      = &csclientServerURL
+	PluginTopicText                        = pluginTopicText
+	ServerURL                              = serverURL
+	TranslateError                         = translateError
+	USSOTokenPath                          = ussoTokenPath
+	PluginDescriptionLastCallReturnedCache = &pluginDescriptionLastCallReturnedCache
+	WhiteListedCommands                    = whiteListedCommands
 )
+
+func ResetPluginDescriptionsResults() {
+	pluginDescriptionsResults = nil
+}

@@ -1,4 +1,4 @@
-// Copyright 2014 Canonical Ltd.
+// Copyright 2014-2016 Canonical Ltd.
 // Licensed under the GPLv3, see LICENCE file for details.
 
 package charmcmd_test
@@ -10,7 +10,7 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/yaml.v1"
+	"gopkg.in/yaml.v2"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
