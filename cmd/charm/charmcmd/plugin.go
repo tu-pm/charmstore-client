@@ -12,7 +12,9 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+	"sync"
 	"syscall"
+	"text/tabwriter"
 
 	"github.com/juju/cmd"
 )
@@ -88,125 +90,93 @@ The executable command must be of the format ` + cmdName + `-<plugin name>.
 
 `
 
-func pluginHelpTopic() string {
+func pluginHelpTopic(excludeNames map[string]bool) string {
 	output := &bytes.Buffer{}
 	fmt.Fprintf(output, pluginTopicText)
-	existingPlugins := getPluginDescriptions()
+	existingPlugins := getPluginDescriptions(excludeNames)
 	if len(existingPlugins) == 0 {
 		fmt.Fprintf(output, "No plugins found.\n")
 	} else {
-		longest := 0
+		w := tabwriter.NewWriter(output, 0, 0, 2, ' ', 0)
 		for _, plugin := range existingPlugins {
-			if len(plugin.name) > longest {
-				longest = len(plugin.name)
-			}
+			fmt.Fprintf(w, "%s\t%s\n", plugin.name, plugin.description)
 		}
-		for _, plugin := range existingPlugins {
-			fmt.Fprintf(output, "%-*s  %s\n", longest, plugin.name, plugin.description)
-		}
+		w.Flush()
 	}
 	return output.String()
 }
 
-// pluginDescriptionsResults holds memoized results for getPluginDescriptions.
-var pluginDescriptionsResults []pluginDescription
+func registerPlugins(c *cmd.SuperCommand, excludeNames map[string]bool) {
+	plugins := getPluginDescriptions(excludeNames)
+	for _, plugin := range plugins {
+		c.Register(&pluginCommand{
+			name:    plugin.name,
+			purpose: plugin.description,
+		})
+	}
+}
 
 // getPluginDescriptions runs each plugin with "--description".  The calls to
 // the plugins are run in parallel, so the function should only take as long
 // as the longest call.
-func getPluginDescriptions() []pluginDescription {
-	if len(pluginDescriptionsResults) > 0 {
-		return pluginDescriptionsResults
+func getPluginDescriptions(excludeNames map[string]bool) []pluginDescription {
+	names := findPlugins(excludeNames)
+	if len(names) == 0 {
+		return nil
 	}
-	plugins := findPlugins()
-	results := []pluginDescription{}
-	if len(plugins) == 0 {
-		return results
-	}
-	// Create a channel with enough backing for each plugin.
-	description := make(chan pluginDescription, len(plugins))
-	help := make(chan pluginDescription, len(plugins))
-
+	descriptions := make([]pluginDescription, len(names))
+	var wg sync.WaitGroup
+	wg.Add(len(descriptions))
 	// Exec the --description and --help commands.
-	for _, plugin := range plugins {
-		go func(plugin string) {
-			result := pluginDescription{
-				name: plugin,
-			}
-			defer func() {
-				description <- result
-			}()
-			desccmd := exec.Command(plugin, "--description")
-			output, err := desccmd.CombinedOutput()
-
+	for i, name := range names {
+		i, name := i, name
+		go func() {
+			defer wg.Done()
+			d := &descriptions[i]
+			d.name = name[len(pluginPrefix):]
+			output, err := exec.Command(name, "--description").CombinedOutput()
 			if err == nil {
 				// Trim to only get the first line.
-				result.description = strings.SplitN(string(output), "\n", 2)[0]
+				d.description = strings.SplitN(string(output), "\n", 2)[0]
 			} else {
-				result.description = fmt.Sprintf("error occurred running '%s --description'", plugin)
-				logger.Debugf("'%s --description': %s", plugin, err)
+				d.description = fmt.Sprintf("error occurred running '%s --description'", name)
+				logger.Debugf("'%s --description': %s", name, err)
 			}
-		}(plugin)
-		go func(plugin string) {
-			result := pluginDescription{
-				name: plugin,
-			}
-			defer func() {
-				help <- result
-			}()
-			helpcmd := exec.Command(plugin, "--help")
-			output, err := helpcmd.CombinedOutput()
-			if err == nil {
-				result.doc = string(output)
-			} else {
-				result.doc = fmt.Sprintf("error occured running '%s --help'", plugin)
-				logger.Debugf("'%s --help': %s", plugin, err)
-			}
-		}(plugin)
+		}()
 	}
-	resultDescriptionMap := map[string]pluginDescription{}
-	resultHelpMap := map[string]pluginDescription{}
-	// Gather the results at the end.
-	for _ = range plugins {
-		result := <-description
-		resultDescriptionMap[result.name] = result
-		helpResult := <-help
-		resultHelpMap[helpResult.name] = helpResult
-	}
-	// plugins array is already sorted, use this to get the results in order.
-	for _, plugin := range plugins {
-		// Strip the 'charm-' off the start of the plugin name in the results.
-		result := resultDescriptionMap[plugin]
-		result.name = result.name[len(pluginPrefix):]
-		result.doc = resultHelpMap[plugin].doc
-		results = append(results, result)
-	}
-	pluginDescriptionsResults = results
-	return results
+	wg.Wait()
+	return descriptions
 }
 
 type pluginDescription struct {
 	name        string
 	description string
-	doc         string
 }
 
 // findPlugins searches the current PATH for executable files that start with
 // pluginPrefix.
-func findPlugins() []string {
+func findPlugins(excludeNames map[string]bool) []string {
 	path := os.Getenv("PATH")
-	plugins := []string{}
+	nameMap := make(map[string]bool)
 	for _, name := range filepath.SplitList(path) {
 		entries, err := ioutil.ReadDir(name)
 		if err != nil {
 			continue
 		}
 		for _, entry := range entries {
-			if strings.HasPrefix(entry.Name(), pluginPrefix) && (entry.Mode()&0111) != 0 {
-				plugins = append(plugins, entry.Name())
+			name := entry.Name()
+			if !strings.HasPrefix(name, pluginPrefix) {
+				continue
+			}
+			if entry.Mode()&0111 != 0 && !excludeNames[name[len(pluginPrefix):]] {
+				nameMap[name] = true
 			}
 		}
 	}
-	sort.Strings(plugins)
-	return plugins
+	names := make([]string, 0, len(nameMap))
+	for name := range nameMap {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+	return names
 }

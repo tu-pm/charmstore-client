@@ -5,7 +5,6 @@ package charmcmd
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"strings"
 
@@ -38,48 +37,21 @@ that access the Juju charm store.
 `
 )
 
-// Main is like cmd.Main but without dying on unknown args, allowing for
-// plugins to accept any arguments.
-func Main(c commandWithPlugins, ctx *cmd.Context, args []string) int {
-	f := gnuflag.NewFlagSet(c.Info().Name, gnuflag.ContinueOnError)
-	f.SetOutput(ioutil.Discard)
-	c.SetFlags(f)
-	err := f.Parse(false, args)
-	if err != nil {
-		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
-		return 2
+// New returns a command that can execute charm commands.
+func New() *cmd.SuperCommand {
+	// Maintain a map of the registered commands so that we can
+	// avoid registering plugins with those names.
+	names := map[string]bool{
+		"help": true,
 	}
-	// Since SuperCommands can also return gnuflag.ErrHelp errors, we need to
-	// handle both those types of errors as well as "real" errors.
-	err = c.Init(f.Args())
-	// Plugins are special. Ignore their Init errors.
-	if err != nil && !c.isPlugin(args) {
-		if cmd.IsRcPassthroughError(err) {
-			return err.(*cmd.RcPassthroughError).Code
+	var c *cmd.SuperCommand
+	notifyHelp := func(arg []string) {
+		if len(arg) == 0 {
+			registerPlugins(c, names)
 		}
-		fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
-		return 2
 	}
-	// SuperCommand eats args. Call init directly on the plugin to set correct args.
-	if c.isPlugin(args) {
-		c.initPlugin(args[0], args[1:])
-	}
-	if err = c.Run(ctx); err != nil {
-		if cmd.IsRcPassthroughError(err) {
-			return err.(*cmd.RcPassthroughError).Code
-		}
-		if err != cmd.ErrSilent {
-			fmt.Fprintf(ctx.Stderr, "error: %v\n", err)
-		}
-		return 1
-	}
-	return 0
-}
 
-// New returns a command that can execute juju-charm
-// commands.
-func New() commandWithPlugins {
-	supercmd := cmd.NewSuperCommand(cmd.SuperCommandParams{
+	c = cmd.NewSuperCommand(cmd.SuperCommandParams{
 		Name:            cmdName,
 		Doc:             cmdDoc,
 		Purpose:         "tools for accessing the charm store",
@@ -87,24 +59,34 @@ func New() commandWithPlugins {
 		Log: &cmd.Log{
 			DefaultConfig: os.Getenv(osenv.JujuLoggingConfigEnvKey),
 		},
+		NotifyHelp: notifyHelp,
 	})
-	chcmd := newSuperCommand(supercmd)
-	chcmd.register(&attachCommand{})
-	chcmd.register(&grantCommand{})
-	chcmd.register(&listCommand{})
-	chcmd.register(&loginCommand{})
-	chcmd.register(&logoutCommand{})
-	chcmd.register(&publishCommand{})
-	chcmd.register(&pullCommand{})
-	chcmd.register(&pushCommand{})
-	chcmd.register(&revokeCommand{})
-	chcmd.register(&setCommand{})
-	chcmd.register(&showCommand{})
-	chcmd.register(&termsCommand{})
-	chcmd.register(&whoamiCommand{})
-	chcmd.register(&listResourcesCommand{})
-	chcmd.registerPlugins()
-	return chcmd
+	register := func(subc cmd.Command) {
+		names[subc.Info().Name] = true
+		c.Register(subc)
+	}
+	register(&attachCommand{})
+	register(&grantCommand{})
+	register(&listCommand{})
+	register(&loginCommand{})
+	register(&logoutCommand{})
+	register(&publishCommand{})
+	register(&pullCommand{})
+	register(&pushCommand{})
+	register(&revokeCommand{})
+	register(&setCommand{})
+	register(&showCommand{})
+	register(&termsCommand{})
+	register(&whoamiCommand{})
+	register(&listResourcesCommand{})
+	c.AddHelpTopicCallback(
+		"plugins",
+		"Show "+c.Name+" plugins",
+		func() string {
+			return pluginHelpTopic(names)
+		},
+	)
+	return c
 }
 
 // Expose the charm store server URL so that
@@ -125,9 +107,8 @@ func serverURL() string {
 // and cookie jar.
 type csClient struct {
 	*csclient.Client
-	jar    *cookiejar.Jar
-	ctxt   *cmd.Context
-	filler esform.Filler
+	jar  *cookiejar.Jar
+	ctxt *cmd.Context
 }
 
 // SaveJAR calls save on the jar member variable. This follows the Law

@@ -25,10 +25,9 @@ import (
 type pushCommand struct {
 	cmd.CommandBase
 
-	id      *charm.URL
-	srcDir  string
-	publish bool
-	auth    authInfo
+	id     *charm.URL
+	srcDir string
+	auth   authInfo
 
 	// resources is a map of resource name to filename to be uploaded on push.
 	resources map[string]string

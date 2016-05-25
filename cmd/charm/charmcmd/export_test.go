@@ -11,7 +11,3 @@ var (
 	TranslateError    = translateError
 	USSOTokenPath     = ussoTokenPath
 )
-
-func ResetPluginDescriptionsResults() {
-	pluginDescriptionsResults = nil
-}
