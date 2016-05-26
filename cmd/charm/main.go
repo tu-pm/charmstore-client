@@ -4,8 +4,8 @@
 package main
 
 import (
-	"os"
 	"fmt"
+	"os"
 
 	"github.com/juju/cmd"
 	"github.com/juju/juju/juju/osenv"
@@ -20,5 +20,5 @@ func main() {
 		fmt.Fprintf(os.Stderr, "error: %v\n", err)
 		os.Exit(2)
 	}
-	os.Exit(charmcmd.Main(charmcmd.New(), ctxt, os.Args[1:]))
+	os.Exit(cmd.Main(charmcmd.New(), ctxt, os.Args[1:]))
 }

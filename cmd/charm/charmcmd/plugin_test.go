@@ -37,7 +37,6 @@ func (s *pluginSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	s.dir2 = c.MkDir()
 	s.PatchEnvironment("PATH", s.dir+":"+s.dir2)
-	charmcmd.ResetPluginDescriptionsResults()
 }
 
 func (*pluginSuite) TestPluginHelpNoPlugins(c *gc.C) {
@@ -71,16 +70,11 @@ func (s *pluginSuite) TestPluginHelpSpecificCommand(c *gc.C) {
 	stdout, stderr, code := run(c.MkDir(), "help", "foo")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, `Usage: charm foo
-
-Summary:
-foo --description
-
-Details:
+	c.Assert(stdout, gc.Equals, `
 foo longer help
 
 something useful
-`)
+`[1:])
 }
 
 func (s *pluginSuite) TestPluginHelpCommandNotFound(c *gc.C) {
@@ -146,33 +140,28 @@ func (s *pluginSuite) TestPluginRunWithHelpFlag(c *gc.C) {
 	stdout, stderr, code := run(c.MkDir(), "foo", "--help")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, `Usage: charm foo
-
-Summary:
-foo --description
-
-Details:
+	c.Assert(stdout, gc.Equals, `
 foo longer help
 
 something useful
-`)
+`[1:])
 }
 
 func (s *pluginSuite) TestPluginRunWithDebugFlag(c *gc.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	stdout, stderr, code := run(c.MkDir(), "foo", "--debug")
-	c.Assert(stderr, gc.Matches, ".*?INFO cmd supercommand.go:\\d+ command finished\n")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "some debug\n")
+	c.Check(stderr, gc.Equals, "")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stdout, gc.Equals, "some debug\n")
 }
 
 func (s *pluginSuite) TestPluginRunWithEnvVars(c *gc.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	s.PatchEnvironment("ANSWER", "42")
 	stdout, stderr, code := run(c.MkDir(), "foo")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "foo\nanswer is 42\n")
+	c.Check(stderr, gc.Equals, "")
+	c.Check(code, gc.Equals, 0)
+	c.Check(stdout, gc.Equals, "foo\nanswer is 42\n")
 }
 
 func (s *pluginSuite) TestPluginRunWithMultipleNamesInPath(c *gc.C) {
@@ -191,6 +180,25 @@ func (s *pluginSuite) TestPluginRunWithUnknownFlag(c *gc.C) {
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(stdout, gc.Equals, "the flag was still there.\n")
+}
+
+func (s *pluginSuite) TestHelp(c *gc.C) {
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	s.makeFullPlugin(pluginParams{Name: "bar"})
+	s.makeFullPlugin(pluginParams{Name: "help"}) // Duplicates "help" command.
+	s.makeFullPlugin(pluginParams{Name: "list"}) // Duplicates existing "list" command.
+	s.makeFullPluginInSecondDir(pluginParams{Name: "foo"})
+
+	stdout, stderr, code := run(c.MkDir(), "help")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, gc.Matches, `
+(.|\n)*    bar            - bar --description
+(.|\n)*    foo            - foo --description
+(.|\n)*    help           - show help on a command or other topic
+(.|\n)*    list           - list charms for a given user name
+(.|\n)*
+`[1:])
 }
 
 func (s *pluginSuite) makePlugin(name string, perm os.FileMode) {
