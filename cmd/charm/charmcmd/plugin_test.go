@@ -1,4 +1,4 @@
-// Copyright 2015 Canonical Ltd.
+// Copyright 2015-2016 Canonical Ltd.
 // Licensed under the GPLv3, see LICENCE file for details.
 
 package charmcmd_test
@@ -9,6 +9,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"regexp"
 	"runtime"
 	"strings"
 	"text/template"
@@ -29,6 +30,14 @@ type pluginSuite struct {
 
 var _ = gc.Suite(&pluginSuite{})
 
+func (s *pluginSuite) SetUpSuite(c *gc.C) {
+	s.IsolationSuite.SetUpSuite(c)
+	charmcmd.WhiteListedCommands["foo"] = true
+	charmcmd.WhiteListedCommands["bar"] = true
+	charmcmd.WhiteListedCommands["baz"] = true
+	charmcmd.WhiteListedCommands["error"] = true
+}
+
 func (s *pluginSuite) SetUpTest(c *gc.C) {
 	if runtime.GOOS == "windows" {
 		c.Skip("tests use bash scripts")
@@ -37,6 +46,9 @@ func (s *pluginSuite) SetUpTest(c *gc.C) {
 	s.dir = c.MkDir()
 	s.dir2 = c.MkDir()
 	s.PatchEnvironment("PATH", s.dir+":"+s.dir2)
+	charmcmd.ResetPluginDescriptionsResults()
+	os.Remove("/tmp/.cache/charm-command-cache")
+	os.Remove(filepath.Join(os.Getenv("HOME"), ".cache/charm-command-cache"))
 }
 
 func (*pluginSuite) TestPluginHelpNoPlugins(c *gc.C) {
@@ -102,7 +114,7 @@ func (s *pluginSuite) TestPluginHelpRunInParallel(c *gc.C) {
 		c.Assert(stderr, gc.Equals, "")
 		outputChan <- stdout
 	}()
-	// 10 seconds is arbitrary but should always be generously long. Test
+	// This time is arbitrary but should always be generously long. Test
 	// actually only takes about 15ms in practice, but 10s allows for system
 	// hiccups, etc.
 	wait := 5 * time.Second
@@ -199,6 +211,91 @@ func (s *pluginSuite) TestHelp(c *gc.C) {
 (.|\n)*    list           - list charms for a given user name
 (.|\n)*
 `[1:])
+}
+
+func (s *pluginSuite) TestWhiteListWorks(c *gc.C) {
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	s.makeFullPlugin(pluginParams{Name: "danger"})
+	stdout, stderr, code := run(c.MkDir(), "help")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, gc.Matches, `
+(.|\n)*    foo            - foo --description
+(.|\n)*
+`[1:])
+}
+
+func (s *pluginSuite) TestWhiteListIsExtensible(c *gc.C) {
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	s.makeFullPlugin(pluginParams{Name: "danger"})
+	writePlugin(s.dir, "tools-commands", "#!/bin/bash --norc\necho [\"danger\",]", 0755)
+	stdout, stderr, code := run(c.MkDir(), "help")
+	c.Assert(stderr, gc.Matches, "")
+	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, gc.Matches, `
+(.|\n)*    danger         - danger --description
+(.|\n)*    foo            - foo --description
+(.|\n)*
+`[1:])
+}
+
+func (s *pluginSuite) TestPluginCacheCaches(c *gc.C) {
+	s.PatchEnvironment("HOME", "/tmp")
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	run(c.MkDir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	charmcmd.ResetPluginDescriptionsResults()
+	run(c.MkDir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, true)
+}
+
+func (s *pluginSuite) TestPluginCacheInvalidatesOnUpdate(c *gc.C) {
+	s.PatchEnvironment("HOME", "/tmp")
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	run(c.MkDir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	charmcmd.ResetPluginDescriptionsResults()
+	time.Sleep(time.Second) // Sleep so that the written file has a different mtime
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	run(c.MkDir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+}
+
+func (s *pluginSuite) TestPluginCacheInvalidatesOnNewPlugin(c *gc.C) {
+	s.PatchEnvironment("HOME", "/tmp")
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	run(c.MkDir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	charmcmd.ResetPluginDescriptionsResults()
+	s.makeFullPlugin(pluginParams{Name: "bar"})
+	run(c.MkDir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+}
+
+func (s *pluginSuite) TestPluginCacheInvalidatesRemovedPlugin(c *gc.C) {
+	s.PatchEnvironment("HOME", "/tmp")
+	s.makeFullPlugin(pluginParams{Name: "foo"})
+	// Add bar so that there is more than one plugin. If no plugins are found
+	// there is a short circuit which makes this test do the wrong thing.
+	s.makeFullPlugin(pluginParams{Name: "bar"})
+	run(c.MkDir(), "help")
+	charmcmd.ResetPluginDescriptionsResults()
+	os.Remove(filepath.Join(s.dir, "charm-foo"))
+	stdout, _, _ := run(c.MkDir(), "help")
+	// The gc.Matches checker anchors the regex by surrounding it with ^ and $
+	// Checking for a not match this way instead.
+	matches, err := regexp.MatchString(`
+foo            - foo --description
+`[1:], stdout)
+	if err != nil {
+		c.Log("regex error" + err.Error())
+		c.Fail()
+	}
+	expected := false
+	if matches != expected {
+		c.Log("output did not match expected output:" + stdout)
+	}
+	c.Assert(matches, gc.Equals, expected)
 }
 
 func (s *pluginSuite) makePlugin(name string, perm os.FileMode) {
