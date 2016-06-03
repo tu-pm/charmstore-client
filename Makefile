@@ -7,6 +7,8 @@ endif
 PROJECT := github.com/juju/charmstore-client
 PROJECT_DIR := $(shell go list -e -f '{{.Dir}}' $(PROJECT))
 
+INSTALL_FILE=install -m 644 -p
+
 ifeq ($(shell uname -p | sed -r 's/.*(x86|armel|armhf).*/golang/'), golang)
 	GO_C := golang
 	INSTALL_FLAGS :=
@@ -36,6 +38,7 @@ install:
 
 clean:
 	go clean $(PROJECT)/...
+	rm -rf man
 
 else
 
@@ -70,6 +73,22 @@ deps: $(GOPATH)/bin/godeps
 create-deps: $(GOPATH)/bin/godeps
 	godeps -t $(shell go list $(PROJECT)/...) > dependencies.tsv || true
 
+# Generate man pages.
+man/man1:
+	make install
+	mkdir -p man/man1
+	cd man/man1 && ../../scripts/generate-all-manpages.sh
+
+# The install-man make target are for use by debian packaging.
+# The semantics should match autotools make files as dh_make expects it.
+install-man: man/man1
+	for file in man/man1/* ; do \
+	 	$(INSTALL_FILE) $$file "$(DESTDIR)/usr/share/man/man1" ; done
+
+uninstall-man: man/man1
+	for file in man/man1/* ; do \
+	 	rm "$(DESTDIR)/usr/share/$$file" ; done
+
 help:
 	@echo -e 'Charmstore-client - list of make targets:\n'
 	@echo 'make - Build the package.'
@@ -79,6 +98,7 @@ help:
 	@echo 'make deps - Set up the project Go dependencies.'
 	@echo 'make create-deps - Generate the Go dependencies file.'
 	@echo 'make format - Format the source files.'
+	@echo 'make man - Generate man pages.'
 	@echo 'make simplify - Format and simplify the source files.'
 
 .PHONY: build check clean create-deps deps format help install simplify
