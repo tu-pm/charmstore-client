@@ -82,23 +82,38 @@ man/man1:
 # The install-man make target are for use by debian packaging.
 # The semantics should match autotools make files as dh_make expects it.
 install-man: man/man1
+	mkdir -p $(DESTDIR)/usr/share/man/man1
 	for file in man/man1/* ; do \
 	 	$(INSTALL_FILE) $$file "$(DESTDIR)/usr/share/man/man1" ; done
 
 uninstall-man: man/man1
 	for file in man/man1/* ; do \
 	 	rm "$(DESTDIR)/usr/share/$$file" ; done
+	-rmdir -p $(DESTDIR)/usr/share/man/man1
+
+install-bash-completion:
+	mkdir -p $(DESTDIR)/usr/share/bash-completion/completions
+	$(INSTALL_FILE) config/bash/charm "$(DESTDIR)/usr/share/bash-completion/completions/"
+
+uninstall-bash-completion:
+	rm "$(DESTDIR)/usr/share/bash-completion/completions/charm"
+	-rmdir -p $(DESTDIR)/usr/share/bash-completion/completions
 
 help:
 	@echo -e 'Charmstore-client - list of make targets:\n'
 	@echo 'make - Build the package.'
 	@echo 'make check - Run tests.'
-	@echo 'make install - Install the package.'
+	@echo 'make install - Install the package to $$GOPATH/bin'
 	@echo 'make clean - Remove object files from package source directories.'
 	@echo 'make deps - Set up the project Go dependencies.'
 	@echo 'make create-deps - Generate the Go dependencies file.'
 	@echo 'make format - Format the source files.'
 	@echo 'make man - Generate man pages.'
 	@echo 'make simplify - Format and simplify the source files.'
+	@echo 'make install-man - Install man pages to $$DESTDIR/usr/share/man'
+	@echo 'make uninstall-man - Remove man pages from $$DESTDIR/usr/share/man'
+	@echo 'make install-bash-completion - Install completion to $$DESTDIR/usr/share/bash-completion/completions/'
+	@echo 'make uninstall-bash-completion - Remove completion from $$DESTDIR/usr/share/bash-completion/completions/'
 
-.PHONY: build check clean create-deps deps format help install simplify
+.PHONY: build check clean create-deps deps format help install simplify \
+	install-man uninstall-man install-bash-completion uninstall-bash-completion
