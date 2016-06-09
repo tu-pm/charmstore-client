@@ -1,0 +1,47 @@
+# bash completion for the charm command.
+#
+# adapted from https://github.com/jjo/juju/blob/11e1a81c012a45d285545ff84db336b3ed9a4b78/etc/bash_completion.d/juju
+#
+# Copyright 2016 Canonical Ltd.
+
+_complete_with_func() {
+    local action="${1}" func=${2?}
+    local flags=$(_flags_for "${action}")
+    local cur="${COMP_WORDS[COMP_CWORD]}"
+    _get_comp_words_by_ref -n : cur
+    COMPREPLY=( $( compgen -W "$(${func} ${juju_status_file} ${postfix_str}) $flags" -- ${cur} ))
+}
+
+_list_commands() {
+    ${COMP_WORDS[0]} help 2>/dev/null | awk '{if (cmd==1){print $1}} /commands:/{cmd=1;}'
+}
+
+_flags_for() {
+    test -z "${1}" && return 0
+    ${COMP_WORDS[0]} help ${1} 2>/dev/null |egrep -o --  '(^|-)-[a-z-]+'|sort -u
+}
+
+_completion_func_for_cmd() {
+    local action=${1} cword=${2}
+    # if cword==1 or action==help use _list_commands
+    if [[ "${cword}" -eq 1 || "${action}" == help ]]; then
+        echo _list_commands
+        return 0
+    fi
+    case $(${COMP_WORDS[0]} help ${action} 2>/dev/null | head -1) in
+        ?*)     echo true;;
+        *)      echo false;;
+    esac
+}
+
+_completer() {
+    local action parsing_func
+    action="${COMP_WORDS[1]}"
+    COMPREPLY=()
+    parsing_func=$(_completion_func_for_cmd "${action}" ${COMP_CWORD})
+    test -n "${parsing_func}" && _complete_with_func "${action}" "${parsing_func}"
+    return $?
+}
+
+complete -F _completer charm
+# vim: ai et sw=2 ts=2
