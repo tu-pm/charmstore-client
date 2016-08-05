@@ -128,7 +128,7 @@ func (s *pullSuite) TestSuccessfulWithChannel(c *gc.C) {
 	s.uploadCharmDir(c, url.WithRevision(42), -1, ch)
 	s.uploadCharmDir(c, url.WithRevision(43), -1, ch)
 	s.publish(c, url.WithRevision(41), params.StableChannel)
-	s.publish(c, url.WithRevision(42), params.DevelopmentChannel)
+	s.publish(c, url.WithRevision(42), params.EdgeChannel)
 
 	// Download the stable charm.
 	stdout, stderr, code := run(c.MkDir(), "pull", url.String())
@@ -136,14 +136,14 @@ func (s *pullSuite) TestSuccessfulWithChannel(c *gc.C) {
 	c.Assert(stdout, gc.Equals, url.WithRevision(41).String()+"\n")
 	c.Assert(code, gc.Equals, 0)
 
-	// Download the development charm.
-	stdout, stderr, code = run(c.MkDir(), "pull", url.String(), "-c", "development")
+	// Download the edge charm.
+	stdout, stderr, code = run(c.MkDir(), "pull", url.String(), "-c", "edge")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(stdout, gc.Equals, url.WithRevision(42).String()+"\n")
 	c.Assert(code, gc.Equals, 0)
 
 	// The channel is ignored when specifying a revision.
-	stdout, stderr, code = run(c.MkDir(), "pull", url.WithRevision(43).String(), "-c", "development")
+	stdout, stderr, code = run(c.MkDir(), "pull", url.WithRevision(43).String(), "-c", "edge")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(stdout, gc.Equals, url.WithRevision(43).String()+"\n")
 	c.Assert(code, gc.Equals, 0)

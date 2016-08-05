@@ -87,7 +87,6 @@ func (s *attachSuite) TestRun(c *gc.C) {
 		Name:        "someResource",
 		Type:        "file",
 		Path:        "someResource-file",
-		Origin:      "store",
 		Revision:    0,
 		Fingerprint: hashOfString("content"),
 		Size:        int64(len("content")),

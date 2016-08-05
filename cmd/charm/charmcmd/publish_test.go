@@ -99,7 +99,7 @@ func (s *publishSuite) TestPublishInvalidChannel(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
 	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "bad-wolf")
-	c.Assert(stderr, gc.Matches, `ERROR cannot publish charm or bundle: cannot publish to "bad-wolf"\n`)
+	c.Assert(stderr, gc.Matches, `ERROR cannot publish charm or bundle: unrecognized channel "bad-wolf"\n`)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 1)
 }
@@ -112,13 +112,13 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	// The stable entity is not published yet.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 
-	// Publish the newly uploaded charm to the development channel.
-	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "development")
+	// Publish the newly uploaded charm to the edge channel.
+	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "edge")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
 	c.Assert(code, gc.Equals, 0)
-	// The stable channel is not yet published, the development channel is.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	// The stable channel is not yet published, the edge channel is.
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 
 	// Publish the newly uploaded charm to the stable channel.
@@ -126,8 +126,8 @@ func (s *publishSuite) TestPublishSuccess(c *gc.C) {
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
-	// Both development and stable channels are published.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	// Both edge and stable channels are published.
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 
 	// Publishing is idempotent.
@@ -218,12 +218,12 @@ func (s *publishSuite) TestPublishPartialURL(c *gc.C) {
 	s.uploadCharmDir(c, id.WithRevision(43), -1, ch)
 	s.publish(c, id, params.StableChannel)
 
-	// Publish the stable charm as development.
-	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
+	// Publish the stable charm as edge.
+	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "edge")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 }
 
 func (s *publishSuite) TestPublishAndShow(c *gc.C) {
@@ -234,11 +234,11 @@ func (s *publishSuite) TestPublishAndShow(c *gc.C) {
 	s.uploadCharmDir(c, id, -1, ch)
 	s.uploadCharmDir(c, id.WithRevision(43), -1, ch)
 
-	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
+	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "edge")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 
 	stdout, stderr, code = run(c.MkDir(), "show", "--format=json", "~bob/wily/django-42", "published")
 	c.Assert(stderr, gc.Matches, "")
@@ -248,7 +248,7 @@ func (s *publishSuite) TestPublishAndShow(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result), gc.Equals, 1)
 	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface{})[0], gc.DeepEquals,
-		map[string]interface{}{"Channel": "development", "Current": true})
+		map[string]interface{}{"Channel": "edge", "Current": true})
 }
 
 func (s *publishSuite) TestPublishWithResources(c *gc.C) {
@@ -283,7 +283,6 @@ warning: bugs-url and homepage are not set.  See set command.
 		Name:        "resource1-name",
 		Type:        "file",
 		Path:        "resource1-name-file",
-		Origin:      "store",
 		Revision:    0,
 		Fingerprint: hashOfString("resource1 content"),
 		Size:        int64(len("resource1 content")),
@@ -292,7 +291,6 @@ warning: bugs-url and homepage are not set.  See set command.
 		Name:        "resource2",
 		Type:        "file",
 		Path:        "resource2-file",
-		Origin:      "store",
 		Revision:    1,
 		Fingerprint: hashOfString("resource2 content rev 1"),
 		Size:        int64(len("resource2 content rev 1")),

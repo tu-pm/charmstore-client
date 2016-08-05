@@ -35,7 +35,7 @@ or bundle. By default, all known metadata is printed.
 
 To select a channel, use the --channel option, for instance:
 
-   charm show wordpress --channel development
+   charm show wordpress --channel edge
 
 To specify one or more specific metadatas:
 

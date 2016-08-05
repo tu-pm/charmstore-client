@@ -47,7 +47,7 @@ The --set parameters is used to overwrite any existing ACLs for the charm or bun
 
 To select a channel, use the --channel option, for instance:
 
-    charm grant ~johndoe/wordpress --channel development --acl write --set fred,bob
+    charm grant ~johndoe/wordpress --channel edge --acl write --set fred,bob
 `
 
 func (c *grantCommand) Info() *cmd.Info {

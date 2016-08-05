@@ -152,7 +152,7 @@ func addAuthFlag(f *gnuflag.FlagSet, info *authInfo) {
 
 // addChannelFlag adds the -c (--channel) flags to the given flag set.
 func addChannelFlag(f *gnuflag.FlagSet, s *string) {
-	f.StringVar(s, "c", "", fmt.Sprintf("the channel the charm or bundle is assigned to (%s|%s|%s)", params.StableChannel, params.DevelopmentChannel, params.UnpublishedChannel))
+	f.StringVar(s, "c", "", fmt.Sprintf("the channel the charm or bundle is assigned to (%s|%s|%s)", params.StableChannel, params.EdgeChannel, params.UnpublishedChannel))
 	f.StringVar(s, "channel", "", "")
 }
 

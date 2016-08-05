@@ -45,7 +45,7 @@ directory "wordpress" in the current directory.
 
 To select a channel, use the --channel option, for instance:
 
-	charm pull wordpress --channel development
+	charm pull wordpress --channel edge
 `
 
 func (c *pullCommand) Info() *cmd.Info {

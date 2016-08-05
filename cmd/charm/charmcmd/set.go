@@ -44,7 +44,7 @@ fields are forced to string and cannot be arbitrary JSON.
 
 To select a channel, use the --channel option, for instance:
 
-   charm set wordpress someinfo=somevalue --channel development
+   charm set wordpress someinfo=somevalue --channel edge
 `
 
 func (c *setCommand) Info() *cmd.Info {
