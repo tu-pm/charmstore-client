@@ -31,7 +31,7 @@ The publish command publishes a charm or bundle in the charm store.
 Publishing is the action of assigning one channel to a specific charm
 or bundle revision (revision need to be specified), so that it can be shared
 with other users and also referenced without specifying the revision.
-Two channels are supported: "stable" and "development"; the "stable" channel is
+Two channels are supported: "stable" and "edge"; the "stable" channel is
 used by default.
 
     charm publish ~bob/trusty/wordpress
@@ -39,7 +39,7 @@ used by default.
 To select another channel, use the --channel option, for instance:
 
     charm publish ~bob/trusty/wordpress --channel stable
-    charm publish wily/django-42 -c development --resource website-3 --resource data-2
+    charm publish wily/django-42 -c edge --resource website-3 --resource data-2
 
 If your charm uses resources, you must specify what revision of each resource
 will be published along with the charm, using the --resource flag (one per

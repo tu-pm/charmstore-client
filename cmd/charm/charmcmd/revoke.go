@@ -37,7 +37,7 @@ The --acl parameter accepts "read" and "write" values. By default all permission
 
 To select a channel, use the --channel option, for instance:
 
-    charm revoke ~johndoe/wordpress --channel development --acl write fred,bob
+    charm revoke ~johndoe/wordpress --channel edge --acl write fred,bob
 `
 
 func (c *revokeCommand) Info() *cmd.Info {

@@ -281,7 +281,7 @@ func (s *setSuite) TestSuccessfulWithChannel(c *gc.C) {
 	s.uploadCharmDir(c, url.WithRevision(43), -1, ch)
 	s.publish(c, url.WithRevision(41), params.StableChannel)
 
-	s.publish(c, url.WithRevision(42), params.DevelopmentChannel)
+	s.publish(c, url.WithRevision(42), params.EdgeChannel)
 
 	dir := c.MkDir()
 
@@ -301,14 +301,14 @@ func (s *setSuite) TestSuccessfulWithChannel(c *gc.C) {
 			"common-info": map[string]interface{}{},
 		},
 	}
-	// Test with the development channel
-	_, stderr, code := run(dir, "set", url.String(), "name=value", "-c", "development")
+	// Test with the edge channel.
+	_, stderr, code := run(dir, "set", url.String(), "name=value", "-c", "edge")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.getInfo(c, url.WithRevision(42)), jc.JSONEquals, expectDevelopment)
 	c.Assert(s.getInfo(c, url.WithRevision(41)), jc.JSONEquals, expectStable)
 
-	// Test with the stable channel
+	// Test with the stable channel.
 	_, stderr, code = run(dir, "set", url.String(), "name=value1")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)

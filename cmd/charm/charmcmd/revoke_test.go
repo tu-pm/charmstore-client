@@ -202,7 +202,7 @@ func (s *revokeSuite) TestSuccessfulWithChannel(c *gc.C) {
 	s.uploadCharmDir(c, url.WithRevision(43), -1, ch)
 	s.publish(c, url.WithRevision(41), params.StableChannel)
 
-	s.publish(c, url.WithRevision(42), params.DevelopmentChannel)
+	s.publish(c, url.WithRevision(42), params.EdgeChannel)
 
 	s.setReadPerms(c, url.WithRevision(41), []string{"foo", "bar"})
 	s.setWritePerms(c, url.WithRevision(41), []string{"foo", "bar"})
@@ -214,8 +214,8 @@ func (s *revokeSuite) TestSuccessfulWithChannel(c *gc.C) {
 	// Prepare the credentials arguments.
 	auth := s.serverParams.AuthUsername + ":" + s.serverParams.AuthPassword
 
-	// Test with the development channel
-	_, stderr, code := run(dir, "revoke", url.String(), "-c", "development", "foo", "--auth", auth)
+	// Test with the edge channel.
+	_, stderr, code := run(dir, "revoke", url.String(), "-c", "edge", "foo", "--auth", auth)
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 
@@ -225,7 +225,7 @@ func (s *revokeSuite) TestSuccessfulWithChannel(c *gc.C) {
 	c.Assert(s.getReadPerms(c, url.WithRevision(41)), jc.DeepEquals, []string{"foo", "bar"})
 	c.Assert(s.getWritePerms(c, url.WithRevision(41)), jc.DeepEquals, []string{"foo", "bar"})
 
-	// Test with the stable channel
+	// Test with the stable channel.
 	_, stderr, code = run(dir, "revoke", url.String(), "bar", "--auth", auth)
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
