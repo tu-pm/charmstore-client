@@ -11,14 +11,13 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
 
 type attachCommand struct {
 	cmd.CommandBase
 
-	channel string
+	channel chanValue
 	id      *charm.URL
 	name    string
 	file    string
@@ -43,7 +42,7 @@ func (c *attachCommand) Info() *cmd.Info {
 
 func (c *attachCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 }
 
 func (c *attachCommand) Init(args []string) error {
@@ -77,14 +76,11 @@ func (c *attachCommand) Init(args []string) error {
 }
 
 func (c *attachCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
-	if c.channel != "" {
-		client.Client = client.Client.WithChannel(params.Channel(c.channel))
-	}
 
 	f, err := os.Open(ctxt.AbsPath(c.file))
 	if err != nil {

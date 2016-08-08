@@ -61,7 +61,7 @@ func (c *listCommand) Init(args []string) error {
 }
 
 func (c *listCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, params.NoChannel)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

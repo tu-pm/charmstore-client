@@ -43,7 +43,7 @@ type listResourcesCommand struct {
 	cmd.Output
 
 	id      *charm.URL
-	channel string
+	channel chanValue
 	auth    authInfo
 }
 
@@ -54,7 +54,7 @@ func (c *listResourcesCommand) Info() *cmd.Info {
 
 // SetFlags implements cmd.Command.
 func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 	addAuthFlag(f, &c.auth)
 	c.Output.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
@@ -82,15 +82,11 @@ func (c *listResourcesCommand) Init(args []string) error {
 
 // Run implements cmd.Command.
 func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
-	client, err := newCharmStoreClient(ctx, c.auth)
+	client, err := newCharmStoreClient(ctx, c.auth, c.channel.C)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.SaveJAR()
-
-	if c.channel != "" {
-		client.Client = client.Client.WithChannel(params.Channel(c.channel))
-	}
 
 	resources, err := client.Client.ListResources(c.id)
 	if err != nil {

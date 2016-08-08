@@ -19,7 +19,7 @@ type showCommand struct {
 	cmd.CommandBase
 
 	out      cmd.Output
-	channel  string
+	channel  chanValue
 	id       *charm.URL
 	includes []string
 	list     bool
@@ -62,7 +62,7 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	f.BoolVar(&c.list, "list", false, "list available metadata endpoints")
 	addAuthFlag(f, &c.auth)
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 }
 
 func (c *showCommand) Init(args []string) error {
@@ -88,7 +88,7 @@ func (c *showCommand) Init(args []string) error {
 }
 
 func (c *showCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
@@ -115,11 +115,6 @@ func (c *showCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	var result params.MetaAnyResponse
-
-	if c.channel != "" {
-		client.Client = client.Client.WithChannel(params.Channel(c.channel))
-	}
-
 	path := "/" + c.id.Path() + "/meta/any?" + query.Encode()
 	if err := client.Get(path, &result); err != nil {
 		return errgo.Notef(err, "cannot get metadata from %s", path)
