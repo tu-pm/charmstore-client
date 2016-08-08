@@ -20,7 +20,7 @@ type publishCommand struct {
 	cmd.CommandBase
 
 	id      *charm.URL
-	channel string
+	channel chanValue
 	auth    authInfo
 
 	resources resourceMap
@@ -59,7 +59,16 @@ func (c *publishCommand) Info() *cmd.Info {
 }
 
 func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
-	addChannelFlag(f, &c.channel)
+	channels := make([]params.Channel, 0, len(params.OrderedChannels)-1)
+	for _, ch := range params.OrderedChannels {
+		if ch != params.UnpublishedChannel {
+			channels = append(channels, ch)
+		}
+	}
+	c.channel = chanValue{
+		C: params.StableChannel,
+	}
+	addChannelFlag(f, &c.channel, channels)
 	addAuthFlag(f, &c.auth)
 	f.Var(&c.resources, "resource", "")
 	f.Var(&c.resources, "r", "resource to be published with the charm")
@@ -71,10 +80,6 @@ func (c *publishCommand) Init(args []string) error {
 	}
 	if len(args) > 1 {
 		return errgo.New("too many arguments")
-	}
-
-	if c.channel == "" {
-		c.channel = string(params.StableChannel)
 	}
 
 	id, err := charm.ParseURL(args[0])
@@ -95,19 +100,19 @@ var publishCharm = func(client *csclient.Client, id *charm.URL, channels []param
 
 func (c *publishCommand) Run(ctxt *cmd.Context) error {
 	// Instantiate the charm store client.
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, params.NoChannel)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
 
-	err = publishCharm(client.Client, c.id, []params.Channel{params.Channel(c.channel)}, c.resources)
+	err = publishCharm(client.Client, c.id, []params.Channel{c.channel.C}, c.resources)
 	if err != nil {
 		return errgo.Notef(err, "cannot publish charm or bundle")
 	}
 	fmt.Fprintln(ctxt.Stdout, "url:", c.id)
-	fmt.Fprintln(ctxt.Stdout, "channel:", c.channel)
-	if "stable" == c.channel {
+	fmt.Fprintln(ctxt.Stdout, "channel:", c.channel.C)
+	if c.channel.C == params.StableChannel {
 		var result params.MetaAnyResponse
 		var unset string
 		verb := "is"

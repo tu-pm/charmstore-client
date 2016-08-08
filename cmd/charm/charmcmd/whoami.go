@@ -54,7 +54,7 @@ func (c *whoamiCommand) formatText(value interface{}) ([]byte, error) {
 }
 
 func (c *whoamiCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, authInfo{})
+	client, err := newCharmStoreClient(ctxt, authInfo{}, params.NoChannel)
 	if err != nil {
 		return errgo.Notef(err, "could not load the cookie from file")
 	}

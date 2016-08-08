@@ -16,7 +16,7 @@ type revokeCommand struct {
 
 	id      *charm.URL
 	acl     string
-	channel string
+	channel chanValue
 	auth    authInfo
 
 	// Validated options used in Run(...).
@@ -52,7 +52,7 @@ func (c *revokeCommand) Info() *cmd.Info {
 func (c *revokeCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
 	f.StringVar(&c.acl, "acl", "", "read|write")
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 }
 
 func (c *revokeCommand) Init(args []string) error {
@@ -98,15 +98,12 @@ func (c *revokeCommand) Init(args []string) error {
 }
 
 func (c *revokeCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
 
-	if c.channel != "" {
-		client.Client = client.Client.WithChannel(params.Channel(c.channel))
-	}
 	// Perform the request to change the permissions on the charm store.
 	if err := c.changePerms(client); err != nil {
 		return errgo.Mask(err)

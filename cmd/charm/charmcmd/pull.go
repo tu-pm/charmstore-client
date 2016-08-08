@@ -23,7 +23,7 @@ type pullCommand struct {
 
 	id      *charm.URL
 	destDir string
-	channel string
+	channel chanValue
 
 	auth authInfo
 }
@@ -58,7 +58,7 @@ func (c *pullCommand) Info() *cmd.Info {
 }
 
 func (c *pullCommand) SetFlags(f *gnuflag.FlagSet) {
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 	addAuthFlag(f, &c.auth)
 }
 
@@ -88,17 +88,17 @@ func (c *pullCommand) Run(ctxt *cmd.Context) error {
 	if _, err := os.Stat(destDir); err == nil || !os.IsNotExist(err) {
 		return errgo.Newf("directory %q already exists", destDir)
 	}
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	channel := params.NoChannel
+	if c.id.Revision == -1 {
+		channel = c.channel.C
+	}
+	client, err := newCharmStoreClient(ctxt, c.auth, channel)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
 
-	csClient := client.Client
-	if c.id.Revision == -1 {
-		csClient = csClient.WithChannel(params.Channel(c.channel))
-	}
-	r, id, expectHash, _, err := clientGetArchive(csClient, c.id)
+	r, id, expectHash, _, err := clientGetArchive(client.Client, c.id)
 	if err != nil {
 		return err
 	}

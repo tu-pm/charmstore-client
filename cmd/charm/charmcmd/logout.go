@@ -14,6 +14,7 @@ import (
 
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
+	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/macaroon.v1"
 )
 
@@ -40,7 +41,7 @@ func (c *logoutCommand) Run(ctxt *cmd.Context) error {
 	if err := os.Remove(ussoTokenPath()); err != nil && !os.IsNotExist(err) {
 		return errgo.New("cannot remove Ubuntu SSO token")
 	}
-	client, err := newCharmStoreClient(ctxt, authInfo{})
+	client, err := newCharmStoreClient(ctxt, authInfo{}, params.NoChannel)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}

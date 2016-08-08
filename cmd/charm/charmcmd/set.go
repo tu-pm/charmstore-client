@@ -10,7 +10,6 @@ import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
 )
 
@@ -20,7 +19,7 @@ type setCommand struct {
 	id           *charm.URL
 	commonFields map[string]interface{}
 	extraFields  map[string]interface{}
-	channel      string
+	channel      chanValue
 	auth         authInfo
 }
 
@@ -57,7 +56,7 @@ func (c *setCommand) Info() *cmd.Info {
 }
 
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 	addAuthFlag(f, &c.auth)
 }
 
@@ -94,15 +93,11 @@ func (c *setCommand) Init(args []string) error {
 }
 
 func (c *setCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
-
-	if c.channel != "" {
-		client.Client = client.Client.WithChannel(params.Channel(c.channel))
-	}
 
 	// TODO: do this atomically with a single PUT meta/any request.
 	if len(c.commonFields) > 0 {

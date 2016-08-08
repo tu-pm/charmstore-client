@@ -68,7 +68,7 @@ type termsResponse struct {
 
 // Run implements cmd.Command.Run.
 func (c *termsCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, params.NoChannel)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
