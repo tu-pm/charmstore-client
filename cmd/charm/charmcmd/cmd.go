@@ -59,17 +59,17 @@ func New() *cmd.SuperCommand {
 	c.Register(&attachCommand{})
 	c.Register(&grantCommand{})
 	c.Register(&listCommand{})
+	c.Register(&listResourcesCommand{})
 	c.Register(&loginCommand{})
 	c.Register(&logoutCommand{})
-	c.Register(&publishCommand{})
 	c.Register(&pullCommand{})
 	c.Register(&pushCommand{})
+	c.Register(&releaseCommand{})
 	c.Register(&revokeCommand{})
 	c.Register(&setCommand{})
 	c.Register(&showCommand{})
 	c.Register(&termsCommand{})
 	c.Register(&whoamiCommand{})
-	c.Register(&listResourcesCommand{})
 	c.AddHelpTopicCallback(
 		"plugins",
 		"Show "+c.Name+" plugins",
@@ -111,8 +111,9 @@ func (c *csClient) SaveJAR() error {
 // newCharmStoreClient creates and return a charm store client with access to
 // the associated HTTP client and cookie jar used to save authorization
 // macaroons. If authUsername and authPassword are provided, the resulting
-// client will use HTTP basic auth with the given credentials.
-func newCharmStoreClient(ctxt *cmd.Context, auth authInfo) (*csClient, error) {
+// client will use HTTP basic auth with the given credentials. The charm store
+// client will use the given channel for its operations.
+func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channel) (*csClient, error) {
 	jar, err := cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 		Filename:         cookiejar.DefaultCookieFile(),
@@ -138,22 +139,51 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo) (*csClient, error) {
 			BakeryClient: bakeryClient,
 			User:         auth.username,
 			Password:     auth.password,
-		}),
+		}).WithChannel(channel),
 		jar:  jar,
 		ctxt: ctxt,
 	}
 	return &csClient, nil
 }
 
+// addChannelFlag adds the -c (--channel) flags to the given flag set.
+// The channels argument is the set of allowed channels.
+func addChannelFlag(f *gnuflag.FlagSet, cv *chanValue, channels []params.Channel) {
+	if len(channels) == 0 {
+		channels = params.OrderedChannels
+	}
+	chans := make([]string, len(channels))
+	for i, ch := range channels {
+		chans[i] = string(ch)
+	}
+	f.Var(cv, "c", fmt.Sprintf("the channel the charm or bundle is assigned to (%s)", strings.Join(chans, "|")))
+	f.Var(cv, "channel", "")
+}
+
+// chanValue is a gnuflag.Value that stores a channel name
+// ("stable", "candidate", "beta", "edge" or "unpublished").
+type chanValue struct {
+	C params.Channel
+}
+
+// Set implements gnuflag.Value.Set by setting the channel value.
+func (cv *chanValue) Set(s string) error {
+	cv.C = params.Channel(s)
+	if cv.C == params.DevelopmentChannel {
+		logger.Warningf("the development channel is deprecated: automatically switching to the edge channel")
+		cv.C = params.EdgeChannel
+	}
+	return nil
+}
+
+// String implements gnuflag.Value.String.
+func (cv *chanValue) String() string {
+	return string(cv.C)
+}
+
 // addAuthFlag adds the authentication flag to the given flag set.
 func addAuthFlag(f *gnuflag.FlagSet, info *authInfo) {
 	f.Var(info, "auth", "user:passwd to use for basic HTTP authentication")
-}
-
-// addChannelFlag adds the -c (--channel) flags to the given flag set.
-func addChannelFlag(f *gnuflag.FlagSet, s *string) {
-	f.StringVar(s, "c", "", fmt.Sprintf("the channel the charm or bundle is assigned to (%s|%s|%s)", params.StableChannel, params.DevelopmentChannel, params.UnpublishedChannel))
-	f.StringVar(s, "channel", "", "")
 }
 
 type authInfo struct {

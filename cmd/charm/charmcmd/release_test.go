@@ -18,13 +18,13 @@ import (
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
-type publishSuite struct {
+type releaseSuite struct {
 	commonSuite
 }
 
-var _ = gc.Suite(&publishSuite{})
+var _ = gc.Suite(&releaseSuite{})
 
-func (s *publishSuite) SetUpTest(c *gc.C) {
+func (s *releaseSuite) SetUpTest(c *gc.C) {
 	s.commonSuite.SetUpTest(c)
 	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
 		return []checkers.Caveat{
@@ -33,7 +33,7 @@ func (s *publishSuite) SetUpTest(c *gc.C) {
 	}
 }
 
-var publishInitErrorTests = []struct {
+var releaseInitErrorTests = []struct {
 	about string
 	args  []string
 	err   string
@@ -67,11 +67,11 @@ var publishInitErrorTests = []struct {
 	err:   `invalid value "someresource-bad" for flag --resource: invalid revision number`,
 }}
 
-func (s *publishSuite) TestInitError(c *gc.C) {
+func (s *releaseSuite) TestInitError(c *gc.C) {
 	dir := c.MkDir()
-	for i, test := range publishInitErrorTests {
+	for i, test := range releaseInitErrorTests {
 		c.Logf("test %d: %s; %q", i, test.about, test.args)
-		args := []string{"publish"}
+		args := []string{"release"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
 		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
@@ -79,80 +79,80 @@ func (s *publishSuite) TestInitError(c *gc.C) {
 	}
 }
 
-func (s *publishSuite) TestRunNoSuchCharm(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "publish", "no-such-entity-55", "--channel", "stable")
+func (s *releaseSuite) TestRunNoSuchCharm(c *gc.C) {
+	stdout, stderr, code := run(c.MkDir(), "release", "no-such-entity-55", "--channel", "stable")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR cannot publish charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
+	c.Assert(stderr, gc.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
 	c.Assert(code, gc.Equals, 1)
 }
 
-func (s *publishSuite) TestAuthenticationError(c *gc.C) {
+func (s *releaseSuite) TestAuthenticationError(c *gc.C) {
 	id := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "--channel", "stable")
+	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "--channel", "stable")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `ERROR cannot publish charm or bundle: unauthorized: access denied for user "bob"\n`)
+	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: unauthorized: access denied for user "bob"\n`)
 	c.Assert(code, gc.Equals, 1)
 }
 
-func (s *publishSuite) TestPublishInvalidChannel(c *gc.C) {
+func (s *releaseSuite) TestReleaseInvalidChannel(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "bad-wolf")
-	c.Assert(stderr, gc.Matches, `ERROR cannot publish charm or bundle: cannot publish to "bad-wolf"\n`)
+	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "-c", "bad-wolf")
+	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: unrecognized channel "bad-wolf"\n`)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 1)
 }
 
-func (s *publishSuite) TestPublishSuccess(c *gc.C) {
+func (s *releaseSuite) TestReleaseSuccess(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django-42")
 
 	// Upload a charm.
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-	// The stable entity is not published yet.
+	// The stable entity is not released yet.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 
-	// Publish the newly uploaded charm to the development channel.
-	stdout, stderr, code := run(c.MkDir(), "publish", id.String(), "-c", "development")
+	// Release the newly uploaded charm to the edge channel.
+	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "-c", "edge")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
 	c.Assert(code, gc.Equals, 0)
-	// The stable channel is not yet published, the development channel is.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	// The stable channel is not yet released, the edge channel is.
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
 
-	// Publish the newly uploaded charm to the stable channel.
-	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
+	// Release the newly uploaded charm to the stable channel.
+	stdout, stderr, code = run(c.MkDir(), "release", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
-	// Both development and stable channels are published.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	// Both edge and stable channels are released.
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 
-	// Publishing is idempotent.
-	stdout, stderr, code = run(c.MkDir(), "publish", id.String(), "-c", "stable")
+	// Releasing is idempotent.
+	stdout, stderr, code = run(c.MkDir(), "release", id.String(), "-c", "stable")
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 }
 
-func (s *publishSuite) TestPublishWithDefaultChannelSuccess(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithDefaultChannelSuccess(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django-42")
 
 	// Upload a charm.
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-	// The stable entity is not published yet.
+	// The stable entity is not released yet.
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
-	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
+	stdout, stderr, code := run(c.MkDir(), "release", id.String())
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
 }
 
-var publishDefaultChannelWarnings = []struct {
+var releaseDefaultChannelWarnings = []struct {
 	about        string
 	commonFields map[string]interface{}
 	name         string
@@ -179,8 +179,8 @@ var publishDefaultChannelWarnings = []struct {
 	warning: "",
 }}
 
-func (s *publishSuite) TestPublishWithDefaultChannelSuccessWithWarningIfBugsUrlAndHomePageAreNotSet(c *gc.C) {
-	for i, test := range publishDefaultChannelWarnings {
+func (s *releaseSuite) TestReleaseWithDefaultChannelSuccessWithWarningIfBugsURLAndHomePageAreNotSet(c *gc.C) {
+	for i, test := range releaseDefaultChannelWarnings {
 		c.Logf("test %d (%s): [%q]", i, test.about, test.commonFields)
 		id := charm.MustParseURL("~bob/wily/" + test.name + "-42")
 
@@ -189,9 +189,9 @@ func (s *publishSuite) TestPublishWithDefaultChannelSuccessWithWarningIfBugsUrlA
 		// Set bugs-url & homepage
 		err := s.client.PutCommonInfo(id, test.commonFields)
 		c.Assert(err, gc.IsNil)
-		// The stable entity is not published yet.
+		// The stable entity is not released yet.
 		c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
-		stdout, stderr, code := run(c.MkDir(), "publish", id.String())
+		stdout, stderr, code := run(c.MkDir(), "release", id.String())
 		c.Assert(stderr, gc.Matches, "")
 		c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/"+test.name+"-42\nchannel: stable\n"+test.warning)
 		c.Assert(code, gc.Equals, 0)
@@ -199,46 +199,46 @@ func (s *publishSuite) TestPublishWithDefaultChannelSuccessWithWarningIfBugsUrlA
 	}
 }
 
-func (s *publishSuite) TestPublishWithNoRevision(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithNoRevision(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django")
 
 	// Upload a charm.
-	stdout, stderr, code := run(c.MkDir(), "publish", id.String())
+	stdout, stderr, code := run(c.MkDir(), "release", id.String())
 	c.Assert(stderr, gc.Matches, "error: charm revision needs to be specified\n")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 2)
 }
 
-func (s *publishSuite) TestPublishPartialURL(c *gc.C) {
+func (s *releaseSuite) TestReleasePartialURL(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django-42")
 	ch := entitytesting.Repo.CharmDir("wordpress")
 
-	// Upload a couple of charms and and publish a stable charm.
+	// Upload a couple of charms and release a stable charm.
 	s.uploadCharmDir(c, id, -1, ch)
 	s.uploadCharmDir(c, id.WithRevision(43), -1, ch)
 	s.publish(c, id, params.StableChannel)
 
-	// Publish the stable charm as development.
-	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
+	// Release the stable charm as edge.
+	stdout, stderr, code := run(c.MkDir(), "release", "~bob/wily/django-42", "-c", "edge")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 }
 
-func (s *publishSuite) TestPublishAndShow(c *gc.C) {
+func (s *releaseSuite) TestReleaseAndShow(c *gc.C) {
 	id := charm.MustParseURL("~bob/wily/django-42")
 	ch := entitytesting.Repo.CharmDir("wordpress")
 
-	// Upload a couple of charms and and publish a stable charm.
+	// Upload a couple of charms and release a stable charm.
 	s.uploadCharmDir(c, id, -1, ch)
 	s.uploadCharmDir(c, id.WithRevision(43), -1, ch)
 
-	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/wily/django-42", "-c", "development")
+	stdout, stderr, code := run(c.MkDir(), "release", "~bob/wily/django-42", "-c", "edge")
 	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: development\n")
+	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
 	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.DevelopmentChannel), gc.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
 
 	stdout, stderr, code = run(c.MkDir(), "show", "--format=json", "~bob/wily/django-42", "published")
 	c.Assert(stderr, gc.Matches, "")
@@ -248,10 +248,10 @@ func (s *publishSuite) TestPublishAndShow(c *gc.C) {
 	c.Assert(err, gc.IsNil)
 	c.Assert(len(result), gc.Equals, 1)
 	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface{})[0], gc.DeepEquals,
-		map[string]interface{}{"Channel": "development", "Current": true})
+		map[string]interface{}{"Channel": "edge", "Current": true})
 }
 
-func (s *publishSuite) TestPublishWithResources(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithResources(c *gc.C) {
 	// Note we include one resource with a hyphen in the name,
 	// just to make sure the resource flag parsing code works OK
 	// in that case.
@@ -268,7 +268,7 @@ func (s *publishSuite) TestPublishWithResources(c *gc.C) {
 	_, err = s.client.UploadResource(id, "resource2", "", strings.NewReader("resource2 content rev 1"))
 	c.Assert(err, gc.IsNil)
 
-	stdout, stderr, code := run(c.MkDir(), "publish", "~bob/precise/wordpress-0", "--resource=resource1-name-0", "-r", "resource2-1")
+	stdout, stderr, code := run(c.MkDir(), "release", "~bob/precise/wordpress-0", "--resource=resource1-name-0", "-r", "resource2-1")
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(stdout, gc.Equals, `
 url: cs:~bob/precise/wordpress-0
@@ -283,7 +283,6 @@ warning: bugs-url and homepage are not set.  See set command.
 		Name:        "resource1-name",
 		Type:        "file",
 		Path:        "resource1-name-file",
-		Origin:      "store",
 		Revision:    0,
 		Fingerprint: hashOfString("resource1 content"),
 		Size:        int64(len("resource1 content")),
@@ -292,7 +291,6 @@ warning: bugs-url and homepage are not set.  See set command.
 		Name:        "resource2",
 		Type:        "file",
 		Path:        "resource2-file",
-		Origin:      "store",
 		Revision:    1,
 		Fingerprint: hashOfString("resource2 content rev 1"),
 		Size:        int64(len("resource2 content rev 1")),
@@ -302,7 +300,7 @@ warning: bugs-url and homepage are not set.  See set command.
 
 // entityRevision returns the entity revision for the given id and channel.
 // The function returns -1 if the entity is not found.
-func (s *publishSuite) entityRevision(id *charm.URL, channel params.Channel) int {
+func (s *releaseSuite) entityRevision(id *charm.URL, channel params.Channel) int {
 	client := s.client.WithChannel(channel)
 	var resp params.IdRevisionResponse
 	err := client.Get("/"+id.Path()+"/meta/id-revision", &resp)

@@ -21,7 +21,7 @@ type grantCommand struct {
 	auth    authInfo
 	acl     string
 	set     bool
-	channel string
+	channel chanValue
 
 	// Validated options used in Run(...).
 	addReads  []string
@@ -47,7 +47,7 @@ The --set parameters is used to overwrite any existing ACLs for the charm or bun
 
 To select a channel, use the --channel option, for instance:
 
-    charm grant ~johndoe/wordpress --channel development --acl write --set fred,bob
+    charm grant ~johndoe/wordpress --channel edge --acl write --set fred,bob
 `
 
 func (c *grantCommand) Info() *cmd.Info {
@@ -61,7 +61,7 @@ func (c *grantCommand) Info() *cmd.Info {
 
 func (c *grantCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
-	addChannelFlag(f, &c.channel)
+	addChannelFlag(f, &c.channel, nil)
 	f.StringVar(&c.acl, "acl", "read", "read|write")
 	f.BoolVar(&c.set, "set", false, "overwrite the current acl")
 }
@@ -115,15 +115,12 @@ func (c *grantCommand) Init(args []string) error {
 }
 
 func (c *grantCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, c.auth)
+	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
 
-	if c.channel != "" {
-		client.Client = client.Client.WithChannel(params.Channel(c.channel))
-	}
 	// Perform the request to change the permissions on the charm store.
 	if err := c.changePerms(client); err != nil {
 		return errgo.Mask(err)

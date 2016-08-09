@@ -259,12 +259,12 @@ func (s *showSuite) TestSuccessfulWithChannel(c *gc.C) {
 	s.uploadCharmDir(c, url.WithRevision(43), -1, ch)
 	s.publish(c, url.WithRevision(41), params.StableChannel)
 
-	s.publish(c, url.WithRevision(42), params.DevelopmentChannel)
+	s.publish(c, url.WithRevision(42), params.EdgeChannel)
 
 	dir := c.MkDir()
 
-	// Test with the development channel
-	stdout, stderr, code := run(dir, "show", url.String(), "--format=json", "id-revision", "-c", "development")
+	// Test with the edge channel.
+	stdout, stderr, code := run(dir, "show", url.String(), "--format=json", "id-revision", "-c", "edge")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 
@@ -274,7 +274,7 @@ func (s *showSuite) TestSuccessfulWithChannel(c *gc.C) {
 	c.Assert(len(result), gc.Equals, 1)
 	c.Assert(result["id-revision"].(map[string]interface{})["Revision"], gc.Equals, float64(42))
 
-	// Test with the stable channel
+	// Test with the stable channel.
 	stdout, stderr, code = run(dir, "show", url.String(), "--format=json", "id-revision")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
