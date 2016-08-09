@@ -59,17 +59,17 @@ func New() *cmd.SuperCommand {
 	c.Register(&attachCommand{})
 	c.Register(&grantCommand{})
 	c.Register(&listCommand{})
+	c.Register(&listResourcesCommand{})
 	c.Register(&loginCommand{})
 	c.Register(&logoutCommand{})
-	c.Register(&publishCommand{})
 	c.Register(&pullCommand{})
 	c.Register(&pushCommand{})
+	c.Register(&releaseCommand{})
 	c.Register(&revokeCommand{})
 	c.Register(&setCommand{})
 	c.Register(&showCommand{})
 	c.Register(&termsCommand{})
 	c.Register(&whoamiCommand{})
-	c.Register(&listResourcesCommand{})
 	c.AddHelpTopicCallback(
 		"plugins",
 		"Show "+c.Name+" plugins",

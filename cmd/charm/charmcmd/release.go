@@ -16,7 +16,7 @@ import (
 	"launchpad.net/gnuflag"
 )
 
-type publishCommand struct {
+type releaseCommand struct {
 	cmd.CommandBase
 
 	id      *charm.URL
@@ -26,39 +26,39 @@ type publishCommand struct {
 	resources resourceMap
 }
 
-var publishDoc = `
-The publish command publishes a charm or bundle in the charm store.
-Publishing is the action of assigning one channel to a specific charm
+var releaseDoc = `
+The release command publishes a charm or bundle to the charm store.
+Releasing is the action of assigning one channel to a specific charm
 or bundle revision (revision need to be specified), so that it can be shared
 with other users and also referenced without specifying the revision.
-Two channels are supported: "stable" and "edge"; the "stable" channel is
-used by default.
+Four channels are supported: "stable", "candidate", "beta" and "edge";
+the "stable" channel is used by default.
 
-    charm publish ~bob/trusty/wordpress
+    charm release ~bob/trusty/wordpress
 
 To select another channel, use the --channel option, for instance:
 
-    charm publish ~bob/trusty/wordpress --channel stable
-    charm publish wily/django-42 -c edge --resource website-3 --resource data-2
+    charm release ~bob/trusty/wordpress --channel beta
+    charm release wily/django-42 -c edge --resource website-3 --resource data-2
 
 If your charm uses resources, you must specify what revision of each resource
 will be published along with the charm, using the --resource flag (one per
 resource). Note that resource info is embedded in bundles, so you cannot use
 this flag with bundles.
 
-    charm publish wily/django-42 --resource website-3 --resource data-2
+    charm release wily/django-42 --resource website-3 --resource data-2
 `
 
-func (c *publishCommand) Info() *cmd.Info {
+func (c *releaseCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "publish",
+		Name:    "release",
 		Args:    "<charm or bundle id> [--channel <channel>]",
-		Purpose: "publish a charm or bundle",
-		Doc:     publishDoc,
+		Purpose: "release a charm or bundle",
+		Doc:     releaseDoc,
 	}
 }
 
-func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
+func (c *releaseCommand) SetFlags(f *gnuflag.FlagSet) {
 	channels := make([]params.Channel, 0, len(params.OrderedChannels)-1)
 	for _, ch := range params.OrderedChannels {
 		if ch != params.UnpublishedChannel {
@@ -74,7 +74,7 @@ func (c *publishCommand) SetFlags(f *gnuflag.FlagSet) {
 	f.Var(&c.resources, "r", "resource to be published with the charm")
 }
 
-func (c *publishCommand) Init(args []string) error {
+func (c *releaseCommand) Init(args []string) error {
 	if len(args) == 0 {
 		return errgo.New("no charm or bundle id specified")
 	}
@@ -94,11 +94,11 @@ func (c *publishCommand) Init(args []string) error {
 	return nil
 }
 
-var publishCharm = func(client *csclient.Client, id *charm.URL, channels []params.Channel, resources map[string]int) error {
+var releaseCharm = func(client *csclient.Client, id *charm.URL, channels []params.Channel, resources map[string]int) error {
 	return client.Publish(id, channels, resources)
 }
 
-func (c *publishCommand) Run(ctxt *cmd.Context) error {
+func (c *releaseCommand) Run(ctxt *cmd.Context) error {
 	// Instantiate the charm store client.
 	client, err := newCharmStoreClient(ctxt, c.auth, params.NoChannel)
 	if err != nil {
@@ -106,9 +106,9 @@ func (c *publishCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer client.jar.Save()
 
-	err = publishCharm(client.Client, c.id, []params.Channel{c.channel.C}, c.resources)
+	err = releaseCharm(client.Client, c.id, []params.Channel{c.channel.C}, c.resources)
 	if err != nil {
-		return errgo.Notef(err, "cannot publish charm or bundle")
+		return errgo.Notef(err, "cannot release charm or bundle")
 	}
 	fmt.Fprintln(ctxt.Stdout, "url:", c.id)
 	fmt.Fprintln(ctxt.Stdout, "channel:", c.channel.C)
