@@ -346,10 +346,13 @@ var whiteListedCommands = map[string]bool{
 	"list":           false, // list is an internal command.
 	"promulgate":     false, // promulgate is an internal command.
 	"proof":          true,
+	"push-term":      true,
 	"refresh":        true,
+	"release-term":   true,
 	"review":         true,
 	"review-queue":   true,
 	"search":         true,
+	"show-term":      true,
 	"subscibers":     true,
 	"test":           true,
 	"tools-commands": false, // charm-tools-commands is reserved for whitelist extension.
