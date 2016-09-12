@@ -12,6 +12,7 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/yaml.v2"
 
+	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -139,7 +140,7 @@ func (s *showSuite) TestAllInfo(c *gc.C) {
 	s.uploadCharmDir(c, url, -1, ch)
 
 	dir := c.MkDir()
-	stdout, stderr, code := run(dir, "show", url.String(), "--format=json")
+	stdout, stderr, code := run(dir, "show", url.String(), "--format=json", "--all")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(code, gc.Equals, 0)
 
@@ -149,6 +150,26 @@ func (s *showSuite) TestAllInfo(c *gc.C) {
 	c.Assert(result["charm-metadata"], gc.NotNil)
 	c.Assert(result["archive-size"], gc.NotNil)
 	c.Assert(result["common-info"], gc.NotNil)
+}
+
+func (s *showSuite) TestSummaryInfo(c *gc.C) {
+	ch := entitytesting.Repo.CharmDir("wordpress")
+	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
+	s.uploadCharmDir(c, url, -1, ch)
+
+	dir := c.MkDir()
+	stdout, stderr, code := run(dir, "show", url.String(), "--format=json")
+	c.Assert(stderr, gc.Equals, "")
+	c.Assert(code, gc.Equals, 0)
+
+	var result map[string]interface{}
+	err := json.Unmarshal([]byte(stdout), &result)
+	c.Assert(err, gc.IsNil)
+	for _, v := range charmcmd.DEFAULT_SUMMARY_FIELDS {
+		if v != "bundle-metadata" {
+			c.Assert(result[v], gc.NotNil)
+		}
+	}
 }
 
 func (s *showSuite) TestBugsURL(c *gc.C) {
