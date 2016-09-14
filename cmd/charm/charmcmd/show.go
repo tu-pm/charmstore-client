@@ -55,7 +55,8 @@ To get a list of metadata available:
 
 var DEFAULT_SUMMARY_FIELDS = []string{
 	"perm", "charm-metadata", "bundle-metadata",
-	"bugs-url", "homepage", "published", "promulgated", "owner", "terms", "id-name", "id-revision",
+	"bugs-url", "homepage", "published", "promulgated", "owner", "terms", 
+	"id-name", "id-revision", "supported-series",
 }
 
 func (c *showCommand) Info() *cmd.Info {
@@ -232,36 +233,41 @@ type showData struct {
 	tw              *tabwriter.Writer
 }
 
-func newShowData(out io.Writer, metadada map[string]interface{}) showData {
+func newShowData(out io.Writer, metadata map[string]interface{}) showData {
 	sd := showData{}
 	sd.tw = tabwriter.NewWriter(out, 0, 8, 8, '\t', 0)
-	sd.revision = int((metadada["id-revision"].(map[string]interface{}))["Revision"].(float64))
-	sd.promulgated = (metadada["promulgated"].(map[string]interface{}))["Promulgated"].(bool)
-	sd.owner = (metadada["owner"].(map[string]interface{}))["User"].(string)
-	sd.bugsUrl = metadada["bugs-url"].(string)
-	sd.homePage = metadada["homepage"].(string)
-	if val, ok := metadada["terms"]; ok {
+	sd.revision = int((metadata["id-revision"].(map[string]interface{}))["Revision"].(float64))
+	sd.promulgated = (metadata["promulgated"].(map[string]interface{}))["Promulgated"].(bool)
+	sd.owner = (metadata["owner"].(map[string]interface{}))["User"].(string)
+	sd.bugsUrl = metadata["bugs-url"].(string)
+	sd.homePage = metadata["homepage"].(string)
+	if val, ok := metadata["terms"]; ok {
 		sd.terms = toStringArray(val.([]interface{}))
 	}
-	sd.name = (metadada["id-name"].(map[string]interface{}))["Name"].(string)
-	perms := metadada["perm"].(map[string]interface{})
+	sd.name = (metadata["id-name"].(map[string]interface{}))["Name"].(string)
+	perms := metadata["perm"].(map[string]interface{})
 	sd.read = toStringArray(perms["Read"].([]interface{}))
 	sd.write = toStringArray(perms["Write"].([]interface{}))
-	sd.channels = (metadada["published"].(map[string]interface{}))["Info"].([]interface{})
-	if val, ok := metadada["charm-metadata"]; ok {
+	sd.channels = (metadata["published"].(map[string]interface{}))["Info"].([]interface{})
+	if val, ok := metadata["charm-metadata"]; ok {
 		charmMetadata := val.(map[string]interface{})
 		sd.summary = charmMetadata["Summary"].(string)
-		sd.supportedseries = toStringArray(charmMetadata["SupportedSeries"].([]interface{}))
 		sd.tags = toStringArray(charmMetadata["Tags"].([]interface{}))
 		sd.subordinate = charmMetadata["Subordinate"].(bool)
 	}
-	if _, ok := metadada["bundle-metadata"]; ok {
+	if _, ok := metadata["bundle-metadata"]; ok {
 		sd.bundle = true
+	}
+	if val, ok := metadata["supported-series"]; ok {
+		sd.supportedseries = toStringArray((val.(map[string]interface{}))["SupportedSeries"].([]interface{}))
 	}
 	return sd
 }
 
 func (s *showData) formatTabular() {
+	if !s.bundle {
+		fmt.Fprintf(s.tw, "%s\n\n", s.summary)
+	}
 	fmt.Fprintf(s.tw, "%s\t%s\n", "Name", s.name)
 	fmt.Fprintf(s.tw, "%s\t%s\n", "Owner", s.owner)
 	fmt.Fprintf(s.tw, "%s\t%d\n", "Revision", s.revision)
@@ -289,7 +295,6 @@ func (s *showData) printChannels() {
 
 func (s *showData) printCharmMetadata() {
 	if !s.bundle {
-		fmt.Fprintf(s.tw, "%s\t%s\n", "Summary", s.summary)
 		fmt.Fprintf(s.tw, "Supported Series\t%s\n", strings.Join(s.supportedseries, ", "))
 		fmt.Fprintf(s.tw, "Tags\t%s\n", strings.Join(s.tags, ", "))
 		fmt.Fprintf(s.tw, "%s\t%t\n", "Subordinate", s.subordinate)
