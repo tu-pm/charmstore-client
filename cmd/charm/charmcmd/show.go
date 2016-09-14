@@ -15,8 +15,8 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"launchpad.net/gnuflag"
-	"text/tabwriter"
 	"strings"
+	"text/tabwriter"
 )
 
 type showCommand struct {
@@ -262,59 +262,44 @@ func newShowData(out io.Writer, metadada map[string]interface{}) showData {
 }
 
 func (s *showData) formatTabular() {
-	fmt.Fprintf(s.tw, "%s\t%s", "Name", s.name)
-	fmt.Fprintln(s.tw)
-	fmt.Fprintf(s.tw, "%s\t%s", "Owner", s.owner)
-	fmt.Fprintln(s.tw)
-	fmt.Fprintf(s.tw, "%s\t%d", "Revision", s.revision)
-	fmt.Fprintln(s.tw)
+	fmt.Fprintf(s.tw, "%s\t%s\n", "Name", s.name)
+	fmt.Fprintf(s.tw, "%s\t%s\n", "Owner", s.owner)
+	fmt.Fprintf(s.tw, "%s\t%d\n", "Revision", s.revision)
 	s.printCharmMetadata()
-	fmt.Fprintf(s.tw, "%s\t%t", "Promulgated", s.promulgated)
-	fmt.Fprintln(s.tw)
-	fmt.Fprintf(s.tw, "%s\t%s", "Home page", s.homePage)
-	fmt.Fprintln(s.tw)
-	fmt.Fprintf(s.tw, "%s\t%s", "Bugs url", s.bugsUrl)
-	fmt.Fprintln(s.tw)
-	fmt.Fprintf(s.tw, "Read\t%s", strings.Join(s.read, ", "))
-	fmt.Fprintln(s.tw)
-	fmt.Fprintf(s.tw, "Write\t%s", strings.Join(s.write, ", "))
-	fmt.Fprintln(s.tw)
+	fmt.Fprintf(s.tw, "%s\t%t\n", "Promulgated", s.promulgated)
+	fmt.Fprintf(s.tw, "%s\t%s\n", "Home page", s.homePage)
+	fmt.Fprintf(s.tw, "%s\t%s\n", "Bugs url", s.bugsUrl)
+	fmt.Fprintf(s.tw, "Read\t%s\n", strings.Join(s.read, ", "))
+	fmt.Fprintf(s.tw, "Write\t%s\n", strings.Join(s.write, ", "))
 	if len(s.terms) > 0 {
-		fmt.Fprintf(s.tw, "Terms\t%s", strings.Join(s.terms, ", "))
-		fmt.Fprintln(s.tw)
+		fmt.Fprintf(s.tw, "Terms\t%s\n", strings.Join(s.terms, ", "))
 	}
 	s.printChannels()
 }
 
 func (s *showData) printChannels() {
 	fmt.Fprintln(s.tw, " \t ")
-	fmt.Fprint(s.tw, "CHANNEL\tCURRENT")
-	fmt.Fprintln(s.tw)
+	fmt.Fprint(s.tw, "CHANNEL\tCURRENT\n")
 	for _, v := range s.channels {
 		channel := v.(map[string]interface{})
 		fmt.Fprintf(s.tw, "%s\t", channel["Channel"])
-		fmt.Fprintf(s.tw, "%t\t", channel["Current"])
-		fmt.Fprintln(s.tw)
+		fmt.Fprintf(s.tw, "%t\t\n", channel["Current"])
 	}
 }
 
 func (s *showData) printCharmMetadata() {
 	if !s.bundle {
-		fmt.Fprintf(s.tw, "%s\t%s", "Summary", s.summary)
-		fmt.Fprintln(s.tw)
-		fmt.Fprintf(s.tw, "Supported Series\t%s", strings.Join(s.supportedseries, ", "))
-		fmt.Fprintln(s.tw)
-		fmt.Fprintf(s.tw, "Tags\t%s", strings.Join(s.tags, ", "))
-		fmt.Fprintln(s.tw)
-		fmt.Fprintf(s.tw, "%s\t%t", "Subordinate", s.subordinate)
-		fmt.Fprintln(s.tw)
+		fmt.Fprintf(s.tw, "%s\t%s\n", "Summary", s.summary)
+		fmt.Fprintf(s.tw, "Supported Series\t%s\n", strings.Join(s.supportedseries, ", "))
+		fmt.Fprintf(s.tw, "Tags\t%s\n", strings.Join(s.tags, ", "))
+		fmt.Fprintf(s.tw, "%s\t%t\n", "Subordinate", s.subordinate)
 	}
 }
 
 func toStringArray(a []interface{}) []string {
 	b := make([]string, len(a))
-	for i := range b {
-		b[i] = a[i].(string)
+	for i, s := range a {
+		b[i] = s.(string)
 	}
 	return b
 }
