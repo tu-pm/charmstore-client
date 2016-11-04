@@ -39,7 +39,7 @@ golang.org/x/net	git	ea47fc708ee3e20177f3ca3716217c4ab75942cb	2015-08-29T23:03:1
 gopkg.in/check.v1	git	4f90aeace3a26ad7021961c297b22c42160c7b25	2016-01-05T16:49:36Z
 gopkg.in/errgo.v1	git	66cb46252b94c1f3d65646f54ee8043ab38d766c	2015-10-07T15:31:57Z
 gopkg.in/juju/charm.v6-unstable	git	a3bb92d047b0892452b6a39ece59b4d3a2ac35b9	2016-07-22T08:34:31Z
-gopkg.in/juju/charmrepo.v2-unstable	git	d4ef779a4aa30acc2b281f5b0f23c8fb4004a45d	2016-08-09T13:52:27Z
+gopkg.in/juju/charmrepo.v2-unstable	git	ebce73e0a84fd51539a2dc96211eb6f125c0b65d	2016-11-04T12:33:57Z
 gopkg.in/juju/charmstore.v5-unstable	git	714c25cd43dbb8eb51f57a55d76d521fc2126455	2016-08-09T13:45:06Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/jujusvg.v2	git	d82160011935ef79fc7aca84aba2c6f74700fe75	2016-06-09T10:52:15Z
