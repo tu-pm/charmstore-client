@@ -4,13 +4,15 @@
 package charmcmd
 
 import (
+	"fmt"
+	"io"
 	"sort"
 
 	"github.com/gosuri/uitable"
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 )
 
 type termsCommand struct {
@@ -109,20 +111,19 @@ func (c *termsCommand) Run(ctxt *cmd.Context) error {
 }
 
 // formatTermsTabular returns a tabular summary of terms owned by the user.
-func formatTermsTabular(value interface{}) ([]byte, error) {
-	terms, ok := value.(map[string][]string)
+func formatTermsTabular(w io.Writer, terms0 interface{}) error {
+	terms, ok := terms0.(map[string][]string)
 	if !ok {
-		return nil, errgo.Newf("expected value of type %T, got %T", terms, value)
+		return errgo.Newf("expected value of type %T", terms0)
 	}
 	if len(terms) == 0 {
-		return []byte("No terms found."), nil
+		fmt.Fprint(w, "No terms found.")
+		return nil
 	}
 
-	sortedTerms := make([]string, len(terms))
-	i := 0
+	sortedTerms := make([]string, 0, len(terms))
 	for term := range terms {
-		sortedTerms[i] = term
-		i++
+		sortedTerms = append(sortedTerms, term)
 	}
 	sort.Strings(sortedTerms)
 
@@ -142,5 +143,6 @@ func formatTermsTabular(value interface{}) ([]byte, error) {
 		}
 	}
 
-	return []byte(table.String()), nil
+	fmt.Fprint(w, table.String())
+	return nil
 }

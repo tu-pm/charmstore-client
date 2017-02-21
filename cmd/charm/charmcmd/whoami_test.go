@@ -17,10 +17,10 @@ import (
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmstore.v5-unstable"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon.v2-unstable"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
@@ -36,7 +36,7 @@ func (s *whoamiSuite) SetUpTest(c *gc.C) {
 	s.srv.Close()
 	s.handler.Close()
 	s.idsrv = idmtest.NewServer()
-	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
+	s.idsrv.AddUser("test-user")
 	s.idsrv.SetDefaultUser("test-user")
 	s.serverParams = charmstore.ServerParams{
 		AuthUsername:     "test-user",
@@ -84,6 +84,7 @@ func (s *whoamiSuite) TestLoggedIn(c *gc.C) {
 	err = jar.Save()
 	c.Assert(err, gc.IsNil)
 
+	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 0)
@@ -114,6 +115,7 @@ func (s *whoamiSuite) TestSuccessJSON(c *gc.C) {
 	addFakeCookieToJar(c, jar)
 	err = jar.Save()
 	c.Assert(err, gc.IsNil)
+	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
 
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami", "--format=json")
 	c.Assert(stderr, gc.Equals, "")
@@ -134,6 +136,7 @@ func (s *whoamiSuite) TestSuccessYAML(c *gc.C) {
 	addFakeCookieToJar(c, jar)
 	err = jar.Save()
 	c.Assert(err, gc.IsNil)
+	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
 
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami", "--format=yaml")
 	c.Assert(stderr, gc.Equals, "")
@@ -183,7 +186,7 @@ func addFakeCookieToJar(c *gc.C, jar *cookiejar.Jar) {
 		Key: key,
 	})
 	c.Assert(err, gc.IsNil)
-	idm, err := idsvc.NewMacaroon("", nil, []checkers.Caveat{
+	idm, err := idsvc.NewMacaroon([]checkers.Caveat{
 		checkers.DeclaredCaveat("username", "test-user"),
 		checkers.TimeBeforeCaveat(time.Now().Add(24 * time.Hour)),
 	})

@@ -13,8 +13,8 @@ import (
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/publicsuffix"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon.v1"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon.v2-unstable"
 )
 
 type loginSuite struct {

@@ -4,12 +4,14 @@
 package charmcmd
 
 import (
+	"fmt"
+	"io"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 )
 
 type listCommand struct {
@@ -33,17 +35,19 @@ func (c *listCommand) Info() *cmd.Info {
 	}
 }
 
-func formatText(value interface{}) ([]byte, error) {
+func formatText(w io.Writer, value interface{}) error {
 	val := value.([]params.EntityResult)
 	if len(val) == 0 {
-		return []byte("No charms found."), nil
+		fmt.Fprint(w, "No charms found.")
+		return nil
 	}
 	ids := make([]string, len(val))
 	for i, result := range val {
 		ids[i] = result.Id.String()
 	}
 	s := strings.Join(ids, "\n")
-	return []byte(s), nil
+	fmt.Fprint(w, s)
+	return nil
 }
 
 func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {

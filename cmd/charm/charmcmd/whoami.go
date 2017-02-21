@@ -5,14 +5,15 @@ package charmcmd
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"sort"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 )
 
 type whoamiCommand struct {
@@ -43,14 +44,14 @@ func (c *whoamiCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 }
 
-func (c *whoamiCommand) formatText(value interface{}) ([]byte, error) {
-	resp := value.(*params.WhoAmIResponse)
-	out := fmt.Sprintln("User:", resp.User)
+func (c *whoamiCommand) formatText(w io.Writer, resp0 interface{}) error {
+	resp := resp0.(*params.WhoAmIResponse)
+	fmt.Fprintln(w, "User:", resp.User)
 	if len(resp.Groups) > 0 {
 		sort.Strings(resp.Groups)
-		out = fmt.Sprint(out, "Group membership: ", strings.Join(resp.Groups, ", "))
+		fmt.Fprint(w, "Group membership: ", strings.Join(resp.Groups, ", "))
 	}
-	return []byte(out), nil
+	return nil
 }
 
 func (c *whoamiCommand) Run(ctxt *cmd.Context) error {

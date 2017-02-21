@@ -13,7 +13,7 @@ import (
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	charmtesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -91,7 +91,7 @@ func (s *releaseSuite) TestAuthenticationError(c *gc.C) {
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
 	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "--channel", "stable")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: unauthorized: access denied for user "bob"\n`)
+	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: access denied for user "bob"\n`)
 	c.Assert(code, gc.Equals, 1)
 }
 
