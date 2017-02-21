@@ -6,6 +6,7 @@ package charmcmd
 import (
 	"fmt"
 	"os"
+	"net/url"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -20,8 +21,9 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	esform "gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	httpbakery2 "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	hbform "gopkg.in/macaroon-bakery.v1/httpbakery/form"
-	"launchpad.net/gnuflag"
+	"github.com/juju/gnuflag"
 )
 
 var logger = loggo.GetLogger("charm.cmd.charm")
@@ -128,8 +130,13 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 		In:  ctxt.Stdin,
 		Out: ctxt.Stdout,
 	}
+	bakeryClient2 := httpbakery2.NewClient()
+	bakeryClient2.Jar = jar
 	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
-		ussologin.NewVisitor("charm", filler, tokenStore),
+		visitorAdaptor{
+			client2: bakeryClient2,
+			visitor2: ussologin.NewVisitor("charm", filler, tokenStore),
+		},
 		hbform.Visitor{filler},
 		httpbakery.WebBrowserVisitor,
 	)
@@ -261,4 +268,25 @@ func translateInteractionError(err *httpbakery.InteractionError) error {
 		return errgo.Newf("%s: %s", k, v)
 	}
 	return ussoError
+}
+
+// visitorAdaptor implements httpbakery.Visitor (v1 bakery) by calling a
+// v2-unstable Visitor implementation. This is a temporary necessity
+// because tests use v2 bakery because the charmstore server
+// implementation uses that version, but the charmstore client must use
+// v1 bakery because charmrepo uses that version (and can't move away
+// from it until juju is updated to use bakery.v2).
+//
+// The conflict comes from the fact that both client and server side use
+// idmclient, which is not versioned.
+//
+// This adaptor makes it possible to use the ussologin Visitor
+// implementation in the v1 bakery client.
+type visitorAdaptor struct {
+	client2 *httpbakery2.Client
+	visitor2 httpbakery2.Visitor
+}
+
+func (a visitorAdaptor) VisitWebPage(c *httpbakery.Client, u map[string]*url.URL) error {
+	return a.visitor2.VisitWebPage(a.client2, u)
 }
