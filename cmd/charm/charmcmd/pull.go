@@ -11,11 +11,11 @@ import (
 	"os"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 )
 
 type pullCommand struct {

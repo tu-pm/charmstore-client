@@ -25,10 +25,10 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	"gopkg.in/juju/charmstore.v5-unstable"
-	"gopkg.in/macaroon-bakery.v1/bakery"
-	"gopkg.in/macaroon-bakery.v1/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v1/bakerytest"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
+	httpbakery1 "gopkg.in/macaroon-bakery.v1/httpbakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
@@ -243,13 +243,13 @@ var translateErrorTests = []struct {
 	err:   errgo.New("test error"),
 }, {
 	about: "interaction error",
-	err: &httpbakery.InteractionError{
+	err: &httpbakery1.InteractionError{
 		Reason: errgo.New("test error"),
 	},
 	expectError: "login failed: test error",
 }, {
 	about: "Ubuntu SSO error",
-	err: &httpbakery.InteractionError{
+	err: &httpbakery1.InteractionError{
 		Reason: &usso.Error{
 			Message: "test usso error",
 		},
@@ -257,7 +257,7 @@ var translateErrorTests = []struct {
 	expectError: "login failed: test usso error",
 }, {
 	about: "Ubuntu SSO INVALID_DATA error without extra info",
-	err: &httpbakery.InteractionError{
+	err: &httpbakery1.InteractionError{
 		Reason: &usso.Error{
 			Code:    "INVALID_DATA",
 			Message: "invalid data",
@@ -266,7 +266,7 @@ var translateErrorTests = []struct {
 	expectError: "login failed: invalid data",
 }, {
 	about: "Ubuntu SSO INVALID_DATA with extra info",
-	err: &httpbakery.InteractionError{
+	err: &httpbakery1.InteractionError{
 		Reason: &usso.Error{
 			Code: "INVALID_DATA",
 			Extra: map[string]interface{}{
@@ -277,7 +277,7 @@ var translateErrorTests = []struct {
 	expectError: "login failed: key: value",
 }, {
 	about: "Ubuntu SSO INVALID_DATA with email extra info",
-	err: &httpbakery.InteractionError{
+	err: &httpbakery1.InteractionError{
 		Reason: &usso.Error{
 			Code: "INVALID_DATA",
 			Extra: map[string]interface{}{

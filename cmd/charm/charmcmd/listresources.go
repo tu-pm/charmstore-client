@@ -4,16 +4,15 @@
 package charmcmd
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"text/tabwriter"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 )
 
 var listResourcesInfo = cmd.Info{
@@ -96,25 +95,18 @@ func (c *listResourcesCommand) Run(ctx *cmd.Context) error {
 	return c.Write(ctx, resources)
 }
 
-func tabularFormatter(resources interface{}) ([]byte, error) {
-	typedResources, ok := resources.([]params.Resource)
+func tabularFormatter(w io.Writer, resources0 interface{}) error {
+	resources, ok := resources0.([]params.Resource)
 	if ok == false {
-		return nil, errgo.Newf("unexpected type provided: %T", resources)
+		return errgo.Newf("unexpected type provided: %T", resources)
 	}
-
-	var buffer bytes.Buffer
-	formatTabular(&buffer, typedResources)
-	return buffer.Bytes(), nil
-}
-
-func formatTabular(out io.Writer, resources []params.Resource) {
 	if len(resources) == 0 {
-		fmt.Fprintf(out, "No resources found.")
-		return
+		fmt.Fprintf(w, "No resources found.")
+		return nil
 	}
 
-	fmt.Fprintln(out, "[Service]")
-	tw := tabwriter.NewWriter(out, 0, 1, 1, ' ', 0)
+	fmt.Fprintln(w, "[Service]")
+	tw := tabwriter.NewWriter(w, 0, 1, 1, ' ', 0)
 	defer tw.Flush()
 	fmt.Fprintln(tw, "RESOURCE\tREVISION")
 
@@ -126,4 +118,5 @@ func formatTabular(out io.Writer, resources []params.Resource) {
 			r.Revision,
 		)
 	}
+	return nil
 }

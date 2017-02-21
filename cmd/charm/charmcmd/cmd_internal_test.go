@@ -4,11 +4,11 @@
 package charmcmd
 
 import (
+	"github.com/juju/gnuflag"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
 )
 
 type cmdAuthInfoSuite struct {

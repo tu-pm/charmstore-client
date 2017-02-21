@@ -8,9 +8,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
 )
 
 type setCommand struct {

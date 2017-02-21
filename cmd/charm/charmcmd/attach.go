@@ -9,9 +9,9 @@ import (
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
-	"launchpad.net/gnuflag"
 )
 
 type attachCommand struct {
@@ -27,7 +27,7 @@ type attachCommand struct {
 var attachDoc = `
 The attach command uploads a file as a new resource for a charm.
 
-   charm attach ~user/trusty/wordpress website-data ./foo.zip
+   charm attach ~user/trusty/wordpress website-data=./foo.zip
 
 `
 

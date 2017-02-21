@@ -4,19 +4,18 @@
 package charmcmd
 
 import (
-	"bytes"
 	"fmt"
 	"io"
 	"net/url"
 	"sort"
+	"strings"
+	"text/tabwriter"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"launchpad.net/gnuflag"
-	"strings"
-	"text/tabwriter"
 )
 
 type showCommand struct {
@@ -55,7 +54,7 @@ To get a list of metadata available:
 
 var DEFAULT_SUMMARY_FIELDS = []string{
 	"perm", "charm-metadata", "bundle-metadata",
-	"bugs-url", "homepage", "published", "promulgated", "owner", "terms", 
+	"bugs-url", "homepage", "published", "promulgated", "owner", "terms",
 	"id-name", "id-revision", "supported-series",
 }
 
@@ -199,19 +198,18 @@ func handleIncludes(includes []string) (bool, []string, []string) {
 }
 
 // FormatSummaryTabular marshals the summary to a tabular-formatted []byte.
-func (c *showCommand) FormatSummaryTabular(meta interface{}) ([]byte, error) {
+func (c *showCommand) FormatSummaryTabular(w io.Writer, meta0 interface{}) error {
 	if !c.summary {
-		return cmd.FormatYaml(meta)
+		return cmd.FormatYaml(w, meta0)
 	}
-	metadata, ok := meta.(map[string]interface{})
-	if ok == false {
-		return nil, errgo.Newf("unexpected type provided: %T", metadata)
+	meta, ok := meta0.(map[string]interface{})
+	if !ok {
+		return errgo.Newf("unexpected type provided: %T", meta0)
 	}
-	var buffer bytes.Buffer
-	sd := newShowData(&buffer, metadata)
+	sd := newShowData(w, meta)
 	sd.formatTabular()
 	sd.tw.Flush()
-	return buffer.Bytes(), nil
+	return nil
 }
 
 type showData struct {
