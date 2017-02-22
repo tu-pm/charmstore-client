@@ -143,13 +143,8 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	default:
 		if charm.IsCharmDir(srcDir) {
 			ch, err = charm.ReadCharmDir(srcDir)
-			if err == nil {
-				break
-			}
 		} else {
-			if b, err = charm.ReadBundleDir(srcDir); err == nil {
-				c.id.Series = "bundle"
-			}
+			b, err = charm.ReadBundleDir(srcDir)
 		}
 	}
 
@@ -169,6 +164,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 		if len(c.resources) > 0 {
 			return errgo.New("resources not supported on bundles")
 		}
+		c.id.Series = "bundle"
 		c.id, err = client.UploadBundle(c.id, b)
 	default:
 		panic("unreachable")
