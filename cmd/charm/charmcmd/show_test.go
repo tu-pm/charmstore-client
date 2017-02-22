@@ -29,7 +29,7 @@ var showInitErrorTests = []struct {
 	expectStderr: "error: no charm or bundle id specified",
 }, {
 	args:         []string{"rubbish:boo"},
-	expectStderr: `error: invalid charm or bundle id: charm or bundle URL has invalid schema: "rubbish:boo"`,
+	expectStderr: `error: invalid charm or bundle id: cannot parse URL "rubbish:boo": schema "rubbish" not valid`,
 }, {
 	args:         []string{"--list", "foo"},
 	expectStderr: `error: cannot specify charm or bundle with --list`,

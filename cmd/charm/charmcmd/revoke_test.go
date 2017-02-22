@@ -30,7 +30,7 @@ var revokeInitErrorTests = []struct {
 	err:  "no charm or bundle id specified",
 }, {
 	args: []string{"--acl=read", "invalid:entity", "foo"},
-	err:  `invalid charm or bundle id: charm or bundle URL has invalid schema: "invalid:entity"`,
+	err:  `invalid charm or bundle id: cannot parse URL "invalid:entity": schema "invalid" not valid`,
 }, {
 	args: []string{"--acl=wrong", "wordpress", "foo"},
 	err:  "--acl takes either read or write",

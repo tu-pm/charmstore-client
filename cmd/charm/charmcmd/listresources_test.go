@@ -46,7 +46,7 @@ var listResourcesInitErrorTests = []struct {
 	expectStderr: "error: too many arguments\n",
 }, {
 	args:         []string{"rubbish:boo"},
-	expectStderr: `error: invalid charm id: charm or bundle URL has invalid schema: "rubbish:boo"\n`,
+	expectStderr: `error: invalid charm id: cannot parse URL "rubbish:boo": schema "rubbish" not valid\n`,
 }}
 
 func (s *listResourcesSuite) TestInitError(c *gc.C) {
