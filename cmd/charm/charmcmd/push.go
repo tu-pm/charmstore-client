@@ -141,16 +141,18 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	case c.id.Series != "":
 		ch, err = charm.ReadCharmDir(srcDir)
 	default:
-		ch, err = charm.ReadCharmDir(srcDir)
-		if err == nil {
-			break
-		}
-		if b1, err1 := charm.ReadBundleDir(srcDir); err1 == nil {
-			b = b1
-			err = nil
-			c.id.Series = "bundle"
+		if charm.IsCharmDir(srcDir) {
+			ch, err = charm.ReadCharmDir(srcDir)
+			if err == nil {
+				break
+			}
+		} else {
+			if b, err = charm.ReadBundleDir(srcDir); err == nil {
+				c.id.Series = "bundle"
+			}
 		}
 	}
+
 	if ch != nil {
 		// Validate resources before pushing the charm.
 		if err := validateResources(c.resources, ch.Meta()); err != nil {

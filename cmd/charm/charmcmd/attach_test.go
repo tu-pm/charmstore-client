@@ -47,7 +47,7 @@ var attachInitErrorTests = []struct {
 	err:  "missing resource name",
 }, {
 	args: []string{"invalid:entity", "foo=bar"},
-	err:  `invalid charm id: charm or bundle URL has invalid schema: "invalid:entity"`,
+	err:  `invalid charm id: cannot parse URL "invalid:entity": schema "invalid" not valid`,
 }, {
 	args: []string{"wordpress", "foo", "something else"},
 	err:  "too many arguments",

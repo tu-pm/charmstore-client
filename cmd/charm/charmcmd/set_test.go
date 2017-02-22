@@ -38,10 +38,10 @@ var setInitErrorTests = []struct {
 	err: "no charm or bundle id specified",
 }, {
 	args: []string{"homepage=value"},
-	err:  `invalid charm or bundle id: URL has invalid charm or bundle name: "homepage=value"`,
+	err:  `invalid charm or bundle id: cannot parse URL "homepage=value": name "homepage=value" not valid`,
 }, {
 	args: []string{"invalid:entity", "homepage=value"},
-	err:  `invalid charm or bundle id: charm or bundle URL has invalid schema: "invalid:entity"`,
+	err:  `invalid charm or bundle id: cannot parse URL "invalid:entity": schema "invalid" not valid`,
 }, {
 	args: []string{"wordpress"},
 	err:  "no set arguments provided",

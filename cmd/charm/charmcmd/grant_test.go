@@ -34,7 +34,7 @@ var grantInitErrorTests = []struct {
 	err:  "--acl takes either read or write",
 }, {
 	args: []string{"--set", "--acl=read", "invalid:entity", "foo"},
-	err:  `invalid charm or bundle id: charm or bundle URL has invalid schema: "invalid:entity"`,
+	err:  `invalid charm or bundle id: cannot parse URL "invalid:entity": schema "invalid" not valid`,
 }, {
 	args: []string{"wordpress"},
 	err:  "no users specified",

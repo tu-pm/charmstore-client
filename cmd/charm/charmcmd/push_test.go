@@ -43,7 +43,7 @@ var pushInitErrorTests = []struct {
 	expectError: "too many arguments",
 }, {
 	args:        []string{".", "rubbish:boo"},
-	expectError: `invalid charm or bundle id "rubbish:boo": charm or bundle URL has invalid schema: "rubbish:boo"`,
+	expectError: `invalid charm or bundle id "rubbish:boo": cannot parse URL "rubbish:boo": schema "rubbish" not valid`,
 }, {
 	args:        []string{".", "~bob/trusty/wordpress-2"},
 	expectError: `charm or bundle id "~bob/trusty/wordpress-2" is not allowed a revision`,
@@ -125,6 +125,17 @@ func (s *pushSuite) TestUploadWithBadBundle(c *gc.C) {
 	stdout, stderr, code := run(dir, "push", path, "~bob/bundle/simple")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, "ERROR open .*/wordpress-simple/bundle.yaml: no such file or directory\n")
+	c.Assert(code, gc.Equals, 1)
+}
+
+func (s *pushSuite) TestUploadWithBadBundleNoReadme(c *gc.C) {
+	dir := c.MkDir()
+	path := entitytesting.Repo.ClonedBundleDirPath(dir, "wordpress-simple")
+	err := os.Remove(filepath.Join(path, "README.md"))
+	c.Assert(err, gc.IsNil)
+	stdout, stderr, code := run(dir, "push", path, "~bob/simple")
+	c.Assert(stdout, gc.Equals, "")
+	c.Assert(stderr, gc.Matches, "ERROR cannot read README file: open .*/wordpress-simple/README.md: no such file or directory\n")
 	c.Assert(code, gc.Equals, 1)
 }
 
