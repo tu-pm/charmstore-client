@@ -4,8 +4,6 @@
 package charmcmd_test
 
 import (
-	"strings"
-
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
@@ -82,8 +80,7 @@ func (s *listResourcesSuite) TestListResource(c *gc.C) {
 		charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "someResource")),
 	)
 	c.Assert(err, gc.IsNil)
-	_, err = s.client.UploadResource(id, "someResource", "", strings.NewReader("content"))
-	c.Assert(err, gc.IsNil)
+	s.uploadResource(c, id, "someResource", "content")
 
 	err = s.client.Publish(id, []params.Channel{params.StableChannel}, map[string]int{
 		"someResource": 0,

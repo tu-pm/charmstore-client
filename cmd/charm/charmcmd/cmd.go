@@ -5,11 +5,12 @@ package charmcmd
 
 import (
 	"fmt"
-	"os"
 	"net/url"
+	"os"
 	"strings"
 
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/loggo"
@@ -17,13 +18,13 @@ import (
 	"github.com/juju/usso"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/errgo.v1"
+	"gopkg.in/juju/charm.v6-unstable"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	esform "gopkg.in/juju/environschema.v1/form"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	httpbakery2 "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 	hbform "gopkg.in/macaroon-bakery.v1/httpbakery/form"
-	"github.com/juju/gnuflag"
+	httpbakery2 "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
 )
 
 var logger = loggo.GetLogger("charm.cmd.charm")
@@ -134,7 +135,7 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 	bakeryClient2.Jar = jar
 	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
 		visitorAdaptor{
-			client2: bakeryClient2,
+			client2:  bakeryClient2,
 			visitor2: ussologin.NewVisitor("charm", filler, tokenStore),
 		},
 		hbform.Visitor{filler},
@@ -151,6 +152,24 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 		ctxt: ctxt,
 	}
 	return &csClient, nil
+}
+
+func uploadResource(ctxt *cmd.Context, client *csclient.Client, charmId *charm.URL, name, file string) (rev int, err error) {
+	file = ctxt.AbsPath(file)
+	f, err := os.Open(file)
+	if err != nil {
+		return 0, errgo.Mask(err)
+	}
+	defer f.Close()
+	info, err := f.Stat()
+	if err != nil {
+		return 0, errgo.Mask(err)
+	}
+	rev, err = client.UploadResource(charmId, name, file, f, info.Size(), nil)
+	if err != nil {
+		return 0, errgo.Notef(err, "can't upload resource")
+	}
+	return rev, nil
 }
 
 // addChannelFlag adds the -c (--channel) flags to the given flag set.
@@ -283,7 +302,7 @@ func translateInteractionError(err *httpbakery.InteractionError) error {
 // This adaptor makes it possible to use the ussologin Visitor
 // implementation in the v1 bakery client.
 type visitorAdaptor struct {
-	client2 *httpbakery2.Client
+	client2  *httpbakery2.Client
 	visitor2 httpbakery2.Visitor
 }
 

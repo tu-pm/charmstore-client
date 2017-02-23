@@ -5,7 +5,6 @@ package charmcmd_test
 
 import (
 	"encoding/json"
-	"strings"
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
@@ -261,12 +260,9 @@ func (s *releaseSuite) TestReleaseWithResources(c *gc.C) {
 	)
 	c.Assert(err, gc.IsNil)
 
-	_, err = s.client.UploadResource(id, "resource1-name", "", strings.NewReader("resource1 content"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.client.UploadResource(id, "resource2", "", strings.NewReader("resource2 content"))
-	c.Assert(err, gc.IsNil)
-	_, err = s.client.UploadResource(id, "resource2", "", strings.NewReader("resource2 content rev 1"))
-	c.Assert(err, gc.IsNil)
+	s.uploadResource(c, id, "resource1-name", "resource1 content")
+	s.uploadResource(c, id, "resource2", "resource2 content")
+	s.uploadResource(c, id, "resource2", "resource2 content rev 1")
 
 	stdout, stderr, code := run(c.MkDir(), "release", "~bob/precise/wordpress-0", "--resource=resource1-name-0", "-r", "resource2-1")
 	c.Assert(stderr, gc.Matches, "")

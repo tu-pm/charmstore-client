@@ -199,24 +199,19 @@ func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csclient.Client, 
 	sort.Strings(resourceNames)
 	for _, name := range resourceNames {
 		filename := ctxt.AbsPath(c.resources[name])
-		if err := c.uploadResource(client, name, filename, stdout); err != nil {
+		if err := c.uploadResource(ctxt, client, name, filename); err != nil {
 			return errgo.Mask(err)
 		}
 	}
 	return nil
 }
 
-func (c *pushCommand) uploadResource(client *csclient.Client, name, file string, stdout io.Writer) error {
-	f, err := os.Open(file)
+func (c *pushCommand) uploadResource(ctxt *cmd.Context, client *csclient.Client, name, file string) error {
+	rev, err := uploadResource(ctxt, client, c.id, name, file)
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	defer f.Close()
-	rev, err := client.UploadResource(c.id, name, file, f)
-	if err != nil {
-		return errgo.Mask(err)
-	}
-	fmt.Fprintf(stdout, "Uploaded %q as %s-%d\n", file, name, rev)
+	fmt.Fprintf(ctxt.Stdout, "Uploaded %q as %s-%d\n", file, name, rev)
 	return nil
 }
 
