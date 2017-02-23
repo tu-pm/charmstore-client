@@ -5,7 +5,6 @@ package charmcmd
 
 import (
 	"fmt"
-	"os"
 	"strings"
 
 	"github.com/juju/cmd"
@@ -82,16 +81,10 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer client.jar.Save()
 
-	f, err := os.Open(ctxt.AbsPath(c.file))
+	rev, err := uploadResource(ctxt, client.Client, c.id, c.name, c.file)
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	defer f.Close()
-	rev, err := client.Client.UploadResource(c.id, c.name, c.file, f)
-	if err != nil {
-		return errgo.Notef(err, "can't upload resource")
-	}
-
 	fmt.Fprintf(ctxt.Stdout, "uploaded revision %d of %s\n", rev, c.name)
 
 	return nil

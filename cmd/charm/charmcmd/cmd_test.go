@@ -171,6 +171,11 @@ func (s *commonSuite) uploadBundleDir(c *gc.C, id *charm.URL, promulgatedRevisio
 	c.Assert(err, gc.IsNil)
 }
 
+func (s *commonSuite) uploadResource(c *gc.C, id *charm.URL, name string, content string) {
+	_, err := s.client.UploadResource(id, name, "", strings.NewReader(content), int64(len(content)), nil)
+	c.Assert(err, gc.IsNil)
+}
+
 func (s *commonSuite) addEntity(c *gc.C, id *charm.URL, promulgatedRevision int, hash []byte, body *bytes.Reader) {
 	url := fmt.Sprintf("/%s/archive?hash=%x", id.Path(), hash)
 	if promulgatedRevision != -1 {
