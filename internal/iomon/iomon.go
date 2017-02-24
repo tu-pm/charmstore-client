@@ -4,7 +4,6 @@
 package iomon
 
 import (
-	"fmt"
 	"sync"
 	"time"
 
@@ -86,21 +85,6 @@ func (m *Monitor) Update(current int64) {
 	m.current = current
 }
 
-// Status indicates the current status of the I/O transfer.
-type Status struct {
-	// Current holds the current number of transferred bytes.
-	Current int64
-	// Total holds the total number of bytes in the transfer.
-	Total int64
-
-	// TODO add rate, expected time
-}
-
-// StatusSetter is used to indicate the current progress status.
-type StatusSetter interface {
-	SetStatus(s Status)
-}
-
 func (m *Monitor) run() error {
 	for {
 		m.setStatus()
@@ -125,25 +109,5 @@ func (m *Monitor) setStatus() {
 	if status != m.currentStatus {
 		m.p.Setter.SetStatus(status)
 		m.currentStatus = status
-	}
-}
-
-const (
-	KiB = 1024
-	MiB = 1024 * KiB
-	GiB = 1024 * MiB
-)
-
-// FormatByteCount returns a string representation of
-// the given number formatted so as to be user readable
-// in progress reports.
-func FormatByteCount(n int64) string {
-	switch {
-	case n < 10*MiB:
-		return fmt.Sprintf("%.0fKiB", float64(n)/KiB)
-	case n < 10*GiB:
-		return fmt.Sprintf("%.1fMiB", float64(n)/MiB)
-	default:
-		return fmt.Sprintf("%.1fGiB", float64(n)/GiB)
 	}
 }
