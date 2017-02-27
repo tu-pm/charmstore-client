@@ -4,13 +4,15 @@
 package iomon_test
 
 import (
+	"bytes"
+	"strings"
 	"time"
 
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/charmstore-client/internal/iomon"
+	gc "gopkg.in/check.v1"
 )
 
 type iomonSuite struct{}
@@ -76,6 +78,50 @@ func (*iomonSuite) TestFormatByteCount(c *gc.C) {
 		c.Logf("test %d: %v", i, test.n)
 		c.Assert(iomon.FormatByteCount(test.n), gc.Equals, test.expect)
 	}
+}
+
+// Note: newlines in this are treated as carriage-returns
+// when comparing and trailing dollars are removed.
+var printerText = `
+something                                       0%      0KiB$
+something                                       0%      0KiB$
+something                                       0%      0KiB$
+something                                       0%      1KiB$
+something                                       0%     10KiB$
+something                                       0%     98KiB$
+something                                       0%    977KiB$
+something                                       0%   9766KiB$
+something                                       0%   95.4MiB$
+something                                       0%  953.7MiB$
+something                                       0% 9536.7MiB$
+something                                       0%   93.1GiB$
+something                                       0%  931.3GiB$
+something                                       0% 9313.2GiB$
+something                                       1% 93132.3GiB$
+something                                      10% 931322.6GiB$
+something                                     100% 9313225.7GiB$
+something                                       0%      0KiB   $
+                                                             $
+`
+
+func (*iomonSuite) TestPrinter(c *gc.C) {
+	var buf bytes.Buffer
+	p := iomon.NewPrinter(&buf, "something")
+	const total = 1e16
+	for i := int64(1); i <= total; i *= 10 {
+		p.SetStatus(iomon.Status{
+			Current: i,
+			Total:   total,
+		})
+	}
+	p.SetStatus(iomon.Status{
+		Current: 0,
+		Total:   total,
+	})
+	p.Clear()
+	got := strings.Replace(buf.String(), "\r", "\n", -1)
+	want := strings.Replace(printerText, "$\n", "\n", -1)
+	c.Assert(got, gc.Equals, want)
 }
 
 type statusSetter chan iomon.Status
