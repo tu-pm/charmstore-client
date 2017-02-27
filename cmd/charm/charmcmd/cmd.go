@@ -5,9 +5,11 @@ package charmcmd
 
 import (
 	"fmt"
+	"io"
 	"net/url"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
@@ -22,9 +24,12 @@ import (
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
 	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
 	esform "gopkg.in/juju/environschema.v1/form"
+	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon-bakery.v1/httpbakery"
 	hbform "gopkg.in/macaroon-bakery.v1/httpbakery/form"
 	httpbakery2 "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+
+	"github.com/juju/charmstore-client/internal/iomon"
 )
 
 var logger = loggo.GetLogger("charm.cmd.charm")
@@ -165,7 +170,9 @@ func uploadResource(ctxt *cmd.Context, client *csclient.Client, charmId *charm.U
 	if err != nil {
 		return 0, errgo.Mask(err)
 	}
-	rev, err = client.UploadResource(charmId, name, file, f, info.Size(), nil)
+	d := newProgressDisplay(file, ctxt.Stdout, info.Size())
+	defer d.close()
+	rev, err = client.UploadResource(charmId, name, file, f, info.Size(), d)
 	if err != nil {
 		return 0, errgo.Notef(err, "can't upload resource")
 	}
@@ -308,4 +315,61 @@ type visitorAdaptor struct {
 
 func (a visitorAdaptor) VisitWebPage(c *httpbakery.Client, u map[string]*url.URL) error {
 	return a.visitor2.VisitWebPage(a.client2, u)
+}
+
+type progressDisplay struct {
+	w       io.Writer
+	monitor *iomon.Monitor
+	printer *iomon.Printer
+}
+
+func newProgressDisplay(name string, w io.Writer, size int64) *progressDisplay {
+	d := &progressDisplay{
+		w:       w,
+		printer: iomon.NewPrinter(w, name),
+	}
+	d.monitor = iomon.New(iomon.Params{
+		Size:   size,
+		Setter: d.printer,
+	})
+	return d
+}
+
+func (d *progressDisplay) Start(uploadId string, expires time.Time) {
+	// TODO print upload id and tell user about resume feature
+}
+
+func (d *progressDisplay) close() {
+	d.stopMonitor()
+}
+
+// Transferred implements csclient.Progress.Transferred.
+func (d *progressDisplay) Transferred(n int64) {
+	// d.monitor should always be non-nil because Transferred
+	// should never be called after Finalizing but be defensive just in case.
+	if d.monitor != nil {
+		d.monitor.Update(n)
+	}
+}
+
+// Transferred implements csclient.Progress.Transferred.
+func (d *progressDisplay) Error(err error) {
+	if d.monitor != nil {
+		d.printer.Clear()
+	}
+	logger.Warningf("%v", err)
+}
+
+func (d *progressDisplay) Finalizing() {
+	d.stopMonitor()
+	fmt.Fprintf(d.w, "finalizing upload\n")
+}
+
+func (d *progressDisplay) stopMonitor() {
+	if d.monitor == nil {
+		return
+	}
+	worker.Stop(d.monitor)
+	d.monitor = nil
+	d.printer.Done()
 }

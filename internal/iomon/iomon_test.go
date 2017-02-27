@@ -80,6 +80,35 @@ func (*iomonSuite) TestFormatByteCount(c *gc.C) {
 	}
 }
 
+var statusStringTests = []struct {
+	about  string
+	status iomon.Status
+	expect string
+}{{
+	about:  "all zero",
+	expect: "100%      0KiB",
+}, {
+	about: "small data",
+	status: iomon.Status{
+		Total: 7,
+	},
+	expect: "  0%      0KiB",
+}, {
+	about: "large data",
+	status: iomon.Status{
+		Current: 1 << 61,
+		Total:   1 << 62,
+	},
+	expect: " 50% 2147483648.0GiB",
+}}
+
+func (*iomonSuite) TestStatusString(c *gc.C) {
+	for i, test := range statusStringTests {
+		c.Logf("test %d: %v", i, test.about)
+		c.Assert(test.status.String(), gc.Equals, test.expect)
+	}
+}
+
 // Note: newlines in this are treated as carriage-returns
 // when comparing and trailing dollars are removed.
 var printerText = `

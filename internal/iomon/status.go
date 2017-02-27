@@ -23,9 +23,9 @@ type Status struct {
 
 // String provides a textual representation of the status.
 func (s Status) String() string {
-	percent := int64(100)
+	percent := 100
 	if s.Total != 0 {
-		percent = ((100 * s.Current) + 50) / s.Total
+		percent = int(float64(s.Current)/float64(s.Total)*100 + 0.5)
 	}
 	return fmt.Sprintf("%3d%% %9s", percent, FormatByteCount(s.Current))
 }
