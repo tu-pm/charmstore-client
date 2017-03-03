@@ -127,7 +127,7 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 		Filename:         cookiejar.DefaultCookieFile(),
 	})
 	if err != nil {
-		return nil, errgo.New("cannot load the cookie jar")
+		return nil, err
 	}
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Jar = jar
