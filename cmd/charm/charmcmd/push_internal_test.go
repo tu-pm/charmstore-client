@@ -252,7 +252,7 @@ message:
 	about:   "non key-value line in bzr output",
 	vcsName: "bzr",
 	output: `------------------------------------------------------------
-revno: 54
+revno: 54 [merge]
 committer: Clint Byrum <clint@ubuntu.com>
 bad line
 timestamp: Mon 2012-06-18 13:28:16 -0700
