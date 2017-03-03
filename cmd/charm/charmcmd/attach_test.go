@@ -94,6 +94,17 @@ func (s *attachSuite) TestRun(c *gc.C) {
 	}})
 }
 
+func (s *attachSuite) TestRunFailsWithoutRevisionOnStableChannel(c *gc.C) {
+	dir := c.MkDir()
+	err := ioutil.WriteFile(filepath.Join(dir, "bar.zip"), []byte("content"), 0666)
+	c.Assert(err, gc.IsNil)
+	stdout, stderr, exitCode := run(dir, "attach", "--channel=stable", "~bob/precise/wordpress", "someResource=bar.zip")
+	c.Assert(exitCode, gc.Equals, 1)
+	c.Check(stderr, gc.Matches, "ERROR A revision is required when attaching to a charm in the stable channel.\n")
+	c.Check(stdout, gc.Matches, "")
+
+}
+
 func hashOfString(s string) []byte {
 	x := sha512.Sum384([]byte(s))
 	return x[:]
@@ -101,7 +112,7 @@ func hashOfString(s string) []byte {
 
 func (s *attachSuite) TestCannotOpenFile(c *gc.C) {
 	path := filepath.Join(c.MkDir(), "/not-there")
-	stdout, stderr, exitCode := run(c.MkDir(), "attach", "wordpress", "foo="+path)
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "wordpress-0", "foo="+path)
 	c.Assert(exitCode, gc.Equals, 1)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, `ERROR open .*not-there: no such file or directory`+"\n")
