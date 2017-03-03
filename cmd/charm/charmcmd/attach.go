@@ -26,7 +26,13 @@ type attachCommand struct {
 var attachDoc = `
 The attach command uploads a file as a new resource for a charm.
 
-   charm attach ~user/trusty/wordpress website-data=./foo.zip
+    charm attach ~user/trusty/wordpress-0 website-data=./foo.zip
+
+The default channel is the stable channel. A revision number is required
+when using the stable channel. A revision number is not required when
+using another channel.
+
+    charm attach ~user/mycharm mydata=./blah -c unpublished
 
 `
 
@@ -80,6 +86,10 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 		return errgo.Notef(err, "cannot create the charm store client")
 	}
 	defer client.jar.Save()
+
+	if (c.channel.C == "" || c.channel.C == "stable") && c.id.Revision == -1 {
+		return errgo.New("A revision is required when attaching to a charm in the stable channel.")
+	}
 
 	rev, err := uploadResource(ctxt, client.Client, c.id, c.name, c.file)
 	if err != nil {

@@ -41,7 +41,7 @@ func (s *whoamiSuite) SetUpTest(c *gc.C) {
 	s.serverParams = charmstore.ServerParams{
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
-		IdentityAPIURL:   s.idsrv.URL.String(),
+		IdentityLocation: s.idsrv.URL.String(),
 		PublicKeyLocator: s.idsrv,
 		AgentUsername:    "test-user",
 		AgentKey:         s.idsrv.UserPublicKey("test-user"),
