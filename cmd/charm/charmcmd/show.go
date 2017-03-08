@@ -250,7 +250,9 @@ func newShowData(out io.Writer, metadata map[string]interface{}) showData {
 	if val, ok := metadata["charm-metadata"]; ok {
 		charmMetadata := val.(map[string]interface{})
 		sd.summary = charmMetadata["Summary"].(string)
-		sd.tags = toStringArray(charmMetadata["Tags"].([]interface{}))
+		if tags, ok := charmMetadata["Tags"].([]interface{}); ok {
+			sd.tags = toStringArray(tags)
+		}
 		sd.subordinate = charmMetadata["Subordinate"].(bool)
 	}
 	if _, ok := metadata["bundle-metadata"]; ok {
