@@ -59,6 +59,7 @@ func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json":    cmd.FormatJson,
 		"yaml":    cmd.FormatYaml,
 		"tabular": tabularFormatter,
+		"short":   shortFormatter,
 	})
 }
 
@@ -105,7 +106,6 @@ func tabularFormatter(w io.Writer, resources0 interface{}) error {
 		return nil
 	}
 
-	fmt.Fprintln(w, "[Service]")
 	tw := tabwriter.NewWriter(w, 0, 1, 1, ' ', 0)
 	defer tw.Flush()
 	fmt.Fprintln(tw, "RESOURCE\tREVISION")
@@ -114,6 +114,25 @@ func tabularFormatter(w io.Writer, resources0 interface{}) error {
 	for _, r := range resources {
 		// the column headers must be kept in sync with these.
 		fmt.Fprintf(tw, "%v\t%v\n",
+			r.Name,
+			r.Revision,
+		)
+	}
+	return nil
+}
+
+func shortFormatter(w io.Writer, resources0 interface{}) error {
+	resources, ok := resources0.([]params.Resource)
+	if ok == false {
+		return errgo.Newf("unexpected type provided: %T", resources)
+	}
+	if len(resources) == 0 {
+		fmt.Fprintf(w, "No resources found.")
+		return nil
+	}
+
+	for _, r := range resources {
+		fmt.Fprintf(w, "%v-%v\n",
 			r.Name,
 			r.Revision,
 		)

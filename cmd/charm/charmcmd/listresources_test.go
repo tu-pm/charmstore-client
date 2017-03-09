@@ -89,7 +89,6 @@ func (s *listResourcesSuite) TestListResource(c *gc.C) {
 
 	stdout, stderr, code := run(".", "list-resources", "~bob/wordpress")
 	c.Check(stdout, gc.Equals, `
-[Service]
 RESOURCE     REVISION
 someResource 0
 
