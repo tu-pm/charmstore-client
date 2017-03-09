@@ -9,6 +9,7 @@ import (
 	"net/url"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/juju/cmd"
@@ -108,6 +109,9 @@ type csClient struct {
 	*csclient.Client
 	jar  *cookiejar.Jar
 	ctxt *cmd.Context
+	// filler holds the form filler used to interact with
+	// the user when authenticating.
+	filler *progressClearFiller
 }
 
 // SaveJAR calls save on the jar member variable. This follows the Law
@@ -132,9 +136,11 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Jar = jar
 	tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
-	filler := &esform.IOFiller{
-		In:  ctxt.Stdin,
-		Out: ctxt.Stdout,
+	filler := &progressClearFiller{
+		f: &esform.IOFiller{
+			In:  ctxt.Stdin,
+			Out: ctxt.Stdout,
+		},
 	}
 	bakeryClient2 := httpbakery2.NewClient()
 	bakeryClient2.Jar = jar
@@ -147,6 +153,7 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 		httpbakery.WebBrowserVisitor,
 	)
 	csClient := csClient{
+		filler: filler,
 		Client: csclient.New(csclient.Params{
 			URL:          serverURL(),
 			BakeryClient: bakeryClient,
@@ -159,7 +166,7 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 	return &csClient, nil
 }
 
-func uploadResource(ctxt *cmd.Context, client *csclient.Client, charmId *charm.URL, name, file string) (rev int, err error) {
+func uploadResource(ctxt *cmd.Context, client *csClient, charmId *charm.URL, name, file string) (rev int, err error) {
 	file = ctxt.AbsPath(file)
 	f, err := os.Open(file)
 	if err != nil {
@@ -172,6 +179,8 @@ func uploadResource(ctxt *cmd.Context, client *csclient.Client, charmId *charm.U
 	}
 	d := newProgressDisplay(file, ctxt.Stdout, info.Size())
 	defer d.close()
+	client.filler.setDisplay(d)
+	defer client.filler.setDisplay(nil)
 	rev, err = client.UploadResource(charmId, name, file, f, info.Size(), d)
 	if err != nil {
 		return 0, errgo.Notef(err, "can't upload resource")
@@ -317,10 +326,40 @@ func (a visitorAdaptor) VisitWebPage(c *httpbakery.Client, u map[string]*url.URL
 	return a.visitor2.VisitWebPage(a.client2, u)
 }
 
+type progressClearFiller struct {
+	f       esform.Filler
+	mu      sync.Mutex
+	display *progressDisplay
+}
+
+func (filler *progressClearFiller) setDisplay(display *progressDisplay) {
+	filler.mu.Lock()
+	defer filler.mu.Unlock()
+	filler.display = display
+}
+
+func (filler *progressClearFiller) setDisplayEnabled(enabled bool) {
+	filler.mu.Lock()
+	defer filler.mu.Unlock()
+	if filler.display != nil {
+		filler.display.setEnabled(enabled)
+	}
+}
+
+func (filler *progressClearFiller) Fill(f esform.Form) (map[string]interface{}, error) {
+	// Disable status update while the form is being filled out.
+	filler.setDisplayEnabled(false)
+	defer filler.setDisplayEnabled(true)
+	return filler.f.Fill(f)
+}
+
 type progressDisplay struct {
 	w       io.Writer
 	monitor *iomon.Monitor
 	printer *iomon.Printer
+
+	mu      sync.Mutex
+	enabled bool
 }
 
 func newProgressDisplay(name string, w io.Writer, size int64) *progressDisplay {
@@ -330,9 +369,24 @@ func newProgressDisplay(name string, w io.Writer, size int64) *progressDisplay {
 	}
 	d.monitor = iomon.New(iomon.Params{
 		Size:   size,
-		Setter: d.printer,
+		Setter: d,
 	})
 	return d
+}
+
+// SetStatus implements iomon.StatusSetter. It doesn't
+// print the status if display is disabled.
+func (d *progressDisplay) SetStatus(s iomon.Status) {
+	if d.isEnabled() {
+		d.printer.SetStatus(s)
+	}
+}
+
+func (d *progressDisplay) setEnabled(enabled bool) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	d.printer.Clear()
+	d.enabled = enabled
 }
 
 func (d *progressDisplay) Start(uploadId string, expires time.Time) {
@@ -352,9 +406,15 @@ func (d *progressDisplay) Transferred(n int64) {
 	}
 }
 
+func (d *progressDisplay) isEnabled() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.enabled
+}
+
 // Transferred implements csclient.Progress.Transferred.
 func (d *progressDisplay) Error(err error) {
-	if d.monitor != nil {
+	if d.monitor != nil && d.isEnabled() {
 		d.printer.Clear()
 	}
 	logger.Warningf("%v", err)
@@ -371,5 +431,7 @@ func (d *progressDisplay) stopMonitor() {
 	}
 	worker.Stop(d.monitor)
 	d.monitor = nil
-	d.printer.Done()
+	if d.isEnabled() {
+		d.printer.Done()
+	}
 }
