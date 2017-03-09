@@ -7,6 +7,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -152,17 +153,17 @@ func getPluginDescriptions() map[string]pluginDescription {
 	}
 	pluginCache := openCache(pluginCacheFile)
 	allcached := true
-	allcachedLock := sync.RWMutex{}
-	wg := sync.WaitGroup{}
+	var mu sync.RWMutex
+	var wg sync.WaitGroup
 	for _, plugin := range plugins {
 		wg.Add(1)
 		plugin := plugin
 		go func() {
 			defer wg.Done()
 			_, cached := pluginCache.fetch(plugin)
-			allcachedLock.Lock()
+			mu.Lock()
 			allcached = allcached && cached
-			allcachedLock.Unlock()
+			mu.Unlock()
 		}()
 	}
 	wg.Wait()
@@ -175,23 +176,20 @@ func getPluginDescriptions() map[string]pluginDescription {
 }
 
 type pluginCache struct {
-	Plugins     map[string]pluginDescription
-	pluginsLock sync.RWMutex
+	mu      sync.RWMutex
+	Plugins map[string]pluginDescription
 }
 
 func openCache(file string) *pluginCache {
-	f, err := os.Open(file)
-	var c pluginCache
-	c.pluginsLock = sync.RWMutex{}
+	c := &pluginCache{
+		Plugins: make(map[string]pluginDescription),
+	}
+	data, err := ioutil.ReadFile(file)
 	if err != nil {
-		c = pluginCache{}
-		c.Plugins = make(map[string]pluginDescription)
+		return c
 	}
-	if err := json.NewDecoder(f).Decode(&c); err != nil {
-		c = pluginCache{}
-		c.Plugins = make(map[string]pluginDescription)
-	}
-	return &c
+	json.Unmarshal(data, c)
+	return c
 }
 
 // returns pluginDescription and boolean indicating if cache was used.
@@ -199,14 +197,14 @@ func (c *pluginCache) fetch(fi fileInfo) (*pluginDescription, bool) {
 	filename := filepath.Join(fi.dir, fi.name)
 	stat, err := os.Stat(filename)
 	if err != nil {
-		logger.Errorf("could not stat %s", filename, err)
+		logger.Errorf("could not stat %s: %s", filename, err)
 		// If a file is not readable or otherwise not statable, ignore it.
 		return nil, false
 	}
 	mtime := stat.ModTime()
-	c.pluginsLock.RLock()
+	c.mu.RLock()
 	p, ok := c.Plugins[filename]
-	c.pluginsLock.RUnlock()
+	c.mu.RUnlock()
 	// If the plugin is cached check its mtime.
 	if ok {
 		// If mtime is same as cached, return the cached data.
@@ -219,7 +217,7 @@ func (c *pluginCache) fetch(fi fileInfo) (*pluginDescription, bool) {
 		Name:    fi.name[len(pluginPrefix):],
 		ModTime: mtime,
 	}
-	wg := sync.WaitGroup{}
+	var wg sync.WaitGroup
 	desc := ""
 	wg.Add(1)
 	go func() {
@@ -237,9 +235,9 @@ func (c *pluginCache) fetch(fi fileInfo) (*pluginDescription, bool) {
 	}()
 	wg.Wait()
 	result.Description = desc
-	c.pluginsLock.Lock()
+	c.mu.Lock()
 	c.Plugins[filename] = result
-	c.pluginsLock.Unlock()
+	c.mu.Unlock()
 	return &result, false
 }
 
@@ -292,6 +290,7 @@ func findPlugins() ([]fileInfo, map[string]int) {
 		if err != nil {
 			continue
 		}
+		defer dirh.Close()
 		names, err := dirh.Readdirnames(0)
 		if err != nil {
 			continue

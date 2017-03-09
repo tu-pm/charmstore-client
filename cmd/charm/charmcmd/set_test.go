@@ -251,7 +251,6 @@ func (s *setSuite) TestSuccess(c *gc.C) {
 		var msg json.RawMessage
 		err := s.client.Get("/"+url.Path()+"/meta/common-info", &msg)
 		c.Assert(err, gc.IsNil)
-		c.Logf("%s ## %s", string(msg))
 
 		// Check that the command succeeded.
 		args := []string{"set", url.Path()}
