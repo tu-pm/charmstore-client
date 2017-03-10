@@ -38,7 +38,7 @@ install:
 
 clean:
 	go clean $(PROJECT)/...
-	rm -rf man
+	rm -rf man scripts/__pycache__
 
 else
 

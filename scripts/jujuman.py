@@ -62,7 +62,7 @@ class JujuMan:
                 short_help = short_help.lstrip('- ')
                 commands.append((name, short_help.strip()))
                 continue
-            if state:
+            if state in states:
                 states[state] += '\n' + line
 
         states['options:'] = self.format_options(states.get('options:', None))
@@ -87,7 +87,7 @@ class JujuMan:
             "options": options,
             "subcmd": self.subcmd or ' ',
             "summary": summary,
-            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S +0000", tt),
+            "timestamp": time.strftime("%Y-%m-%d %H:%M:%S +0000", gmt),
             "title": self.title,
             "version": self.version,
             }
