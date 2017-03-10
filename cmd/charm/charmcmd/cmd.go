@@ -366,6 +366,7 @@ func newProgressDisplay(name string, w io.Writer, size int64) *progressDisplay {
 	d := &progressDisplay{
 		w:       w,
 		printer: iomon.NewPrinter(w, name),
+		enabled: true,
 	}
 	d.monitor = iomon.New(iomon.Params{
 		Size:   size,
