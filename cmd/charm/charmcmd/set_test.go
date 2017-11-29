@@ -75,7 +75,7 @@ func (s *setSuite) TestInitError(c *gc.C) {
 		args := []string{"set"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
+		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
 		c.Assert(code, gc.Equals, 2)
 	}
 }

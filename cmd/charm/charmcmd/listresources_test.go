@@ -38,13 +38,13 @@ var listResourcesInitErrorTests = []struct {
 	expectStderr string
 	args         []string
 }{{
-	expectStderr: "error: no charm id specified\n",
+	expectStderr: "ERROR no charm id specified\n",
 }, {
 	args:         []string{"foo", "bar"},
-	expectStderr: "error: too many arguments\n",
+	expectStderr: "ERROR too many arguments\n",
 }, {
 	args:         []string{"rubbish:boo"},
-	expectStderr: `error: invalid charm id: cannot parse URL "rubbish:boo": schema "rubbish" not valid\n`,
+	expectStderr: `ERROR invalid charm id: cannot parse URL "rubbish:boo": schema "rubbish" not valid\n`,
 }}
 
 func (s *listResourcesSuite) TestInitError(c *gc.C) {

@@ -60,7 +60,7 @@ func (s *attachSuite) TestInitError(c *gc.C) {
 		args := []string{"attach"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
+		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
 		c.Assert(code, gc.Equals, 2)
 	}
 }

@@ -71,7 +71,7 @@ func (s *pushSuite) TestInitError(c *gc.C) {
 		args := []string{"push"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Check(stdout, gc.Equals, "")
-		c.Check(stderr, gc.Matches, "error: "+test.expectError+"\n")
+		c.Check(stderr, gc.Matches, "ERROR "+test.expectError+"\n")
 		c.Check(code, gc.Equals, 2)
 	}
 }

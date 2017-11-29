@@ -205,10 +205,10 @@ func (s *pluginSuite) TestHelp(c *gc.C) {
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(stdout, gc.Matches, `
-(.|\n)*    bar            - bar --description
-(.|\n)*    foo            - foo --description
-(.|\n)*    help           - show help on a command or other topic
-(.|\n)*    list           - list charms for a given user name
+(.|\n)*    bar                 - bar --description
+(.|\n)*    foo                 - foo --description
+(.|\n)*    help                - Show help on a command or other topic.
+(.|\n)*    list                - list charms for a given user name
 (.|\n)*
 `[1:])
 }
@@ -220,7 +220,7 @@ func (s *pluginSuite) TestWhiteListWorks(c *gc.C) {
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(stdout, gc.Matches, `
-(.|\n)*    foo            - foo --description
+(.|\n)*    foo                 - foo --description
 (.|\n)*
 `[1:])
 }
@@ -233,8 +233,8 @@ func (s *pluginSuite) TestWhiteListIsExtensible(c *gc.C) {
 	c.Assert(stderr, gc.Matches, "")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(stdout, gc.Matches, `
-(.|\n)*    danger         - danger --description
-(.|\n)*    foo            - foo --description
+(.|\n)*    danger              - danger --description
+(.|\n)*    foo                 - foo --description
 (.|\n)*
 `[1:])
 }

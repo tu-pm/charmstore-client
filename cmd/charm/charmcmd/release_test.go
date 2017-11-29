@@ -73,7 +73,7 @@ func (s *releaseSuite) TestInitError(c *gc.C) {
 		args := []string{"release"}
 		stdout, stderr, code := run(dir, append(args, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
+		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
 		c.Assert(code, gc.Equals, 2)
 	}
 }
@@ -203,7 +203,7 @@ func (s *releaseSuite) TestReleaseWithNoRevision(c *gc.C) {
 
 	// Upload a charm.
 	stdout, stderr, code := run(c.MkDir(), "release", id.String())
-	c.Assert(stderr, gc.Matches, "error: charm revision needs to be specified\n")
+	c.Assert(stderr, gc.Matches, "ERROR charm revision needs to be specified\n")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(code, gc.Equals, 2)
 }
