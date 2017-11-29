@@ -331,33 +331,40 @@ type fileInfo struct {
 // whiteListedCommands is a map of known external charm core commands. A false
 // value explicitly blacklists a command.
 var whiteListedCommands = map[string]bool{
-	"add":            true,
-	"build":          true,
-	"compose":        true,
-	"create":         true,
-	"generate":       true,
-	"get":            true,
-	"getall":         true,
-	"help":           false, // help is an internal command.
-	"info":           true,
-	"inspect":        true,
-	"layers":         true,
-	"list":           false, // list is an internal command.
-	"promulgate":     false, // promulgate is an internal command.
-	"proof":          true,
-	"push-term":      true,
-	"refresh":        true,
-	"release-term":   true,
-	"review":         true,
-	"review-queue":   true,
-	"search":         true,
-	"show-term":      true,
-	"subscibers":     true,
-	"test":           true,
-	"tools-commands": false, // charm-tools-commands is reserved for whitelist extension.
-	"unpromulgate":   true,
-	"update":         true,
-	"version":        true,
+	"add":                 true,
+	"attach-plan":         true,
+	"build":               true,
+	"compose":             true,
+	"create":              true,
+	"generate":            true,
+	"get":                 true,
+	"getall":              true,
+	"help":                false, // help is an internal command.
+	"info":                true,
+	"inspect":             true,
+	"layers":              true,
+	"list":                false, // list is an internal command.
+	"promulgate":          false, // promulgate is an internal command.
+	"proof":               true,
+	"push-plan":           true,
+	"push-term":           true,
+	"refresh":             true,
+	"release-plan":        true,
+	"release-term":        true,
+	"resume-plan":         true,
+	"review":              true,
+	"review-queue":        true,
+	"search":              true,
+	"show-plan":           true,
+	"show-plan-revisions": true,
+	"show-term":           true,
+	"subscribers":         true,
+	"suspend-plan":        true,
+	"test":                true,
+	"tools-commands":      false, // charm-tools-commands is reserved for whitelist extension.
+	"unpromulgate":        true,
+	"update":              true,
+	"version":             true,
 }
 
 // updateWhiteListedCommands calls charm-tools-commands to extend the list of
