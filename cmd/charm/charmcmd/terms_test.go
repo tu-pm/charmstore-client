@@ -99,7 +99,7 @@ func (s *termsSuite) TestUnknownArgument(c *gc.C) {
 	stdout, stderr, code := run(c.MkDir(), "terms", "-u", "test-user", "foobar")
 	c.Assert(code, gc.Equals, 2)
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, `error: unrecognized args: ["foobar"]
+	c.Assert(stderr, gc.Equals, `ERROR unrecognized args: ["foobar"]
 `)
 }
 

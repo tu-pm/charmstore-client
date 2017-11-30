@@ -59,7 +59,7 @@ func (s *grantSuite) TestInitError(c *gc.C) {
 		subcmd := []string{"grant"}
 		stdout, stderr, code := run(dir, append(subcmd, test.args...)...)
 		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "error: "+test.err+"\n")
+		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
 		c.Assert(code, gc.Equals, 2)
 	}
 }

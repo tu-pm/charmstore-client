@@ -27,16 +27,16 @@ var showInitErrorTests = []struct {
 	expectStderr string
 	args         []string
 }{{
-	expectStderr: "error: no charm or bundle id specified",
+	expectStderr: "ERROR no charm or bundle id specified",
 }, {
 	args:         []string{"rubbish:boo"},
-	expectStderr: `error: invalid charm or bundle id: cannot parse URL "rubbish:boo": schema "rubbish" not valid`,
+	expectStderr: `ERROR invalid charm or bundle id: cannot parse URL "rubbish:boo": schema "rubbish" not valid`,
 }, {
 	args:         []string{"--list", "foo"},
-	expectStderr: `error: cannot specify charm or bundle with --list`,
+	expectStderr: `ERROR cannot specify charm or bundle with --list`,
 }, {
 	args:         []string{"wordpress", "--auth", "bad-wolf"},
-	expectStderr: `error: invalid value "bad-wolf" for flag --auth: invalid auth credentials: expected "user:passwd"`,
+	expectStderr: `ERROR invalid value "bad-wolf" for flag --auth: invalid auth credentials: expected "user:passwd"`,
 }}
 
 func (s *showSuite) TestInitError(c *gc.C) {

@@ -30,13 +30,13 @@ var pullInitErrorTests = []struct {
 	expectStderr string
 	args         []string
 }{{
-	expectStderr: "error: no charm or bundle id specified\n",
+	expectStderr: "ERROR no charm or bundle id specified\n",
 }, {
 	args:         []string{"foo", "bar", "baz"},
-	expectStderr: "error: too many arguments\n",
+	expectStderr: "ERROR too many arguments\n",
 }, {
 	args:         []string{"rubbish:boo"},
-	expectStderr: `error: invalid charm or bundle id "rubbish:boo": cannot parse URL "rubbish:boo": schema "rubbish" not valid\n`,
+	expectStderr: `ERROR invalid charm or bundle id "rubbish:boo": cannot parse URL "rubbish:boo": schema "rubbish" not valid\n`,
 }}
 
 func (s *pullSuite) TestInitError(c *gc.C) {

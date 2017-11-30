@@ -18,6 +18,8 @@ import (
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/loggo"
 	"github.com/juju/persistent-cookiejar"
+	planscmd "github.com/juju/plans-client/cmd"
+	termscmd "github.com/juju/terms-client/cmd"
 	"github.com/juju/usso"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/errgo.v1"
@@ -79,6 +81,20 @@ func New() *cmd.SuperCommand {
 	c.Register(&showCommand{})
 	c.Register(&termsCommand{})
 	c.Register(&whoamiCommand{})
+
+	// Register terms-client commands
+	c.Register(termscmd.NewReleaseTermCommand())
+	c.Register(termscmd.NewPushTermCommand())
+	c.Register(termscmd.NewShowTermCommand())
+
+	// Register plans-client commands
+	c.Register(planscmd.NewAttachCommand())
+	c.Register(planscmd.NewPushCommand())
+	c.Register(planscmd.NewResumeCommand())
+	c.Register(planscmd.NewShowRevisionsCommand())
+	c.Register(planscmd.NewShowCommand())
+	c.Register(planscmd.NewSuspendCommand())
+
 	c.AddHelpTopicCallback(
 		"plugins",
 		"Show "+c.Name+" plugins",
