@@ -25,7 +25,7 @@ var _ = gc.Suite(&termsSuite{})
 
 func (s *termsSuite) TestInvalidServerURL(c *gc.C) {
 	os.Setenv("JUJU_CHARMSTORE", "#%zz")
-	stdout, stderr, exitCode := run(c.MkDir(), "terms")
+	stdout, stderr, exitCode := run(c.MkDir(), "terms-used")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 1)
 	c.Assert(stderr, gc.Equals, "ERROR cannot retrieve identity: parse #%zz/v5/whoami: invalid URL escape \"%zz\"\n")
@@ -41,7 +41,7 @@ func (s *termsSuite) TestTermsUserProvidedYAML(c *gc.C) {
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	dir := c.MkDir()
-	stdout, stderr, code := run(dir, "terms", "-u", "test-user", "--format", "yaml")
+	stdout, stderr, code := run(dir, "terms-used", "-u", "test-user", "--format", "yaml")
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Assert(stdout, gc.Equals, `term1/1:
@@ -63,7 +63,7 @@ func (s *termsSuite) TestTermsUserProvidedTabular(c *gc.C) {
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	dir := c.MkDir()
-	stdout, stderr, code := run(dir, "terms", "-u", "test-user")
+	stdout, stderr, code := run(dir, "terms-used", "-u", "test-user")
 	c.Assert(stderr, gc.Equals, "")
 
 	c.Assert(stdout, gc.Equals, `TERM   	CHARM                         
@@ -84,7 +84,7 @@ func (s *termsSuite) TestTermsUserProvidedEmpty(c *gc.C) {
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	dir := c.MkDir()
-	stdout, stderr, code := run(dir, "terms", "-u", "test-user", "--format", "yaml")
+	stdout, stderr, code := run(dir, "terms-used", "-u", "test-user", "--format", "yaml")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(stdout, gc.Equals, `term1/1:
 - cs:~test-user/trusty/alambic-0
@@ -96,7 +96,7 @@ term2/1:
 }
 
 func (s *termsSuite) TestUnknownArgument(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "terms", "-u", "test-user", "foobar")
+	stdout, stderr, code := run(c.MkDir(), "terms-used", "-u", "test-user", "foobar")
 	c.Assert(code, gc.Equals, 2)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Equals, `ERROR unrecognized args: ["foobar"]
@@ -104,7 +104,7 @@ func (s *termsSuite) TestUnknownArgument(c *gc.C) {
 }
 
 func (s *termsSuite) TestNoTerms(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "terms", "-u", "test-user")
+	stdout, stderr, code := run(c.MkDir(), "terms-used", "-u", "test-user")
 	c.Assert(code, gc.Equals, 0)
 	c.Assert(stdout, gc.Equals, "No terms found.\n")
 	c.Assert(stderr, gc.Equals, "")

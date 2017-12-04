@@ -86,6 +86,7 @@ func New() *cmd.SuperCommand {
 	c.Register(termscmd.NewReleaseTermCommand())
 	c.Register(termscmd.NewPushTermCommand())
 	c.Register(termscmd.NewShowTermCommand())
+	c.Register(termscmd.NewListTermsCommand())
 
 	// Register plans-client commands
 	c.Register(planscmd.NewAttachCommand())

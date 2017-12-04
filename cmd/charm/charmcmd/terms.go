@@ -23,27 +23,16 @@ type termsCommand struct {
 	user string
 }
 
-// TODO (mattyw) As of 16Mar2016 this is implemented
-// in a different way to the description here, but the
-// description here shows the intent. The implementation
-// will need to be improved when it is supported in the
-// terms service.
-// The implemenation as of 16Mar2016 simply iterates over
-// the charms owned by the user and then gets a list of the
-// terms required by these charms. Using this it then produces
-// a mapping of term:[]charmUrl to be output to the user.
 var termsDoc = `
-The terms command lists the terms owned by this user and the
-charms that require these terms to b agreed to.
-
-   charm terms
+lists the terms required by the current user's charms
+   charm terms-used
 `
 
 // Info implements cmd.Command.Info.
 func (c *termsCommand) Info() *cmd.Info {
 	return &cmd.Info{
-		Name:    "terms",
-		Purpose: "lists terms owned by the user",
+		Name:    "terms-used",
+		Purpose: "list terms required by current user's charms",
 		Doc:     termsDoc,
 	}
 }
