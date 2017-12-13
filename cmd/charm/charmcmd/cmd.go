@@ -95,6 +95,7 @@ func New() *cmd.SuperCommand {
 	c.Register(planscmd.NewShowRevisionsCommand())
 	c.Register(planscmd.NewShowCommand())
 	c.Register(planscmd.NewSuspendCommand())
+	c.Register(planscmd.NewListPlansCommand())
 
 	c.AddHelpTopicCallback(
 		"plugins",
