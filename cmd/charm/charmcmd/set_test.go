@@ -9,9 +9,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -21,15 +20,6 @@ type setSuite struct {
 }
 
 var _ = gc.Suite(&setSuite{})
-
-func (s *setSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "charmers"),
-		}, nil
-	}
-}
 
 var setInitErrorTests = []struct {
 	args []string
@@ -69,6 +59,7 @@ var setInitErrorTests = []struct {
 }}
 
 func (s *setSuite) TestInitError(c *gc.C) {
+	s.discharger.SetDefaultUser("charmers")
 	dir := c.MkDir()
 	for i, test := range setInitErrorTests {
 		c.Logf("test %d: %q", i, test.args)
@@ -81,6 +72,7 @@ func (s *setSuite) TestInitError(c *gc.C) {
 }
 
 func (s *setSuite) TestRunError(c *gc.C) {
+	s.discharger.SetDefaultUser("charmers")
 	stdout, stderr, code := run(c.MkDir(), "set", "no-such-entity", "homepage=value")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, "ERROR cannot update the set arguments provided: no matching charm or bundle for cs:no-such-entity\n")
@@ -88,14 +80,12 @@ func (s *setSuite) TestRunError(c *gc.C) {
 }
 
 func (s *setSuite) TestAuthenticationError(c *gc.C) {
-	s.discharge = func(cond, arg string) ([]checkers.Caveat, error) {
-		return nil, fmt.Errorf("no discharge")
-	}
+	s.discharger.SetDefaultUser("someoneelse")
 	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, url, -1, entitytesting.Repo.CharmDir("wordpress"))
 	stdout, stderr, code := run(c.MkDir(), "set", url.String(), "homepage=value")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR cannot update the set arguments provided: cannot get discharge from \".*\": third party refused discharge: cannot discharge: no discharge\n")
+	c.Assert(stderr, gc.Matches, `ERROR cannot update the set arguments provided: access denied for user "someoneelse"\n`)
 	c.Assert(code, gc.Equals, 1)
 }
 
@@ -231,6 +221,7 @@ var setCommonSuccessTests = []struct {
 }}
 
 func (s *setSuite) TestSuccess(c *gc.C) {
+	s.discharger.SetDefaultUser("charmers")
 	for i, test := range setCommonSuccessTests {
 		ch := entitytesting.Repo.CharmDir("wordpress")
 		url := charm.MustParseURL(fmt.Sprint("~charmers/utopic/wordpress", i))
@@ -272,6 +263,7 @@ func (s *setSuite) TestSuccess(c *gc.C) {
 }
 
 func (s *setSuite) TestSuccessfulWithChannel(c *gc.C) {
+	s.discharger.SetDefaultUser("charmers")
 	ch := entitytesting.Repo.CharmDir("wordpress")
 	url := charm.MustParseURL("~charmers/utopic/wordpress")
 	s.uploadCharmDir(c, url.WithRevision(40), -1, ch)

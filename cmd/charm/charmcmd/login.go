@@ -6,7 +6,7 @@ package charmcmd
 import (
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 type loginCommand struct {
@@ -30,7 +30,7 @@ func (c *loginCommand) Info() *cmd.Info {
 func (c *loginCommand) Run(ctxt *cmd.Context) error {
 	client, err := newCharmStoreClient(ctxt, authInfo{}, params.NoChannel)
 	if err != nil {
-		return errgo.Notef(err, "cannot create the charm store client")
+		return errgo.Notef(err, "cannot create charm store client")
 	}
 	defer client.jar.Save()
 	return translateError(client.Login())

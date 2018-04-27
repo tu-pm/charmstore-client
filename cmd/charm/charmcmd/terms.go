@@ -12,7 +12,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 type termsCommand struct {
@@ -61,7 +61,7 @@ type termsResponse struct {
 func (c *termsCommand) Run(ctxt *cmd.Context) error {
 	client, err := newCharmStoreClient(ctxt, c.auth, params.NoChannel)
 	if err != nil {
-		return errgo.Notef(err, "cannot create the charm store client")
+		return errgo.Notef(err, "cannot create charm store client")
 	}
 	defer client.jar.Save()
 

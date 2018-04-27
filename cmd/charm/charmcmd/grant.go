@@ -10,8 +10,8 @@ import (
 	"github.com/juju/gnuflag"
 	"github.com/juju/names"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 type grantCommand struct {
@@ -117,7 +117,7 @@ func (c *grantCommand) Init(args []string) error {
 func (c *grantCommand) Run(ctxt *cmd.Context) error {
 	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
-		return errgo.Notef(err, "cannot create the charm store client")
+		return errgo.Notef(err, "cannot create charm store client")
 	}
 	defer client.jar.Save()
 

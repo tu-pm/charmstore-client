@@ -7,14 +7,13 @@ import (
 	"encoding/base64"
 	"encoding/json"
 	"net/url"
-	"time"
 
 	"github.com/juju/persistent-cookiejar"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/publicsuffix"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon.v2-unstable"
+	"gopkg.in/macaroon-bakery.v2/bakery/checkers"
+	macaroon "gopkg.in/macaroon.v2"
 )
 
 type loginSuite struct {
@@ -23,17 +22,8 @@ type loginSuite struct {
 
 var _ = gc.Suite(&loginSuite{})
 
-func (s *loginSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "test-user"),
-			checkers.TimeBeforeCaveat(time.Now().Add(24 * time.Hour)),
-		}, nil
-	}
-}
-
 func (s *loginSuite) TestNoCookie(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	stdout, stderr, code := run(c.MkDir(), "login")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, "")
@@ -42,6 +32,7 @@ func (s *loginSuite) TestNoCookie(c *gc.C) {
 }
 
 func (s *loginSuite) TestWithCookie(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	_, _, code := run(dir, "login")
 	c.Assert(code, gc.Equals, 0)
@@ -52,6 +43,13 @@ func (s *loginSuite) TestWithCookie(c *gc.C) {
 	c.Assert(code, gc.Equals, 0)
 	s.checkUser(c)
 }
+
+// csNamespace holds the namespace used by the charmstore.
+// The namespace is actually larger than this, but this
+// gives us enough to infer the declared username.
+var csNamespace = checkers.NewNamespace(map[string]string{
+	checkers.StdNamespace: "",
+})
 
 func (s *loginSuite) checkUser(c *gc.C) {
 	jar, err := cookiejar.New(&cookiejar.Options{
@@ -67,6 +65,6 @@ func (s *loginSuite) checkUser(c *gc.C) {
 	var mss macaroon.Slice
 	err = json.Unmarshal(mssjson, &mss)
 	c.Assert(err, gc.IsNil)
-	declared := checkers.InferDeclared(mss)
-	c.Assert(declared["username"], gc.Equals, "test-user")
+	declared := checkers.InferDeclared(csNamespace, mss)
+	c.Assert(declared["username"], gc.Equals, "bob")
 }

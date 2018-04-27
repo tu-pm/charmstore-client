@@ -6,7 +6,6 @@ package charmcmd
 import (
 	"fmt"
 	"io"
-	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -14,7 +13,6 @@ import (
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
-	"github.com/juju/idmclient/ussologin"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/loggo"
 	"github.com/juju/persistent-cookiejar"
@@ -23,14 +21,13 @@ import (
 	"github.com/juju/usso"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	esform "gopkg.in/juju/environschema.v1/form"
+	"gopkg.in/juju/idmclient.v1/ussologin"
 	"gopkg.in/juju/worker.v1"
-	"gopkg.in/macaroon-bakery.v1/httpbakery"
-	hbform "gopkg.in/macaroon-bakery.v1/httpbakery/form"
-	httpbakery2 "gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 
 	"github.com/juju/charmstore-client/internal/iomon"
 )
@@ -153,23 +150,20 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 	}
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Jar = jar
-	tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
 	filler := &progressClearFiller{
 		f: &esform.IOFiller{
 			In:  ctxt.Stdin,
 			Out: ctxt.Stdout,
 		},
 	}
-	bakeryClient2 := httpbakery2.NewClient()
-	bakeryClient2.Jar = jar
-	bakeryClient.WebPageVisitor = httpbakery.NewMultiVisitor(
-		visitorAdaptor{
-			client2:  bakeryClient2,
-			visitor2: ussologin.NewVisitor("charm", filler, tokenStore),
+	tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
+	bakeryClient.AddInteractor(ussologin.NewInteractor(ussologin.StoreTokenGetter{
+		Store: tokenStore,
+		TokenGetter: ussologin.FormTokenGetter{
+			Filler: filler,
+			Name:   "charm",
 		},
-		hbform.Visitor{filler},
-		httpbakery.WebBrowserVisitor,
-	)
+	}))
 	csClient := csClient{
 		filler: filler,
 		Client: csclient.New(csclient.Params{
@@ -321,27 +315,6 @@ func translateInteractionError(err *httpbakery.InteractionError) error {
 		return errgo.Newf("%s: %s", k, v)
 	}
 	return ussoError
-}
-
-// visitorAdaptor implements httpbakery.Visitor (v1 bakery) by calling a
-// v2-unstable Visitor implementation. This is a temporary necessity
-// because tests use v2 bakery because the charmstore server
-// implementation uses that version, but the charmstore client must use
-// v1 bakery because charmrepo uses that version (and can't move away
-// from it until juju is updated to use bakery.v2).
-//
-// The conflict comes from the fact that both client and server side use
-// idmclient, which is not versioned.
-//
-// This adaptor makes it possible to use the ussologin Visitor
-// implementation in the v1 bakery client.
-type visitorAdaptor struct {
-	client2  *httpbakery2.Client
-	visitor2 httpbakery2.Visitor
-}
-
-func (a visitorAdaptor) VisitWebPage(c *httpbakery.Client, u map[string]*url.URL) error {
-	return a.visitor2.VisitWebPage(a.client2, u)
 }
 
 type progressClearFiller struct {

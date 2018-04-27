@@ -5,9 +5,8 @@ package charmcmd_test
 import (
 	"os"
 
-	"github.com/juju/persistent-cookiejar"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -27,11 +26,7 @@ func (s *listSuite) TestInvalidServerURL(c *gc.C) {
 }
 
 func (s *listSuite) TestListUserProvided(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{Filename: s.cookieFile})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/utopic/wordpress-0"), -1, entitytesting.Repo.CharmDir("wordpress"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/vivid/alambic-0"), -1, entitytesting.Repo.CharmDir("wordpress"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("wordpress"))
@@ -45,11 +40,7 @@ func (s *listSuite) TestListUserProvided(c *gc.C) {
 }
 
 func (s *listSuite) TestListUserProvidedEmpty(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{Filename: s.cookieFile})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/utopic/wordpress-0"), -1, entitytesting.Repo.CharmDir("wordpress"))
 	dir := c.MkDir()
 	stdout, stderr, code := run(dir, "list", "-u", "test-user")

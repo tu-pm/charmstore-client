@@ -11,9 +11,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -23,15 +22,6 @@ type pushSuite struct {
 }
 
 var _ = gc.Suite(&pushSuite{})
-
-func (s *pushSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "bob"),
-		}, nil
-	}
-}
 
 var pushInitErrorTests = []struct {
 	expectError string
@@ -65,6 +55,7 @@ var pushInitErrorTests = []struct {
 }}
 
 func (s *pushSuite) TestInitError(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	for i, test := range pushInitErrorTests {
 		c.Logf("test %d: %q", i, test.args)
@@ -77,6 +68,7 @@ func (s *pushSuite) TestInitError(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithNonExistentDir(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	stdout, stderr, code := run(dir, "push", filepath.Join(dir, "nodir"), "~bob/trusty/wordpress")
 	c.Assert(stdout, gc.Equals, "")
@@ -85,6 +77,7 @@ func (s *pushSuite) TestUploadWithNonExistentDir(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithBadCharm(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	path := entitytesting.Repo.ClonedDirPath(dir, "wordpress")
 	err := os.Remove(filepath.Join(path, "metadata.yaml"))
@@ -97,6 +90,7 @@ func (s *pushSuite) TestUploadWithBadCharm(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithNonDirectoryCharm(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	path := entitytesting.Repo.CharmArchivePath(dir, "wordpress")
 	stdout, stderr, code := run(dir, "push", path, "~bob/trusty/wordpress")
@@ -106,6 +100,7 @@ func (s *pushSuite) TestUploadWithNonDirectoryCharm(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithInvalidDirName(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	path := entitytesting.Repo.ClonedDirPath(dir, "multi-series")
 	newPath := filepath.Join(filepath.Dir(path), "invalid.path")
@@ -118,6 +113,7 @@ func (s *pushSuite) TestUploadWithInvalidDirName(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithBadBundle(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	path := entitytesting.Repo.ClonedBundleDirPath(dir, "wordpress-simple")
 	err := os.Remove(filepath.Join(path, "bundle.yaml"))
@@ -129,6 +125,7 @@ func (s *pushSuite) TestUploadWithBadBundle(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithBadBundleNoReadme(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	path := entitytesting.Repo.ClonedBundleDirPath(dir, "wordpress-simple")
 	err := os.Remove(filepath.Join(path, "README.md"))
@@ -140,6 +137,7 @@ func (s *pushSuite) TestUploadWithBadBundleNoReadme(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadWithNonDirectoryBundle(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	path := entitytesting.Repo.BundleArchivePath(dir, "wordpress-simple")
 	stdout, stderr, code := run(dir, "push", path, "~bob/trusty/wordpress")
@@ -149,6 +147,7 @@ func (s *pushSuite) TestUploadWithNonDirectoryBundle(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadBundleFailure(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "bundle/wordpress-simple"), "~bob/bundle/something")
@@ -158,6 +157,7 @@ func (s *pushSuite) TestUploadBundleFailure(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadBundle(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 
@@ -178,6 +178,7 @@ func (s *pushSuite) TestUploadBundle(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadBundleNoId(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 
@@ -198,6 +199,7 @@ func (s *pushSuite) TestUploadBundleNoId(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadBundleNoUser(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 
@@ -218,6 +220,7 @@ func (s *pushSuite) TestUploadBundleNoUser(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharm(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/wordpress"), "~bob/trusty/something")
@@ -227,6 +230,7 @@ func (s *pushSuite) TestUploadCharm(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmNoIdFromRelativeDir(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	repo := entitytesting.Repo
 	charmDir := filepath.Join(repo.Path(), "quantal/multi-series")
 
@@ -242,6 +246,7 @@ func (s *pushSuite) TestUploadCharmNoIdFromRelativeDir(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmNoIdNoMultiseries(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/wordpress"))
@@ -251,6 +256,7 @@ func (s *pushSuite) TestUploadCharmNoIdNoMultiseries(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmNoId(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/multi-series"))
@@ -260,6 +266,7 @@ func (s *pushSuite) TestUploadCharmNoId(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmNoUserNoSeriesNoMultiseries(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/wordpress"), "mycharm")
@@ -269,6 +276,7 @@ func (s *pushSuite) TestUploadCharmNoUserNoSeriesNoMultiseries(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmNoUserNoSeries(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/multi-series"), "mycharm")
@@ -278,6 +286,7 @@ func (s *pushSuite) TestUploadCharmNoUserNoSeries(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmNoUser(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	repo := entitytesting.Repo
 	stdout, stderr, code := run(dir, "push", filepath.Join(repo.Path(), "quantal/wordpress"), "trusty/mycharm")
@@ -287,6 +296,7 @@ func (s *pushSuite) TestUploadCharmNoUser(c *gc.C) {
 }
 
 func (s *pushSuite) TestUploadCharmWithResources(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	dataPath := filepath.Join(dir, "data.zip")
 	err := ioutil.WriteFile(dataPath, []byte("data content"), 0666)

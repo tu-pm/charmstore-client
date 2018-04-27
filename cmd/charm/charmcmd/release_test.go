@@ -9,10 +9,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	charmtesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -22,15 +21,6 @@ type releaseSuite struct {
 }
 
 var _ = gc.Suite(&releaseSuite{})
-
-func (s *releaseSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "bob"),
-		}, nil
-	}
-}
 
 var releaseInitErrorTests = []struct {
 	about string
@@ -67,6 +57,7 @@ var releaseInitErrorTests = []struct {
 }}
 
 func (s *releaseSuite) TestInitError(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	for i, test := range releaseInitErrorTests {
 		c.Logf("test %d: %s; %q", i, test.about, test.args)
@@ -79,6 +70,7 @@ func (s *releaseSuite) TestInitError(c *gc.C) {
 }
 
 func (s *releaseSuite) TestRunNoSuchCharm(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	stdout, stderr, code := run(c.MkDir(), "release", "no-such-entity-55", "--channel", "stable")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
@@ -86,15 +78,17 @@ func (s *releaseSuite) TestRunNoSuchCharm(c *gc.C) {
 }
 
 func (s *releaseSuite) TestAuthenticationError(c *gc.C) {
+	s.discharger.SetDefaultUser("someoneelse")
 	id := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
 	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "--channel", "stable")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: access denied for user "bob"\n`)
+	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: access denied for user "someoneelse"\n`)
 	c.Assert(code, gc.Equals, 1)
 }
 
 func (s *releaseSuite) TestReleaseInvalidChannel(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
 	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "-c", "bad-wolf")
@@ -104,6 +98,7 @@ func (s *releaseSuite) TestReleaseInvalidChannel(c *gc.C) {
 }
 
 func (s *releaseSuite) TestReleaseSuccess(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 
 	// Upload a charm.
@@ -138,6 +133,7 @@ func (s *releaseSuite) TestReleaseSuccess(c *gc.C) {
 }
 
 func (s *releaseSuite) TestReleaseWithDefaultChannelSuccess(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 
 	// Upload a charm.
@@ -179,6 +175,7 @@ var releaseDefaultChannelWarnings = []struct {
 }}
 
 func (s *releaseSuite) TestReleaseWithDefaultChannelSuccessWithWarningIfBugsURLAndHomePageAreNotSet(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	for i, test := range releaseDefaultChannelWarnings {
 		c.Logf("test %d (%s): [%q]", i, test.about, test.commonFields)
 		id := charm.MustParseURL("~bob/wily/" + test.name + "-42")
@@ -199,6 +196,7 @@ func (s *releaseSuite) TestReleaseWithDefaultChannelSuccessWithWarningIfBugsURLA
 }
 
 func (s *releaseSuite) TestReleaseWithNoRevision(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django")
 
 	// Upload a charm.
@@ -209,6 +207,7 @@ func (s *releaseSuite) TestReleaseWithNoRevision(c *gc.C) {
 }
 
 func (s *releaseSuite) TestReleasePartialURL(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 	ch := entitytesting.Repo.CharmDir("wordpress")
 
@@ -226,6 +225,7 @@ func (s *releaseSuite) TestReleasePartialURL(c *gc.C) {
 }
 
 func (s *releaseSuite) TestReleaseAndShow(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 	ch := entitytesting.Repo.CharmDir("wordpress")
 
@@ -251,6 +251,7 @@ func (s *releaseSuite) TestReleaseAndShow(c *gc.C) {
 }
 
 func (s *releaseSuite) TestReleaseWithResources(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	// Note we include one resource with a hyphen in the name,
 	// just to make sure the resource flag parsing code works OK
 	// in that case.
