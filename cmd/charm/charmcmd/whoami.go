@@ -13,7 +13,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 type whoamiCommand struct {
@@ -57,7 +57,7 @@ func (c *whoamiCommand) formatText(w io.Writer, resp0 interface{}) error {
 func (c *whoamiCommand) Run(ctxt *cmd.Context) error {
 	client, err := newCharmStoreClient(ctxt, authInfo{}, params.NoChannel)
 	if err != nil {
-		return errgo.Notef(err, "could not load the cookie from file")
+		return errgo.Notef(err, "cannot create charm store client")
 	}
 	defer client.jar.Save()
 	csurl := client.ServerURL()

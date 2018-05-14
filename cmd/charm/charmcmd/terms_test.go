@@ -10,9 +10,8 @@ package charmcmd_test
 import (
 	"os"
 
-	"github.com/juju/persistent-cookiejar"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -32,11 +31,7 @@ func (s *termsSuite) TestInvalidServerURL(c *gc.C) {
 }
 
 func (s *termsSuite) TestTermsUserProvidedYAML(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{Filename: s.cookieFile})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/foobar-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
@@ -54,11 +49,7 @@ term2/1:
 }
 
 func (s *termsSuite) TestTermsUserProvidedTabular(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{Filename: s.cookieFile})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/foobar-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
@@ -75,11 +66,7 @@ term2/1	cs:~test-user/trusty/alambic-0
 }
 
 func (s *termsSuite) TestTermsUserProvidedEmpty(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{Filename: s.cookieFile})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/foobar-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))

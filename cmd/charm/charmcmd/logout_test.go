@@ -6,14 +6,12 @@ package charmcmd_test
 import (
 	"net/url"
 	"strings"
-	"time"
 
 	"github.com/juju/persistent-cookiejar"
 	"github.com/juju/testing"
 	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/publicsuffix"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 )
@@ -24,17 +22,8 @@ type logoutSuite struct {
 
 var _ = gc.Suite(&logoutSuite{})
 
-func (s *logoutSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "test-user"),
-			checkers.TimeBeforeCaveat(time.Now().Add(24 * time.Hour)),
-		}, nil
-	}
-}
-
 func (s *logoutSuite) TestNotLoggedIn(c *gc.C) {
+	s.discharger.SetDefaultUser("test-user")
 	stdout, stderr, code := run(c.MkDir(), "logout")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, "")
@@ -43,9 +32,10 @@ func (s *logoutSuite) TestNotLoggedIn(c *gc.C) {
 }
 
 func (s *logoutSuite) TestWithCookie(c *gc.C) {
+	s.discharger.SetDefaultUser("test-user")
 	dir := c.MkDir()
-	_, _, code := run(dir, "login")
-	c.Assert(code, gc.Equals, 0)
+	_, stderr, code := run(dir, "login")
+	c.Assert(code, gc.Equals, 0, gc.Commentf("stderr: %s", stderr))
 	c.Assert(s.cookieFile, jc.IsNonEmptyFile)
 
 	stdout, stderr, code := run(dir, "logout")
@@ -56,6 +46,7 @@ func (s *logoutSuite) TestWithCookie(c *gc.C) {
 }
 
 func (s *logoutSuite) TestWithToken(c *gc.C) {
+	s.discharger.SetDefaultUser("test-user")
 	s.Home.AddFiles(c, testing.TestFile{
 		Name: ".local/share/juju/store-usso-token",
 		Data: "TEST!",
@@ -70,6 +61,7 @@ func (s *logoutSuite) TestWithToken(c *gc.C) {
 }
 
 func (s *logoutSuite) checkNoUser(c *gc.C) {
+	s.discharger.SetDefaultUser("test-user")
 	jar, err := cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 		Filename:         s.cookieFile,

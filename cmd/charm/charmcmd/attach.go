@@ -10,7 +10,7 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6-unstable"
+	"gopkg.in/juju/charm.v6"
 )
 
 type attachCommand struct {
@@ -83,7 +83,7 @@ func (c *attachCommand) Init(args []string) error {
 func (c *attachCommand) Run(ctxt *cmd.Context) error {
 	client, err := newCharmStoreClient(ctxt, c.auth, c.channel.C)
 	if err != nil {
-		return errgo.Notef(err, "cannot create the charm store client")
+		return errgo.Notef(err, "cannot create charm store client")
 	}
 	defer client.jar.Save()
 

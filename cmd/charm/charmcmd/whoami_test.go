@@ -6,64 +6,16 @@ package charmcmd_test
 import (
 	"encoding/json"
 	"io/ioutil"
-	"net/http/httptest"
-	"net/url"
 	"os"
-	"time"
-
-	"github.com/juju/idmclient/idmtest"
-	"github.com/juju/persistent-cookiejar"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/charmstore.v5-unstable"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/httpbakery"
-	"gopkg.in/macaroon.v2-unstable"
-	"gopkg.in/yaml.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	jc "github.com/juju/testing/checkers"
+	gc "gopkg.in/check.v1"
+	yaml "gopkg.in/yaml.v1"
 )
 
 type whoamiSuite struct {
 	commonSuite
-	idsrv *idmtest.Server
-}
-
-func (s *whoamiSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.srv.Close()
-	s.handler.Close()
-	s.idsrv = idmtest.NewServer()
-	s.idsrv.AddUser("test-user")
-	s.idsrv.SetDefaultUser("test-user")
-	s.serverParams = charmstore.ServerParams{
-		AuthUsername:     "test-user",
-		AuthPassword:     "test-password",
-		IdentityLocation: s.idsrv.URL.String(),
-		PublicKeyLocator: s.idsrv,
-		AgentUsername:    "test-user",
-		AgentKey:         s.idsrv.UserPublicKey("test-user"),
-	}
-	var err error
-	s.handler, err = charmstore.NewServer(s.Session.DB("charmstore"), nil, "", s.serverParams, charmstore.V5)
-	c.Assert(err, gc.IsNil)
-	s.srv = httptest.NewServer(s.handler)
-	s.client = csclient.New(csclient.Params{
-		URL:      s.srv.URL,
-		User:     s.serverParams.AuthUsername,
-		Password: s.serverParams.AuthPassword,
-	})
-	s.PatchValue(charmcmd.CSClientServerURL, s.srv.URL)
-	os.Setenv("JUJU_CHARMSTORE", s.srv.URL)
-}
-
-func (s *whoamiSuite) TearDownTest(c *gc.C) {
-	s.srv.Close()
-	s.idsrv.Close()
-	s.handler.Close()
-	s.commonSuite.TearDownTest(c)
 }
 
 var _ = gc.Suite(&whoamiSuite{})
@@ -76,15 +28,8 @@ func (s *whoamiSuite) TestNotLoggedIn(c *gc.C) {
 }
 
 func (s *whoamiSuite) TestLoggedIn(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: s.cookieFile,
-	})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.login(c, "test-user", "test-group1", "test-group2")
 
-	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 0)
@@ -92,14 +37,7 @@ func (s *whoamiSuite) TestLoggedIn(c *gc.C) {
 }
 
 func (s *whoamiSuite) TestSortedGroup(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: s.cookieFile,
-	})
-	c.Assert(err, gc.IsNil)
-	s.idsrv.AddUser("test-user", "AAA", "ZZZ", "BBB")
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+	s.login(c, "test-user", "AAA", "ZZZ", "BBB")
 
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
 	c.Assert(stderr, gc.Equals, "")
@@ -108,20 +46,13 @@ func (s *whoamiSuite) TestSortedGroup(c *gc.C) {
 }
 
 func (s *whoamiSuite) TestSuccessJSON(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: s.cookieFile,
-	})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
-	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
+	s.login(c, "test-user", "test-group1", "test-group2")
 
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami", "--format=json")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 0)
 	var result map[string]interface{}
-	err = json.Unmarshal([]byte(stdout), &result)
+	err := json.Unmarshal([]byte(stdout), &result)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result["User"], gc.Equals, "test-user")
 	c.Assert(result["Groups"], gc.DeepEquals, []interface{}{"test-group1", "test-group2"})
@@ -129,20 +60,13 @@ func (s *whoamiSuite) TestSuccessJSON(c *gc.C) {
 }
 
 func (s *whoamiSuite) TestSuccessYAML(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: s.cookieFile,
-	})
-	c.Assert(err, gc.IsNil)
-	addFakeCookieToJar(c, jar)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
-	s.idsrv.AddUser("test-user", "test-group1", "test-group2")
+	s.login(c, "test-user", "test-group1", "test-group2")
 
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami", "--format=yaml")
 	c.Assert(stderr, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 0)
 	var result map[string]interface{}
-	err = yaml.Unmarshal([]byte(stdout), &result)
+	err := yaml.Unmarshal([]byte(stdout), &result)
 	c.Assert(err, gc.IsNil)
 	c.Assert(result["user"], gc.Equals, "test-user")
 	c.Assert(result["groups"], gc.DeepEquals, []interface{}{"test-group1", "test-group2"})
@@ -163,34 +87,19 @@ func (s *whoamiSuite) TestBadCookieFile(c *gc.C) {
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(exitCode, gc.Equals, 1)
-	c.Assert(stderr, jc.HasPrefix, "ERROR could not load the cookie from file")
+	c.Assert(stderr, gc.Matches, `ERROR cannot create charm store client: cannot load cookies: .+\n`)
 }
 
-func (s *whoamiSuite) TestEmptyCookieFile(c *gc.C) {
-	jar, err := cookiejar.New(&cookiejar.Options{
-		Filename: s.cookieFile,
-	})
-	c.Assert(err, gc.IsNil)
-	err = jar.Save()
-	c.Assert(err, gc.IsNil)
+func (s *whoamiSuite) TestNoCookieFile(c *gc.C) {
 	stdout, stderr, exitCode := run(c.MkDir(), "whoami")
 	c.Assert(stdout, gc.Equals, "not logged into "+charmcmd.ServerURL()+"\n")
 	c.Assert(exitCode, gc.Equals, 0)
 	c.Assert(stderr, jc.HasPrefix, "")
 }
 
-func addFakeCookieToJar(c *gc.C, jar *cookiejar.Jar) {
-	key, err := bakery.GenerateKey()
-	c.Assert(err, gc.IsNil)
-	idsvc, err := bakery.NewService(bakery.NewServiceParams{
-		Key: key,
-	})
-	c.Assert(err, gc.IsNil)
-	idm, err := idsvc.NewMacaroon([]checkers.Caveat{
-		checkers.DeclaredCaveat("username", "test-user"),
-		checkers.TimeBeforeCaveat(time.Now().Add(24 * time.Hour)),
-	})
-	serverURL, err := url.Parse(*charmcmd.CSClientServerURL)
-	c.Assert(err, gc.IsNil)
-	httpbakery.SetCookie(jar, serverURL, macaroon.Slice{idm})
+func (s *whoamiSuite) login(c *gc.C, username string, groups ...string) {
+	s.discharger.AddUser(username, groups...)
+	s.discharger.SetDefaultUser(username)
+	_, _, code := run(c.MkDir(), "login")
+	c.Assert(code, gc.Equals, 0)
 }

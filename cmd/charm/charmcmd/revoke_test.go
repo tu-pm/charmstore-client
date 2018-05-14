@@ -8,8 +8,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -94,11 +94,12 @@ func (s *revokeSuite) TestRevokeCharmNotFound(c *gc.C) {
 }
 
 func (s *revokeSuite) TestAuthenticationError(c *gc.C) {
+	s.discharger.SetDefaultUser("someoneelse")
 	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, url, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "grant", url.String(), "--acl=read", "foo")
+	stdout, stderr, code := run(c.MkDir(), "revoke", url.String(), "--acl=read", "foo")
 	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR cannot set permissions: cannot get discharge from \".*\": third party refused discharge: cannot discharge: no discharge\n")
+	c.Assert(stderr, gc.Matches, `ERROR cannot set permissions: access denied for user "someoneelse"\n`)
 	c.Assert(code, gc.Equals, 1)
 }
 

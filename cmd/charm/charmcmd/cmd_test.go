@@ -5,6 +5,7 @@ package charmcmd_test
 
 import (
 	"bytes"
+	"context"
 	"crypto/sha512"
 	"fmt"
 	"io"
@@ -21,14 +22,14 @@ import (
 	"github.com/juju/usso"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/juju/charmstore.v5-unstable"
-	httpbakery1 "gopkg.in/macaroon-bakery.v1/httpbakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakerytest"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"gopkg.in/juju/charmstore.v5"
+	"gopkg.in/juju/idmclient.v1/idmtest"
+	bakery2u "gopkg.in/macaroon-bakery.v2-unstable/bakery"
+	"gopkg.in/macaroon-bakery.v2/bakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	"gopkg.in/mgo.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
@@ -66,29 +67,17 @@ type commonSuite struct {
 	testing.IsolatedMgoSuite
 	testing.FakeHomeSuite
 
-	// initDischarger is called in SetUpTest to find the location of
-	// the discharger and its public key. By default it is
-	// initialized in SetUpSuite to commonSuite.setDischarger, but
-	// may be changed before SetUpTest to set up a different
-	// discharger.
-	initDischarger func(*gc.C) (string, *bakery.PublicKey)
-
-	// discharge is used as the function to discharge caveats if the
-	// standard discharger is being used.
-	discharge func(cond, arg string) ([]checkers.Caveat, error)
-
 	srv          *httptest.Server
 	handler      charmstore.HTTPCloseHandler
 	cookieFile   string
 	client       *csclient.Client
 	serverParams charmstore.ServerParams
-	discharger   *bakerytest.Discharger
+	discharger   *idmtest.Server
 }
 
 func (s *commonSuite) SetUpSuite(c *gc.C) {
 	s.IsolatedMgoSuite.SetUpSuite(c)
 	s.FakeHomeSuite.SetUpSuite(c)
-	s.initDischarger = s.startDischarger
 }
 
 func (s *commonSuite) TearDownSuite(c *gc.C) {
@@ -124,29 +113,20 @@ func (s *commonSuite) TearDownTest(c *gc.C) {
 }
 
 func (s *commonSuite) startServer(c *gc.C, session *mgo.Session) {
-	dischargeURL, key := s.initDischarger(c)
+	s.discharger = idmtest.NewServer()
+	s.discharger.AddUser("charmstoreuser")
 	s.serverParams = charmstore.ServerParams{
 		AuthUsername:     "test-user",
 		AuthPassword:     "test-password",
-		IdentityLocation: dischargeURL,
-		PublicKeyLocator: bakery.PublicKeyLocatorMap{
-			dischargeURL: key,
-		},
+		IdentityLocation: s.discharger.URL.String(),
+		AgentKey:         bakery2uKeyPair(s.discharger.UserPublicKey("charmstoreuser")),
+		AgentUsername:    "charmstoreuser",
+		PublicKeyLocator: bakeryV2LocatorToV2uLocator{s.discharger},
 	}
 	var err error
 	s.handler, err = charmstore.NewServer(session.DB("charmstore"), nil, "", s.serverParams, charmstore.V5)
 	c.Assert(err, gc.IsNil)
 	s.srv = httptest.NewServer(s.handler)
-}
-
-func (s *commonSuite) startDischarger(c *gc.C) (string, *bakery.PublicKey) {
-	s.discharge = func(cond, arg string) ([]checkers.Caveat, error) {
-		return nil, fmt.Errorf("no discharge")
-	}
-	s.discharger = bakerytest.NewDischarger(nil, func(_ *http.Request, cond, arg string) ([]checkers.Caveat, error) {
-		return s.discharge(cond, arg)
-	})
-	return s.discharger.Service.Location(), s.discharger.Service.PublicKey()
 }
 
 func (s *commonSuite) uploadCharmDir(c *gc.C, id *charm.URL, promulgatedRevision int, ch *charm.CharmDir) {
@@ -184,11 +164,11 @@ func (s *commonSuite) addEntity(c *gc.C, id *charm.URL, promulgatedRevision int,
 		pid.Revision = promulgatedRevision
 		url += fmt.Sprintf("&promulgated=%s", &pid)
 	}
-	req, err := http.NewRequest("PUT", "", nil)
+	req, err := http.NewRequest("PUT", "", body)
 	c.Assert(err, gc.IsNil)
 	req.Header.Set("Content-Type", "application/zip")
 	req.ContentLength = int64(body.Len())
-	resp, err := s.client.DoWithBody(req, url, body)
+	resp, err := s.client.Do(req, url)
 	c.Assert(err, gc.IsNil)
 	defer resp.Body.Close()
 	c.Assert(resp.StatusCode, gc.Equals, http.StatusOK)
@@ -248,13 +228,13 @@ var translateErrorTests = []struct {
 	err:   errgo.New("test error"),
 }, {
 	about: "interaction error",
-	err: &httpbakery1.InteractionError{
+	err: &httpbakery.InteractionError{
 		Reason: errgo.New("test error"),
 	},
 	expectError: "login failed: test error",
 }, {
 	about: "Ubuntu SSO error",
-	err: &httpbakery1.InteractionError{
+	err: &httpbakery.InteractionError{
 		Reason: &usso.Error{
 			Message: "test usso error",
 		},
@@ -262,7 +242,7 @@ var translateErrorTests = []struct {
 	expectError: "login failed: test usso error",
 }, {
 	about: "Ubuntu SSO INVALID_DATA error without extra info",
-	err: &httpbakery1.InteractionError{
+	err: &httpbakery.InteractionError{
 		Reason: &usso.Error{
 			Code:    "INVALID_DATA",
 			Message: "invalid data",
@@ -271,7 +251,7 @@ var translateErrorTests = []struct {
 	expectError: "login failed: invalid data",
 }, {
 	about: "Ubuntu SSO INVALID_DATA with extra info",
-	err: &httpbakery1.InteractionError{
+	err: &httpbakery.InteractionError{
 		Reason: &usso.Error{
 			Code: "INVALID_DATA",
 			Extra: map[string]interface{}{
@@ -282,7 +262,7 @@ var translateErrorTests = []struct {
 	expectError: "login failed: key: value",
 }, {
 	about: "Ubuntu SSO INVALID_DATA with email extra info",
-	err: &httpbakery1.InteractionError{
+	err: &httpbakery.InteractionError{
 		Reason: &usso.Error{
 			Code: "INVALID_DATA",
 			Extra: map[string]interface{}{
@@ -305,4 +285,30 @@ func (s *cmdSuite) TestTranslateError(c *gc.C) {
 			c.Assert(err, gc.ErrorMatches, test.expectError)
 		}
 	}
+}
+
+type bakeryV2LocatorToV2uLocator struct {
+	locator bakery.ThirdPartyLocator
+}
+
+// PublicKeyForLocation implements bakery2u.PublicKeyLocator.
+func (l bakeryV2LocatorToV2uLocator) PublicKeyForLocation(loc string) (*bakery2u.PublicKey, error) {
+	info, err := l.locator.ThirdPartyInfo(context.TODO(), loc)
+	if err != nil {
+		return nil, err
+	}
+	return bakery2uKey(&info.PublicKey), nil
+}
+
+func bakery2uKey(key *bakery.PublicKey) *bakery2u.PublicKey {
+	var key2u bakery2u.PublicKey
+	copy(key2u.Key[:], key.Key[:])
+	return &key2u
+}
+
+func bakery2uKeyPair(key *bakery.KeyPair) *bakery2u.KeyPair {
+	var key2u bakery2u.KeyPair
+	copy(key2u.Public.Key[:], key.Public.Key[:])
+	copy(key2u.Private.Key[:], key.Private.Key[:])
+	return &key2u
 }

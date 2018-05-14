@@ -8,9 +8,8 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
@@ -139,14 +138,9 @@ func (s *showSuite) TestAllInfo(c *gc.C) {
 	ch := entitytesting.Repo.CharmDir("wordpress")
 	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, url, -1, ch)
-
 	// At least one meta endpoint (can-write) requires authentication,
 	// so make it possible to authenticate.
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "bob"),
-		}, nil
-	}
+	s.discharger.SetDefaultUser("bob")
 
 	dir := c.MkDir()
 	stdout, stderr, code := run(dir, "show", url.String(), "--format=json", "--all")

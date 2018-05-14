@@ -5,10 +5,9 @@ package charmcmd_test
 
 import (
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	charmtesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
 )
 
 type listResourcesSuite struct {
@@ -17,16 +16,8 @@ type listResourcesSuite struct {
 
 var _ = gc.Suite(&listResourcesSuite{})
 
-func (s *listResourcesSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "bob"),
-		}, nil
-	}
-}
-
 func (s *listResourcesSuite) TestListResourcesErrorCharmNotFound(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	stdout, stderr, retCode := run(c.MkDir(), "list-resources", "no-such")
 	c.Assert(retCode, gc.Equals, 1)
 	c.Assert(stderr, gc.Equals, "ERROR could not retrieve resource information: cannot get resource metadata from the charm store: no matching charm or bundle for cs:no-such\n")
@@ -48,6 +39,7 @@ var listResourcesInitErrorTests = []struct {
 }}
 
 func (s *listResourcesSuite) TestInitError(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	for i, test := range listResourcesInitErrorTests {
 		c.Logf("test %d: %q", i, test.args)
@@ -60,6 +52,7 @@ func (s *listResourcesSuite) TestInitError(c *gc.C) {
 }
 
 func (s *listResourcesSuite) TestNoResouces(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id, err := s.client.UploadCharm(
 		charm.MustParseURL("~bob/precise/wordpress"),
 		charmtesting.NewCharmMeta(nil),
@@ -75,6 +68,7 @@ func (s *listResourcesSuite) TestNoResouces(c *gc.C) {
 }
 
 func (s *listResourcesSuite) TestListResource(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	id, err := s.client.UploadCharm(
 		charm.MustParseURL("~bob/precise/wordpress"),
 		charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "someResource")),

@@ -10,10 +10,9 @@ import (
 
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
-	"gopkg.in/juju/charm.v6-unstable"
-	"gopkg.in/juju/charmrepo.v2-unstable/csclient/params"
-	charmtesting "gopkg.in/juju/charmrepo.v2-unstable/testing"
-	"gopkg.in/macaroon-bakery.v2-unstable/bakery/checkers"
+	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
 )
 
 type attachSuite struct {
@@ -21,15 +20,6 @@ type attachSuite struct {
 }
 
 var _ = gc.Suite(&attachSuite{})
-
-func (s *attachSuite) SetUpTest(c *gc.C) {
-	s.commonSuite.SetUpTest(c)
-	s.discharge = func(cavId, cav string) ([]checkers.Caveat, error) {
-		return []checkers.Caveat{
-			checkers.DeclaredCaveat("username", "bob"),
-		}, nil
-	}
-}
 
 var attachInitErrorTests = []struct {
 	args []string
@@ -54,6 +44,7 @@ var attachInitErrorTests = []struct {
 }}
 
 func (s *attachSuite) TestInitError(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	for i, test := range attachInitErrorTests {
 		c.Logf("test %d: %q", i, test.args)
@@ -66,6 +57,7 @@ func (s *attachSuite) TestInitError(c *gc.C) {
 }
 
 func (s *attachSuite) TestRun(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	ch := charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "someResource"))
 	id := charm.MustParseURL("~bob/precise/wordpress")
 	id, err := s.client.UploadCharm(id, ch)
@@ -95,6 +87,7 @@ func (s *attachSuite) TestRun(c *gc.C) {
 }
 
 func (s *attachSuite) TestRunFailsWithoutRevisionOnStableChannel(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
 	err := ioutil.WriteFile(filepath.Join(dir, "bar.zip"), []byte("content"), 0666)
 	c.Assert(err, gc.IsNil)
@@ -111,6 +104,7 @@ func hashOfString(s string) []byte {
 }
 
 func (s *attachSuite) TestCannotOpenFile(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
 	path := filepath.Join(c.MkDir(), "/not-there")
 	stdout, stderr, exitCode := run(c.MkDir(), "attach", "wordpress-0", "foo="+path)
 	c.Assert(exitCode, gc.Equals, 1)
