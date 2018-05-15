@@ -16,11 +16,12 @@ import (
 type attachCommand struct {
 	cmd.CommandBase
 
-	channel chanValue
-	id      *charm.URL
-	name    string
-	file    string
-	auth    authInfo
+	channel           chanValue
+	id                *charm.URL
+	resourceName      string
+	filePath          string
+	auth              authInfo
+	uploadIdCachePath string
 }
 
 var attachDoc = `
@@ -48,6 +49,7 @@ func (c *attachCommand) Info() *cmd.Info {
 func (c *attachCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
 	addChannelFlag(f, &c.channel, nil)
+	addUploadIdCacheFlag(f, &c.uploadIdCachePath)
 }
 
 func (c *attachCommand) Init(args []string) error {
@@ -70,12 +72,12 @@ func (c *attachCommand) Init(args []string) error {
 	}
 	c.id = id
 
-	name, filename, err := parseResourceFileArg(args[1])
+	resourceName, filePath, err := parseResourceFileArg(args[1])
 	if err != nil {
 		return errgo.Mask(err, errgo.Any)
 	}
-	c.name = name
-	c.file = filename
+	c.resourceName = resourceName
+	c.filePath = filePath
 
 	return nil
 }
@@ -91,11 +93,18 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 		return errgo.New("A revision is required when attaching to a charm in the stable channel.")
 	}
 
-	rev, err := uploadResource(ctxt, client, c.id, c.name, c.file)
+	rev, err := uploadResource(uploadResourceParams{
+		ctxt:         ctxt,
+		client:       client,
+		charmId:      c.id,
+		resourceName: c.resourceName,
+		filePath:     c.filePath,
+		cachePath:    c.uploadIdCachePath,
+	})
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	fmt.Fprintf(ctxt.Stdout, "uploaded revision %d of %s\n", rev, c.name)
+	fmt.Fprintf(ctxt.Stdout, "uploaded revision %d of %s\n", rev, c.resourceName)
 
 	return nil
 }

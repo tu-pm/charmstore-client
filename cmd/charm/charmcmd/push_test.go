@@ -312,19 +312,17 @@ func (s *pushSuite) TestUploadCharmWithResources(c *gc.C) {
 		"~bob/trusty/something",
 		"--resource", "data=data.zip",
 		"--resource", "website=web.html")
-	c.Assert(stderr, gc.Matches, "")
+	c.Assert(stderr, gc.Matches, `(\r.*data\.zip.*)+\n(\r.*web\.html.*)+\n`)
 	c.Assert(code, gc.Equals, 0)
 
 	expectOutput := fmt.Sprintf(`
 url: cs:~bob/trusty/something-0
 channel: unpublished
-((\r.*)+
-)?Uploaded %q as data-0
-((\r.*)+
-)?Uploaded %q as website-0
+Uploaded %q as data-0
+Uploaded %q as website-0
 `[1:], dataPath, websitePath,
 	)
-	c.Assert(stdout, gc.Matches, expectOutput)
+	c.Assert(stdout, gc.Equals, expectOutput)
 
 	client := s.client.WithChannel(params.UnpublishedChannel)
 	resources, err := client.ListResources(charm.MustParseURL("cs:~bob/trusty/something-0"))

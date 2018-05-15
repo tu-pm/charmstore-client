@@ -25,9 +25,10 @@ import (
 type pushCommand struct {
 	cmd.CommandBase
 
-	id     *charm.URL
-	srcDir string
-	auth   authInfo
+	id                *charm.URL
+	srcDir            string
+	auth              authInfo
+	uploadIdCachePath string
 
 	// resources is a map of resource name to filename to be uploaded on push.
 	resources map[string]string
@@ -73,6 +74,7 @@ func (c *pushCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlag(f, &c.auth)
 	f.Var(cmd.StringMap{Mapping: &c.resources}, "resource", "")
 	f.Var(cmd.StringMap{Mapping: &c.resources}, "r", "resource to be uploaded to the charmstore")
+	addUploadIdCacheFlag(f, &c.uploadIdCachePath)
 }
 
 func (c *pushCommand) Init(args []string) error {
@@ -196,21 +198,28 @@ func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csClient, meta *c
 		resourceNames = append(resourceNames, name)
 	}
 	sort.Strings(resourceNames)
-	for _, name := range resourceNames {
-		filename := ctxt.AbsPath(c.resources[name])
-		if err := c.uploadResource(ctxt, client, name, filename); err != nil {
+	for _, resourceName := range resourceNames {
+		filePath := ctxt.AbsPath(c.resources[resourceName])
+		if err := c.uploadResource(uploadResourceParams{
+			ctxt:         ctxt,
+			client:       client,
+			charmId:      c.id,
+			resourceName: resourceName,
+			filePath:     filePath,
+			cachePath:    c.uploadIdCachePath,
+		}); err != nil {
 			return errgo.Mask(err)
 		}
 	}
 	return nil
 }
 
-func (c *pushCommand) uploadResource(ctxt *cmd.Context, client *csClient, name, file string) error {
-	rev, err := uploadResource(ctxt, client, c.id, name, file)
+func (c *pushCommand) uploadResource(p uploadResourceParams) error {
+	rev, err := uploadResource(p)
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	fmt.Fprintf(ctxt.Stdout, "Uploaded %q as %s-%d\n", file, name, rev)
+	fmt.Fprintf(p.ctxt.Stdout, "Uploaded %q as %s-%d\n", p.filePath, p.resourceName, rev)
 	return nil
 }
 

@@ -4,6 +4,7 @@
 package charmcmd
 
 import (
+	"crypto/sha256"
 	"fmt"
 	"io"
 	"os"
@@ -135,6 +136,10 @@ func (c *csClient) SaveJAR() error {
 	return c.jar.Save()
 }
 
+// MinMultipartUploadSize holds the minimum size of upload to trigger
+// multipart uploads. If zero, the default will be used.
+var MinMultipartUploadSize int64
+
 // newCharmStoreClient creates and return a charm store client with access to
 // the associated HTTP client and cookie jar used to save authorization
 // macaroons. If authUsername and authPassword are provided, the resulting
@@ -175,12 +180,26 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 		jar:  jar,
 		ctxt: ctxt,
 	}
+	if MinMultipartUploadSize > 0 {
+		csClient.SetMinMultipartUploadSize(MinMultipartUploadSize)
+	}
 	return &csClient, nil
 }
 
-func uploadResource(ctxt *cmd.Context, client *csClient, charmId *charm.URL, name, file string) (rev int, err error) {
-	file = ctxt.AbsPath(file)
-	f, err := os.Open(file)
+const uploadIdCacheExpiryDuration = 48 * time.Hour
+
+type uploadResourceParams struct {
+	ctxt         *cmd.Context
+	client       *csClient
+	charmId      *charm.URL
+	resourceName string
+	filePath     string
+	cachePath    string
+}
+
+func uploadResource(p uploadResourceParams) (rev int, err error) {
+	p.filePath = p.ctxt.AbsPath(p.filePath)
+	f, err := os.Open(p.filePath)
 	if err != nil {
 		return 0, errgo.Mask(err)
 	}
@@ -189,15 +208,75 @@ func uploadResource(ctxt *cmd.Context, client *csClient, charmId *charm.URL, nam
 	if err != nil {
 		return 0, errgo.Mask(err)
 	}
-	d := newProgressDisplay(file, ctxt.Stdout, info.Size())
+	size := info.Size()
+	var (
+		uploadIdCache *UploadIdCache
+		contentHash   []byte
+		uploadId      string
+	)
+	if p.cachePath != "" {
+		uploadIdCache = NewUploadIdCache(p.cachePath, uploadIdCacheExpiryDuration)
+		// Clean out old entries.
+		if err := uploadIdCache.RemoveExpiredEntries(); err != nil {
+			logger.Warningf("cannot remove expired uploadId cache entries: %v", err)
+		}
+		// First hash the file contents so we can see update the upload cache
+		// and/or check if there's a pending upload for the same content.
+		contentHash, err = readSeekerSHA256(f)
+		if err != nil {
+			return 0, errgo.Mask(err)
+		}
+		entry, err := uploadIdCache.Lookup(p.charmId, p.resourceName, contentHash)
+		if err == nil {
+			// We've got an existing entry. Try to resume that upload.
+			uploadId = entry.UploadId
+			p.ctxt.Infof("resuming previous upload")
+		} else if errgo.Cause(err) != errCacheEntryNotFound {
+			return 0, errgo.Mask(err)
+		}
+	}
+	d := newProgressDisplay(p.filePath, p.ctxt.Stderr, p.ctxt.Quiet(), size, func(uploadId string) {
+		if uploadIdCache == nil {
+			return
+		}
+		if err := uploadIdCache.Update(uploadId, p.charmId, p.resourceName, contentHash); err != nil {
+			logger.Errorf("cannot update uploadId cache: %v", err)
+		}
+	})
 	defer d.close()
-	client.filler.setDisplay(d)
-	defer client.filler.setDisplay(nil)
-	rev, err = client.UploadResource(charmId, name, file, f, info.Size(), d)
+	p.client.filler.setDisplay(d)
+	defer p.client.filler.setDisplay(nil)
+	// Note that ResumeUploadResource behaves like UploadResource when uploadId is empty.
+	rev, err = p.client.ResumeUploadResource(uploadId, p.charmId, p.resourceName, p.filePath, f, size, d)
 	if err != nil {
-		return 0, errgo.Notef(err, "can't upload resource")
+		if errgo.Cause(err) == csclient.ErrUploadNotFound {
+			d.Error(errgo.New("previous upload seems to have expired; restarting."))
+			rev, err = p.client.UploadResource(p.charmId, p.resourceName, p.filePath, f, size, d)
+		}
+		if err != nil {
+			return 0, errgo.Notef(err, "can't upload resource")
+		}
+	}
+	if uploadIdCache != nil {
+		// Clean up the cache entry because it's no longer usable.
+		if err := uploadIdCache.Remove(p.charmId, p.resourceName, contentHash); err != nil {
+			logger.Errorf("cannot remove uploadId cache entry: %v", err)
+		}
 	}
 	return rev, nil
+}
+
+// readSeekerSHA256 returns the SHA256 checksum of r, seeking
+// back to the start after it has read the data.
+func readSeekerSHA256(r io.ReadSeeker) ([]byte, error) {
+	hasher := sha256.New()
+	if _, err := io.Copy(hasher, r); err != nil {
+		return nil, errgo.Mask(err)
+	}
+	if _, err := r.Seek(0, 0); err != nil {
+		return nil, errgo.Mask(err)
+	}
+	return hasher.Sum(nil), nil
 }
 
 // addChannelFlag adds the -c (--channel) flags to the given flag set.
@@ -233,6 +312,10 @@ func (cv *chanValue) Set(s string) error {
 // String implements gnuflag.Value.String.
 func (cv *chanValue) String() string {
 	return string(cv.C)
+}
+
+func addUploadIdCacheFlag(f *gnuflag.FlagSet, cachePath *string) {
+	f.StringVar(cachePath, "resume-cache-dir", osenv.JujuXDGDataHomePath("charm-upload-cache"), "path to resource upload resumption cache (if empty, no cache will be used)")
 }
 
 // addAuthFlag adds the authentication flag to the given flag set.
@@ -345,19 +428,25 @@ func (filler *progressClearFiller) Fill(f esform.Form) (map[string]interface{}, 
 }
 
 type progressDisplay struct {
-	w       io.Writer
-	monitor *iomon.Monitor
-	printer *iomon.Printer
+	w           io.Writer
+	monitor     *iomon.Monitor
+	printer     *iomon.Printer
+	setUploadId func(uploadId string)
+	quiet       bool
 
 	mu      sync.Mutex
 	enabled bool
 }
 
-func newProgressDisplay(name string, w io.Writer, size int64) *progressDisplay {
+func newProgressDisplay(name string, w io.Writer, quiet bool, size int64, setUploadId func(id string)) *progressDisplay {
 	d := &progressDisplay{
-		w:       w,
-		printer: iomon.NewPrinter(w, name),
-		enabled: true,
+		w:           w,
+		enabled:     true,
+		setUploadId: setUploadId,
+		quiet:       quiet,
+	}
+	if !quiet {
+		d.printer = iomon.NewPrinter(w, name)
 	}
 	d.monitor = iomon.New(iomon.Params{
 		Size:   size,
@@ -377,12 +466,16 @@ func (d *progressDisplay) SetStatus(s iomon.Status) {
 func (d *progressDisplay) setEnabled(enabled bool) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.printer.Clear()
+	if d.printer != nil {
+		d.printer.Clear()
+	}
 	d.enabled = enabled
 }
 
 func (d *progressDisplay) Start(uploadId string, expires time.Time) {
-	// TODO print upload id and tell user about resume feature
+	if uploadId != "" && d.setUploadId != nil {
+		d.setUploadId(uploadId)
+	}
 }
 
 func (d *progressDisplay) close() {
@@ -401,10 +494,10 @@ func (d *progressDisplay) Transferred(n int64) {
 func (d *progressDisplay) isEnabled() bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	return d.enabled
+	return d.enabled && !d.quiet
 }
 
-// Transferred implements csclient.Progress.Transferred.
+// Error implements csclient.Progress.Error.
 func (d *progressDisplay) Error(err error) {
 	if d.monitor != nil && d.isEnabled() {
 		d.printer.Clear()
@@ -412,9 +505,12 @@ func (d *progressDisplay) Error(err error) {
 	logger.Warningf("%v", err)
 }
 
+// Finalizing implements csclient.Progress.Finalizing.
 func (d *progressDisplay) Finalizing() {
 	d.stopMonitor()
-	fmt.Fprintf(d.w, "finalizing upload\n")
+	if !d.quiet {
+		fmt.Fprintf(d.w, "finalizing upload\n")
+	}
 }
 
 func (d *progressDisplay) stopMonitor() {
