@@ -112,16 +112,19 @@ func (s *commonSuite) TearDownTest(c *gc.C) {
 	s.IsolatedMgoSuite.TearDownTest(c)
 }
 
+const minUploadPartSize = 100 * 1024
+
 func (s *commonSuite) startServer(c *gc.C, session *mgo.Session) {
 	s.discharger = idmtest.NewServer()
 	s.discharger.AddUser("charmstoreuser")
 	s.serverParams = charmstore.ServerParams{
-		AuthUsername:     "test-user",
-		AuthPassword:     "test-password",
-		IdentityLocation: s.discharger.URL.String(),
-		AgentKey:         bakery2uKeyPair(s.discharger.UserPublicKey("charmstoreuser")),
-		AgentUsername:    "charmstoreuser",
-		PublicKeyLocator: bakeryV2LocatorToV2uLocator{s.discharger},
+		AuthUsername:      "test-user",
+		AuthPassword:      "test-password",
+		IdentityLocation:  s.discharger.URL.String(),
+		AgentKey:          bakery2uKeyPair(s.discharger.UserPublicKey("charmstoreuser")),
+		AgentUsername:     "charmstoreuser",
+		PublicKeyLocator:  bakeryV2LocatorToV2uLocator{s.discharger},
+		MinUploadPartSize: minUploadPartSize,
 	}
 	var err error
 	s.handler, err = charmstore.NewServer(session.DB("charmstore"), nil, "", s.serverParams, charmstore.V5)
