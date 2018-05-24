@@ -57,7 +57,7 @@ func (c *setCommand) Info() *cmd.Info {
 
 func (c *setCommand) SetFlags(f *gnuflag.FlagSet) {
 	addChannelFlag(f, &c.channel, nil)
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 }
 
 func (c *setCommand) Init(args []string) error {

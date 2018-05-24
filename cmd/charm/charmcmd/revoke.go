@@ -50,7 +50,7 @@ func (c *revokeCommand) Info() *cmd.Info {
 }
 
 func (c *revokeCommand) SetFlags(f *gnuflag.FlagSet) {
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	f.StringVar(&c.acl, "acl", "", "read|write")
 	addChannelFlag(f, &c.channel, nil)
 }

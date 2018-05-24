@@ -57,7 +57,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"text": formatText,
 	})
 	f.StringVar(&c.user, "u", "", "the given user name")
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 }
 
 func (c *listCommand) Init(args []string) error {

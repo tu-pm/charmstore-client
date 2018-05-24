@@ -60,7 +60,7 @@ func (c *grantCommand) Info() *cmd.Info {
 }
 
 func (c *grantCommand) SetFlags(f *gnuflag.FlagSet) {
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	addChannelFlag(f, &c.channel, nil)
 	f.StringVar(&c.acl, "acl", "read", "read|write")
 	f.BoolVar(&c.set, "set", false, "overwrite the current acl")

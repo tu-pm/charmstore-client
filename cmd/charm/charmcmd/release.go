@@ -69,7 +69,7 @@ func (c *releaseCommand) SetFlags(f *gnuflag.FlagSet) {
 		C: params.StableChannel,
 	}
 	addChannelFlag(f, &c.channel, channels)
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	f.Var(&c.resources, "resource", "")
 	f.Var(&c.resources, "r", "resource to be published with the charm")
 }

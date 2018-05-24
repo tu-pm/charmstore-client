@@ -71,7 +71,7 @@ func (c *pushCommand) Info() *cmd.Info {
 }
 
 func (c *pushCommand) SetFlags(f *gnuflag.FlagSet) {
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	f.Var(cmd.StringMap{Mapping: &c.resources}, "resource", "")
 	f.Var(cmd.StringMap{Mapping: &c.resources}, "r", "resource to be uploaded to the charmstore")
 	addUploadIdCacheFlag(f, &c.uploadIdCachePath)
