@@ -5,8 +5,10 @@ package charmcmd
 
 import (
 	"crypto/sha256"
+	"encoding/json"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"strings"
 	"sync"
@@ -29,6 +31,7 @@ import (
 	"gopkg.in/juju/idmclient.v1/ussologin"
 	"gopkg.in/juju/worker.v1"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
+	"gopkg.in/macaroon-bakery.v2/httpbakery/agent"
 
 	"github.com/juju/charmstore-client/internal/iomon"
 )
@@ -161,14 +164,33 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 			Out: ctxt.Stdout,
 		},
 	}
-	tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
-	bakeryClient.AddInteractor(ussologin.NewInteractor(ussologin.StoreTokenGetter{
-		Store: tokenStore,
-		TokenGetter: ussologin.FormTokenGetter{
-			Filler: filler,
-			Name:   "charm",
-		},
-	}))
+	var agentInfo *agent.AuthInfo
+	if auth.agentFile != "" {
+		ai, err := readAgentFile(ctxt.AbsPath(auth.agentFile))
+		if err != nil {
+			return nil, errgo.Notef(err, "cannot load agent information")
+		}
+		agentInfo = ai
+	} else if ai, err := agent.AuthInfoFromEnvironment(); err == nil {
+		agentInfo = ai
+	} else if errgo.Cause(err) != agent.ErrNoAuthInfo {
+		return nil, errgo.Mask(err)
+	}
+	if agentInfo != nil {
+		if err := agent.SetUpAuth(bakeryClient, agentInfo); err != nil {
+			return nil, errgo.Notef(err, "cannot set up agent authentication")
+		}
+	} else {
+		tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
+		bakeryClient.AddInteractor(ussologin.NewInteractor(ussologin.StoreTokenGetter{
+			Store: tokenStore,
+			TokenGetter: ussologin.FormTokenGetter{
+				Filler: filler,
+				Name:   "charm",
+			},
+		}))
+	}
+	bakeryClient.AddInteractor(httpbakery.WebBrowserInteractor{})
 	csClient := csClient{
 		filler: filler,
 		Client: csclient.New(csclient.Params{
@@ -318,14 +340,17 @@ func addUploadIdCacheFlag(f *gnuflag.FlagSet, cachePath *string) {
 	f.StringVar(cachePath, "resume-cache-dir", osenv.JujuXDGDataHomePath("charm-upload-cache"), "path to resource upload resumption cache (if empty, no cache will be used)")
 }
 
-// addAuthFlag adds the authentication flag to the given flag set.
-func addAuthFlag(f *gnuflag.FlagSet, info *authInfo) {
+// addAuthFlags adds authentication-related flags to the given flag set.
+func addAuthFlags(f *gnuflag.FlagSet, info *authInfo) {
 	f.Var(info, "auth", "user:passwd to use for basic HTTP authentication")
+	f.StringVar(&info.agentFile, "a", "", "name of file containing agent login details")
+	f.StringVar(&info.agentFile, "agent", "", "")
 }
 
 type authInfo struct {
-	username string
-	password string
+	agentFile string
+	username  string
+	password  string
 }
 
 // Set implements gnuflag.Value.Set by validating
@@ -522,4 +547,16 @@ func (d *progressDisplay) stopMonitor() {
 	if d.isEnabled() {
 		d.printer.Done()
 	}
+}
+
+func readAgentFile(f string) (*agent.AuthInfo, error) {
+	data, err := ioutil.ReadFile(f)
+	if err != nil {
+		return nil, errgo.Mask(err, os.IsNotExist)
+	}
+	var v agent.AuthInfo
+	if err := json.Unmarshal(data, &v); err != nil {
+		return nil, errgo.Notef(err, "cannot parse agent data from %q", f)
+	}
+	return &v, nil
 }

@@ -5,12 +5,14 @@ package charmcmd
 
 import (
 	"github.com/juju/cmd"
+	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 type loginCommand struct {
 	cmd.CommandBase
+	auth authInfo
 }
 
 var loginDoc = `
@@ -27,8 +29,12 @@ func (c *loginCommand) Info() *cmd.Info {
 	}
 }
 
+func (c *loginCommand) SetFlags(f *gnuflag.FlagSet) {
+	addAuthFlags(f, &c.auth)
+}
+
 func (c *loginCommand) Run(ctxt *cmd.Context) error {
-	client, err := newCharmStoreClient(ctxt, authInfo{}, params.NoChannel)
+	client, err := newCharmStoreClient(ctxt, c.auth, params.NoChannel)
 	if err != nil {
 		return errgo.Notef(err, "cannot create charm store client")
 	}

@@ -45,7 +45,7 @@ func (c *termsCommand) SetFlags(f *gnuflag.FlagSet) {
 		"tabular": formatTermsTabular,
 	})
 	f.StringVar(&c.user, "u", "", "the given user name")
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 }
 
 // Init implements cmd.Command.Init.

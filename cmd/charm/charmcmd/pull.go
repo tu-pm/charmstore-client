@@ -59,7 +59,7 @@ func (c *pullCommand) Info() *cmd.Info {
 
 func (c *pullCommand) SetFlags(f *gnuflag.FlagSet) {
 	addChannelFlag(f, &c.channel, nil)
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 }
 
 func (c *pullCommand) Init(args []string) error {

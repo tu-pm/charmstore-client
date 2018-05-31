@@ -47,7 +47,7 @@ func (c *attachCommand) Info() *cmd.Info {
 }
 
 func (c *attachCommand) SetFlags(f *gnuflag.FlagSet) {
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	addChannelFlag(f, &c.channel, nil)
 	addUploadIdCacheFlag(f, &c.uploadIdCachePath)
 }

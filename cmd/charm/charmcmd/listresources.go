@@ -54,7 +54,7 @@ func (c *listResourcesCommand) Info() *cmd.Info {
 // SetFlags implements cmd.Command.
 func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	addChannelFlag(f, &c.channel, nil)
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	c.Output.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
 		"yaml":    cmd.FormatYaml,

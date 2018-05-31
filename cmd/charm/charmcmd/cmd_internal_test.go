@@ -54,7 +54,7 @@ func (*cmdAuthInfoSuite) TestAuthFlag(c *gc.C) {
 		c.Logf("test %d: %s", i, test.about)
 		fs := gnuflag.NewFlagSet("x", gnuflag.ContinueOnError)
 		var info authInfo
-		addAuthFlag(fs, &info)
+		addAuthFlags(fs, &info)
 		err := fs.Parse(true, []string{"--auth", test.arg})
 		if test.expectError != "" {
 			c.Assert(err, gc.ErrorMatches, test.expectError)

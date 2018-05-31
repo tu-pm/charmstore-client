@@ -77,7 +77,7 @@ func (c *showCommand) SetFlags(f *gnuflag.FlagSet) {
 	})
 	f.BoolVar(&c.list, "list", false, "list available metadata endpoints")
 	f.BoolVar(&c.all, "all", false, "show all data from the charm or bundle")
-	addAuthFlag(f, &c.auth)
+	addAuthFlags(f, &c.auth)
 	addChannelFlag(f, &c.channel, nil)
 }
 
