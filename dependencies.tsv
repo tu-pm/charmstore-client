@@ -1,6 +1,7 @@
 github.com/ajstarks/svgo	git	89e3ac64b5b3e403a5e7c35ea4f98d45db7b4518	2014-10-04T21:11:59Z
 github.com/beorn7/perks	git	4c0e84591b9aa9e6dcfdf3e020114cd81f89d5f9	2016-08-04T10:47:26Z
 github.com/cloud-green/monitoring	git	666e3beca3cb4f6b5c8f176ba80daf2b3adbd84e	2017-11-27T13:22:20Z
+github.com/dgrijalva/jwt-go	git	01aeca54ebda6e0fbfafd0a524d234159c05ec20	2016-07-05T20:30:06Z
 github.com/golang/protobuf	git	925541529c1fa6821df4e44ce2723319eb2be768	2018-01-25T21:43:03Z
 github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-04T20:39:58Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
@@ -15,7 +16,7 @@ github.com/juju/httpprof	git	14bf14c307672fd2456bdbf35d19cf0ccd3cf565	2014-12-17
 github.com/juju/httprequest	git	266fd1e9debf09c037a63f074d099a2da4559ece	2016-10-06T15:09:09Z
 github.com/juju/idmclient	git	fb1dc7175251ac8e2dc460897313e05175cbbc0d	2016-11-07T14:02:50Z
 github.com/juju/juju	git	9bbab456e2681bee3cb08fcff048195f131ac2ee	2018-04-25T17:08:30Z
-github.com/juju/loggo	git	8232ab8918d91c72af1a9fb94d3edbe31d88b790	2017-06-05T01:46:07Z
+github.com/juju/loggo	git	584905176618da46b895b176c721b02c476b6993	2018-05-24T02:20:52Z
 github.com/juju/mempool	git	24974d6c264fe5a29716e7d56ea24c4bd904b7cc	2016-02-05T10:49:27Z
 github.com/juju/mutex	git	1fe2a4bf0a3a2c10881501233ff7c6aed7790082	2017-11-10T02:00:13Z
 github.com/juju/names	git	8a0aa0963bbacdc790914892e9ff942e94d6f795	2016-03-30T15:05:33Z
@@ -42,7 +43,7 @@ github.com/prometheus/client_model	git	99fa1f4be8e564e8a6b613da7fa6f46c9edafc6c	
 github.com/prometheus/common	git	6fb6fce6f8b75884b92e1889c150403fc0872c5e	2018-02-28T09:25:48Z
 github.com/prometheus/procfs	git	d274e363d5759d1c916232217be421f1cc89c5fe	2018-02-28T15:07:32Z
 github.com/rogpeppe/fastuuid	git	6724a57986aff9bff1a1770e9347036def7c89f6	2015-01-06T09:32:20Z
-golang.org/x/crypto	git	91a49db82a88618983a78a06c1cbd4e00ab749ab	2018-02-28T16:13:26Z
+golang.org/x/crypto	git	159ae71589f303f9fbfd7528413e0fe944b9c1cb	2018-05-24T12:53:53Z
 golang.org/x/net	git	d25186b37f34ebdbbea8f488ef055638dfab272d	2018-03-06T06:01:52Z
 golang.org/x/sys	git	37707fdb30a5b38865cfb95e5aab41707daec7fd	2018-02-02T13:58:01Z
 gopkg.in/check.v1	git	4f90aeace3a26ad7021961c297b22c42160c7b25	2016-01-05T16:49:36Z
@@ -52,9 +53,9 @@ gopkg.in/httprequest.v1	git	3531529dedf047a744dd77f5262515aefff8cd48	2018-03-19T
 gopkg.in/juju/charm.v6	git	96786fc3f8695207515eb6be307ff37901a7254f	2018-01-19T23:10:43Z
 gopkg.in/juju/charm.v6-unstable	git	514bb811b021ebeb3e7ffcf1c267e9803968f59d	2017-07-28T19:41:00Z
 gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7	2016-11-17T15:25:28Z
-gopkg.in/juju/charmrepo.v3	git	3d036d99fb5c12f98e017093a4a7c85433ac9578	2018-05-11T16:22:30Z
+gopkg.in/juju/charmrepo.v3	git	6180e92d72b33ae3b510c9a1dc5348403a96252a	2018-06-07T01:25:36Z
 gopkg.in/juju/charmrepo.v4	git	773a31e1493c1c9a6f66326663f438b65e37145c	2018-05-18T08:52:29Z
-gopkg.in/juju/charmstore.v5	git	1920a2dc155027fb194122b5487a8435b8480355	2018-05-16T16:11:04Z
+gopkg.in/juju/charmstore.v5	git	7d90d231e3821d1fa4f11faa99c754acaf11631a	2018-06-01T14:50:18Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/idmclient.v1	git	203d20774ce8aeaa6f662ee0b48f8cb5bc0816a1	2018-03-20T16:18:56Z
 gopkg.in/juju/jujusvg.v3	git	6f7342099e20c84f560bd9fc8afe96ff7486613e	2017-11-14T17:07:01Z

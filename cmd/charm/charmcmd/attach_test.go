@@ -287,8 +287,13 @@ func (s *attachSuite) TestRunFailsWithoutRevisionOnStableChannel(c *gc.C) {
 
 func (s *attachSuite) TestCannotOpenFile(c *gc.C) {
 	s.discharger.SetDefaultUser("bob")
+	id := charm.MustParseURL("~bob/precise/wordpress")
+	ch := charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "someResource"))
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
 	path := filepath.Join(c.MkDir(), "/not-there")
-	stdout, stderr, exitCode := run(c.MkDir(), "attach", "wordpress-0", "foo="+path)
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/precise/wordpress-0", "someResource="+path)
 	c.Assert(exitCode, gc.Equals, 1)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, `ERROR open .*not-there: no such file or directory`+"\n")

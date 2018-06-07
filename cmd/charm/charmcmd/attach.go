@@ -19,7 +19,7 @@ type attachCommand struct {
 	channel           chanValue
 	id                *charm.URL
 	resourceName      string
-	filePath          string
+	reference         string
 	auth              authInfo
 	uploadIdCachePath string
 }
@@ -72,12 +72,12 @@ func (c *attachCommand) Init(args []string) error {
 	}
 	c.id = id
 
-	resourceName, filePath, err := parseResourceFileArg(args[1])
+	resourceName, reference, err := parseResourceFileArg(args[1])
 	if err != nil {
 		return errgo.Mask(err, errgo.Any)
 	}
 	c.resourceName = resourceName
-	c.filePath = filePath
+	c.reference = reference
 
 	return nil
 }
@@ -93,12 +93,20 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 		return errgo.New("A revision is required when attaching to a charm in the stable channel.")
 	}
 
+	var meta struct {
+		CharmMetadata charm.Meta
+	}
+	if _, err := client.Meta(c.id, &meta); err != nil {
+		return errgo.Mask(err)
+	}
+
 	rev, err := uploadResource(uploadResourceParams{
 		ctxt:         ctxt,
 		client:       client,
 		charmId:      c.id,
+		meta:         &meta.CharmMetadata,
 		resourceName: c.resourceName,
-		filePath:     c.filePath,
+		reference:    c.reference,
 		cachePath:    c.uploadIdCachePath,
 	})
 	if err != nil {
@@ -110,19 +118,19 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 }
 
 // parseResourceFileArg converts the provided string into a name and
-// filename. The string must be in the "<name>=<filename>" format.
-func parseResourceFileArg(raw string) (name string, filename string, err error) {
+// filename. The string must be in the "<name>=<reference>" format.
+func parseResourceFileArg(raw string) (name string, reference string, err error) {
 	vals := strings.SplitN(raw, "=", 2)
 	if len(vals) < 2 {
 		return "", "", errgo.New("expected name=path format for resource")
 	}
 
-	name, filename = vals[0], vals[1]
+	name, reference = vals[0], vals[1]
 	if name == "" {
 		return "", "", errgo.New("missing resource name")
 	}
-	if filename == "" {
-		return "", "", errgo.New("missing filename")
+	if reference == "" {
+		return "", "", errgo.New("missing reference")
 	}
-	return name, filename, nil
+	return name, reference, nil
 }

@@ -5,7 +5,6 @@ package charmcmd
 
 import (
 	"fmt"
-	"io"
 	"net/mail"
 	"os"
 	"os/exec"
@@ -182,7 +181,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	}
 
 	if ch != nil {
-		if err := c.pushResources(ctxt, client, ch.Meta(), ctxt.Stdout); err != nil {
+		if err := c.pushResources(ctxt, client, ch.Meta()); err != nil {
 			return errgo.Notef(err, "cannot push charm resources")
 		}
 	}
@@ -190,7 +189,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	return nil
 }
 
-func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csClient, meta *charm.Meta, stdout io.Writer) error {
+func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csClient, meta *charm.Meta) error {
 	// Upload resources in alphabetical order so we do things
 	// deterministically.
 	resourceNames := make([]string, 0, len(c.resources))
@@ -199,13 +198,13 @@ func (c *pushCommand) pushResources(ctxt *cmd.Context, client *csClient, meta *c
 	}
 	sort.Strings(resourceNames)
 	for _, resourceName := range resourceNames {
-		filePath := ctxt.AbsPath(c.resources[resourceName])
 		if err := c.uploadResource(uploadResourceParams{
 			ctxt:         ctxt,
 			client:       client,
+			meta:         meta,
 			charmId:      c.id,
 			resourceName: resourceName,
-			filePath:     filePath,
+			reference:    c.resources[resourceName],
 			cachePath:    c.uploadIdCachePath,
 		}); err != nil {
 			return errgo.Mask(err)
@@ -219,7 +218,7 @@ func (c *pushCommand) uploadResource(p uploadResourceParams) error {
 	if err != nil {
 		return errgo.Mask(err)
 	}
-	fmt.Fprintf(p.ctxt.Stdout, "Uploaded %q as %s-%d\n", p.filePath, p.resourceName, rev)
+	fmt.Fprintf(p.ctxt.Stdout, "Uploaded %q as %s-%d\n", p.reference, p.resourceName, rev)
 	return nil
 }
 
