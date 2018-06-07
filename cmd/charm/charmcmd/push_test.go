@@ -4,7 +4,6 @@
 package charmcmd_test
 
 import (
-	"fmt"
 	"io/ioutil"
 	"os"
 	"path/filepath"
@@ -315,13 +314,12 @@ func (s *pushSuite) TestUploadCharmWithResources(c *gc.C) {
 	c.Assert(stderr, gc.Matches, `(\r.*data\.zip.*)+\n(\r.*web\.html.*)+\n`)
 	c.Assert(code, gc.Equals, 0)
 
-	expectOutput := fmt.Sprintf(`
+	expectOutput := `
 url: cs:~bob/trusty/something-0
 channel: unpublished
-Uploaded %q as data-0
-Uploaded %q as website-0
-`[1:], dataPath, websitePath,
-	)
+Uploaded "data.zip" as data-0
+Uploaded "web.html" as website-0
+`[1:]
 	c.Assert(stdout, gc.Equals, expectOutput)
 
 	client := s.client.WithChannel(params.UnpublishedChannel)
