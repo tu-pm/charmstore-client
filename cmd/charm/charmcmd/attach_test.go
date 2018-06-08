@@ -24,6 +24,7 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
@@ -262,18 +263,6 @@ func (s *attachSuite) TestResumeUploadRemovesExpiredEntries(c *gc.C) {
 	c.Assert(err, jc.Satisfies, os.IsNotExist)
 }
 
-func putUploadPart(c *gc.C, client *csclient.Client, uploadId string, partIndex int, p0, p1 int64, content []byte) {
-	partContent := content[p0:p1]
-	hash := sha512.Sum384([]byte(partContent))
-	req, err := http.NewRequest("PUT", "", bytes.NewReader(partContent))
-	c.Assert(err, gc.Equals, nil)
-	req.Header.Set("Content-Type", "application/octet-stream")
-	req.ContentLength = p1 - p0
-	resp, err := client.Do(req, fmt.Sprintf("/upload/%s/%d?hash=%x&offset=%d", uploadId, partIndex, hash, p0))
-	c.Assert(err, gc.Equals, nil)
-	resp.Body.Close()
-}
-
 func (s *attachSuite) TestRunFailsWithoutRevisionOnStableChannel(c *gc.C) {
 	s.discharger.SetDefaultUser("bob")
 	dir := c.MkDir()
@@ -297,6 +286,76 @@ func (s *attachSuite) TestCannotOpenFile(c *gc.C) {
 	c.Assert(exitCode, gc.Equals, 1)
 	c.Assert(stdout, gc.Equals, "")
 	c.Assert(stderr, gc.Matches, `ERROR open .*not-there: no such file or directory`+"\n")
+}
+
+func (s *attachSuite) TestUploadDockerResource(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource": {
+				Name: "docker-resource",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=some/docker/imagename")
+	c.Assert(exitCode, gc.Equals, 0, gc.Commentf("stdout: %q; stderr: %q", stdout, stderr))
+	c.Assert(stdout, gc.Equals, "uploaded revision 0 of docker-resource\n")
+	c.Assert(stderr, gc.Equals, "")
+
+	imageName := s.dockerHost + "/bob/wordpress/docker-resource"
+	c.Assert(s.dockerHandler.reqs, jc.DeepEquals, []interface{}{
+		tagRequest{
+			imageID: "docker.io/some/docker/imagename",
+			tag:     "latest",
+			repo:    imageName,
+		},
+		pushRequest{
+			imageID: imageName,
+		},
+	})
+	info, err := s.client.DockerResourceDownloadInfo(id.WithRevision(0), "docker-resource")
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(info.ImageName, gc.Equals, imageName+"@"+s.dockerHandler.imageDigest(imageName))
+}
+
+func (s *attachSuite) TestUploadExternalDockerResource(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource": {
+				Name: "docker-resource",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
+	_, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::foo/bar")
+	c.Assert(exitCode, gc.Equals, 1)
+	c.Assert(stderr, gc.Matches, `ERROR external images not yet supported\n`)
+}
+
+func putUploadPart(c *gc.C, client *csclient.Client, uploadId string, partIndex int, p0, p1 int64, content []byte) {
+	partContent := content[p0:p1]
+	hash := sha512.Sum384([]byte(partContent))
+	req, err := http.NewRequest("PUT", "", bytes.NewReader(partContent))
+	c.Assert(err, gc.Equals, nil)
+	req.Header.Set("Content-Type", "application/octet-stream")
+	req.ContentLength = p1 - p0
+	resp, err := client.Do(req, fmt.Sprintf("/upload/%s/%d?hash=%x&offset=%d", uploadId, partIndex, hash, p0))
+	c.Assert(err, gc.Equals, nil)
+	resp.Body.Close()
 }
 
 // TrafficCounterProxy is a TCP proxy that counts the

@@ -11,7 +11,9 @@ import (
 	jc "github.com/juju/testing/checkers"
 	gc "gopkg.in/check.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
@@ -343,4 +345,67 @@ Uploaded "web.html" as website-0
 		Size:        int64(len("web content")),
 		Description: "A website for your service",
 	}})
+}
+
+func (s *pushSuite) TestUploadCharmWithDockerResources(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource1": {
+				Name: "docker-resource1",
+				Type: resource.TypeDocker,
+			},
+			"docker-resource2": {
+				Name: "docker-resource2",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	dir := c.MkDir()
+	err := ch.Archive().ExpandTo(dir)
+	c.Assert(err, gc.Equals, nil)
+
+	stdout, stderr, exitCode := run(c.MkDir(), "push", dir, "~bob/wordpress", "--resource=docker-resource1=some/docker/imagename", "--resource=docker-resource2=other/otherimage")
+	c.Assert(exitCode, gc.Equals, 0, gc.Commentf("stdout: %q; stderr: %q", stdout, stderr))
+	c.Assert(stdout, gc.Equals, `
+url: cs:~bob/wordpress-0
+channel: unpublished
+Uploaded "some/docker/imagename" as docker-resource1-0
+Uploaded "other/otherimage" as docker-resource2-0
+`[1:])
+	c.Assert(stderr, gc.Equals, "")
+
+	imageName1 := s.dockerHost + "/bob/wordpress/docker-resource1"
+	imageName2 := s.dockerHost + "/bob/wordpress/docker-resource2"
+
+	c.Assert(s.dockerHandler.reqs, jc.DeepEquals, []interface{}{
+		tagRequest{
+			imageID: "docker.io/some/docker/imagename",
+			tag:     "latest",
+			repo:    imageName1,
+		},
+		pushRequest{
+			imageID: imageName1,
+		},
+		tagRequest{
+			imageID: "docker.io/other/otherimage",
+			tag:     "latest",
+			repo:    imageName2,
+		},
+		pushRequest{
+			imageID: imageName2,
+		},
+	})
+	id = id.WithRevision(0)
+	info, err := s.client.DockerResourceDownloadInfo(id, "docker-resource1")
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(info.ImageName, gc.Equals, imageName1+"@"+s.dockerHandler.imageDigest(imageName1))
+
+	info, err = s.client.DockerResourceDownloadInfo(id, "docker-resource2")
+	c.Assert(err, gc.Equals, nil)
+	c.Assert(info.ImageName, gc.Equals, imageName2+"@"+s.dockerHandler.imageDigest(imageName2))
+
 }
