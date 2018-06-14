@@ -11,6 +11,7 @@ import (
 	"io"
 	"net/http"
 	"net/http/httptest"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -67,8 +68,13 @@ type commonSuite struct {
 	testing.IsolatedMgoSuite
 	testing.FakeHomeSuite
 
-	srv          *httptest.Server
-	handler      charmstore.HTTPCloseHandler
+	srv     *httptest.Server
+	handler charmstore.HTTPCloseHandler
+
+	dockerSrv     *httptest.Server
+	dockerHandler *dockerHandler
+	dockerHost    string
+
 	cookieFile   string
 	client       *csclient.Client
 	serverParams charmstore.ServerParams
@@ -107,6 +113,7 @@ func (s *commonSuite) TearDownTest(c *gc.C) {
 		s.discharger.Close()
 	}
 	s.srv.Close()
+	s.dockerSrv.Close()
 	s.handler.Close()
 	s.FakeHomeSuite.TearDownTest(c)
 	s.IsolatedMgoSuite.TearDownTest(c)
@@ -115,18 +122,27 @@ func (s *commonSuite) TearDownTest(c *gc.C) {
 const minUploadPartSize = 100 * 1024
 
 func (s *commonSuite) startServer(c *gc.C, session *mgo.Session) {
+
+	s.dockerHandler = newDockerHandler()
+	s.dockerSrv = httptest.NewServer(s.dockerHandler)
+	dockerURL, err := url.Parse(s.dockerSrv.URL)
+	c.Assert(err, gc.Equals, nil)
+	s.dockerHost = dockerURL.Host
+
+	s.PatchEnvironment("DOCKER_HOST", s.dockerSrv.URL)
+
 	s.discharger = idmtest.NewServer()
 	s.discharger.AddUser("charmstoreuser")
 	s.serverParams = charmstore.ServerParams{
-		AuthUsername:      "test-user",
-		AuthPassword:      "test-password",
-		IdentityLocation:  s.discharger.URL.String(),
-		AgentKey:          bakery2uKeyPair(s.discharger.UserPublicKey("charmstoreuser")),
-		AgentUsername:     "charmstoreuser",
-		PublicKeyLocator:  bakeryV2LocatorToV2uLocator{s.discharger},
-		MinUploadPartSize: minUploadPartSize,
+		AuthUsername:          "test-user",
+		AuthPassword:          "test-password",
+		IdentityLocation:      s.discharger.URL.String(),
+		AgentKey:              bakery2uKeyPair(s.discharger.UserPublicKey("charmstoreuser")),
+		AgentUsername:         "charmstoreuser",
+		PublicKeyLocator:      bakeryV2LocatorToV2uLocator{s.discharger},
+		MinUploadPartSize:     minUploadPartSize,
+		DockerRegistryAddress: s.dockerHost,
 	}
-	var err error
 	s.handler, err = charmstore.NewServer(session.DB("charmstore"), nil, "", s.serverParams, charmstore.V5)
 	c.Assert(err, gc.IsNil)
 	s.srv = httptest.NewServer(s.handler)
