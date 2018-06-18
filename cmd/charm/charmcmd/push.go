@@ -57,7 +57,8 @@ repeated more than once to upload more than one resource.
   charm push . --resource website=~/some/file.tgz --resource config=./docs/cfg.xml
 
 See also the attach subcommand, which can be used to push resources
-independently of a charm.
+independently of a charm; its help also includes more details on Docker
+image resources for Kubernetes charms.
 `
 
 func (c *pushCommand) Info() *cmd.Info {

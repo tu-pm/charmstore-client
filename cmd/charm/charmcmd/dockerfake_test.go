@@ -8,6 +8,8 @@ import (
 	"strings"
 	"sync"
 
+	"time"
+
 	"github.com/docker/docker/pkg/jsonmessage"
 	"github.com/juju/loggo"
 )
@@ -98,4 +100,134 @@ func (srv *dockerHandler) addRequest(req interface{}) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
 	srv.reqs = append(srv.reqs, req)
+}
+
+func newDockerRegistryHandler(authHandlerURL string) *dockerRegistryHandler {
+	return &dockerRegistryHandler{
+		apiVersion:     "registry/2.0",
+		authHandlerURL: authHandlerURL,
+	}
+}
+
+type registeredImage struct {
+	version1 bool
+	name     string
+	digest   string
+}
+
+type dockerRegistryHandler struct {
+	apiVersion     string
+	authHandlerURL string
+	images         []*registeredImage
+	errors         []string
+}
+
+func (srv *dockerRegistryHandler) addImage(img *registeredImage) {
+	srv.images = append(srv.images, img)
+}
+
+func (srv *dockerRegistryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	logger.Infof("dockerRegistryHandler.ServeHTTP %v", req.URL)
+	if req.Method != "GET" && req.Method != "HEAD" {
+		srv.addErrorf("unexpected method")
+		http.Error(w, "unexpected method", http.StatusMethodNotAllowed)
+		return
+	}
+	req.ParseForm()
+	if req.URL.Path == "/v2/" {
+		srv.serveV2Root(w, req)
+		return
+	}
+	parts := strings.Split(req.URL.Path, "/")
+	if len(parts) < 4 || parts[1] != "v2" || parts[len(parts)-2] != "manifests" {
+		srv.addErrorf("unexpected access to path %v", req.URL)
+		http.NotFound(w, req)
+		return
+	}
+	if req.Header.Get("Accept") != "application/vnd.docker.distribution.manifest.v2+json, application/vnd.docker.distribution.manifest-list.v2+json" {
+		srv.addErrorf("expected Accept header not found")
+		http.NotFound(w, req)
+		return
+	}
+	imageName := strings.Join(parts[2:len(parts)-2], "/")
+	tagOrDigest := parts[len(parts)-1]
+	img := srv.findImage(imageName, tagOrDigest)
+	if img == nil {
+		http.NotFound(w, req)
+		return
+	}
+	digest := img.digest
+	if img.version1 {
+		// It's a version 1 image but the client has requested
+		// a version 2 manifest, so return a different digest.
+		digest = sha256Digest(img.digest)
+	}
+	w.Header().Set("Docker-Content-Digest", digest)
+	w.Header().Set("Docker-Distribution-Api-Version", srv.apiVersion)
+	// Don't bother with the manifest content, as the code
+	// just discards it.
+}
+
+func (srv *dockerRegistryHandler) findImage(name, tag string) *registeredImage {
+	for _, img := range srv.images {
+		if img.name != name {
+			continue
+		}
+		if img.digest == tag || tag == "latest" {
+			return img
+		}
+	}
+	return nil
+}
+
+func (srv *dockerRegistryHandler) serveV2Root(w http.ResponseWriter, req *http.Request) {
+	authHeader := req.Header.Get("Authorization")
+	if authHeader == "" {
+		w.Header().Set("WWW-Authenticate", fmt.Sprintf(`Bearer realm="%s/token",service=\"registry.example.com\"`, srv.authHandlerURL))
+		w.WriteHeader(http.StatusUnauthorized)
+		return
+	}
+	if !strings.HasPrefix(authHeader, "Bearer") {
+		http.Error(w, "no bearer token", http.StatusBadRequest)
+	}
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token != "sometoken" {
+		http.Error(w, "unexpected token", 500)
+	}
+}
+
+func (srv *dockerRegistryHandler) addErrorf(f string, a ...interface{}) {
+	srv.errors = append(srv.errors, fmt.Sprintf(f, a...))
+}
+
+func newDockerAuthHandler() *dockerAuthHandler {
+	return &dockerAuthHandler{}
+}
+
+type dockerAuthHandler struct{}
+
+type tokenResp struct {
+	Token     string    `json:"token"`
+	ExpiresIn int       `json:"expires_in"`
+	IssuedAt  time.Time `json:"issued_at"`
+}
+
+func (srv *dockerAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
+	logger.Infof("dockerAuthHandler.ServeHTTP %v", req.URL)
+	req.ParseForm()
+	if req.URL.Path != "/token" {
+		http.Error(w, "unexpected call to docker auth handler", 500)
+		return
+	}
+	token, _ := json.Marshal(tokenResp{
+		Token:     "sometoken",
+		ExpiresIn: 5000,
+		IssuedAt:  time.Now(),
+	})
+	w.Header().Set("Content-Type", "application/json")
+	w.Write(token)
+}
+
+func sha256Digest(s string) string {
+	return fmt.Sprintf("sha256:%x", sha256.Sum256([]byte(s)))
 }
