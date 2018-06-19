@@ -35,6 +35,20 @@ using another channel.
 
     charm attach ~user/mycharm mydata=./blah -c unpublished
 
+The attach command can also be used to attach docker resources
+to Kubernetes charms. When a charm has a docker image resource,
+it can be attached by naming the image in the local docker instance:
+
+    charm attach ~user/mykubernetes-charm myresource=ubuntu
+
+The image will be uploaded to the Docker registry associated with the
+charm store. It's also possible to attach an image from an external
+registry directly without uploading it to the charmstore's registry
+by using the prefix "external::"; for example:
+
+    charm attach ~user/mykubernetes-charm myresource=external::ubuntu
+
+Such external images must be publicly accessible.
 `
 
 func (c *attachCommand) Info() *cmd.Info {

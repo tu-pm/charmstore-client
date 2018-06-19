@@ -14,6 +14,7 @@ import (
 	"math/rand"
 	"net"
 	"net/http"
+	"net/url"
 	"os"
 	"path/filepath"
 	"strings"
@@ -341,9 +342,134 @@ func (s *attachSuite) TestUploadExternalDockerResource(c *gc.C) {
 	_, err := s.client.UploadCharm(id, ch)
 	c.Assert(err, gc.IsNil)
 
-	_, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::foo/bar")
+	u, err := url.Parse(s.dockerRegistry.URL)
+	c.Assert(err, gc.IsNil)
+
+	s.dockerRegistryHandler.addImage(&registeredImage{
+		name:   "foo/bar",
+		digest: sha256Digest("foo/bar"),
+	})
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::"+u.Host+"/foo/bar")
+	c.Check(stderr, gc.Equals, "")
+	c.Check(stdout, gc.Equals, "uploaded revision 0 of docker-resource\n")
+	c.Assert(exitCode, gc.Equals, 0)
+	c.Assert(s.dockerRegistryHandler.errors, gc.HasLen, 0)
+}
+
+func (s *attachSuite) TestUploadExternalDockerResourceByDigest(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource": {
+				Name: "docker-resource",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
+	u, err := url.Parse(s.dockerRegistry.URL)
+	c.Assert(err, gc.IsNil)
+
+	s.dockerRegistryHandler.addImage(&registeredImage{
+		name:   "foo/bar",
+		digest: sha256Digest("foo/bar"),
+	})
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::"+u.Host+"/foo/bar@"+sha256Digest("foo/bar"))
+	c.Check(stderr, gc.Equals, "")
+	c.Check(stdout, gc.Equals, "uploaded revision 0 of docker-resource\n")
+	c.Assert(exitCode, gc.Equals, 0)
+	c.Assert(s.dockerRegistryHandler.errors, gc.HasLen, 0)
+}
+
+func (s *attachSuite) TestUploadExternalDockerResourceWithNonExistingDigest(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource": {
+				Name: "docker-resource",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
+	u, err := url.Parse(s.dockerRegistry.URL)
+	c.Assert(err, gc.IsNil)
+
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::"+u.Host+"/foo/bar@"+sha256Digest("foo/bar"))
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `ERROR cannot get information on ".*/foo/bar@sha256:.*": 404 Not Found\n`)
 	c.Assert(exitCode, gc.Equals, 1)
-	c.Assert(stderr, gc.Matches, `ERROR external images not yet supported\n`)
+}
+
+func (s *attachSuite) TestUploadExternalDockerResourceWithNonExistingTag(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource": {
+				Name: "docker-resource",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
+	u, err := url.Parse(s.dockerRegistry.URL)
+	c.Assert(err, gc.IsNil)
+
+	s.dockerRegistryHandler.addImage(&registeredImage{
+		name:   "foo/bar",
+		digest: sha256Digest("foo/bar"),
+	})
+
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::"+u.Host+"/foo/bar:blah")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `ERROR cannot get information on ".*/foo/bar:blah": 404 Not Found\n`)
+	c.Assert(exitCode, gc.Equals, 1)
+}
+
+func (s *attachSuite) TestUploadExternalDockerResourceVersion1Image(c *gc.C) {
+	s.discharger.SetDefaultUser("bob")
+
+	id := charm.MustParseURL("~bob/wordpress")
+	ch := charmtesting.NewCharmMeta(&charm.Meta{
+		Series: []string{"kubernetes"},
+		Resources: map[string]resource.Meta{
+			"docker-resource": {
+				Name: "docker-resource",
+				Type: resource.TypeDocker,
+			},
+		},
+	})
+	_, err := s.client.UploadCharm(id, ch)
+	c.Assert(err, gc.IsNil)
+
+	u, err := url.Parse(s.dockerRegistry.URL)
+	c.Assert(err, gc.IsNil)
+
+	s.dockerRegistryHandler.addImage(&registeredImage{
+		version1: true,
+		name:     "foo/bar",
+		digest:   sha256Digest("foo/bar"),
+	})
+
+	stdout, stderr, exitCode := run(c.MkDir(), "attach", "~bob/wordpress-0", "docker-resource=external::"+u.Host+"/foo/bar")
+	c.Check(stdout, gc.Equals, "")
+	c.Check(stderr, gc.Matches, `ERROR cannot find image by version 2 digest; perhaps it was uploaded as a version 1 manifest\n`)
+	c.Assert(exitCode, gc.Equals, 1)
 }
 
 func putUploadPart(c *gc.C, client *csclient.Client, uploadId string, partIndex int, p0, p1 int64, content []byte) {
