@@ -29,6 +29,15 @@ type tagRequest struct {
 	repo    string
 }
 
+type deleteRequest struct {
+	imageID string
+}
+
+type pullRequest struct {
+	imageID string
+	tag     string
+}
+
 type dockerHandler struct {
 	mu   sync.Mutex
 	reqs []interface{}
@@ -41,21 +50,37 @@ func (srv *dockerHandler) imageDigest(imageName string) string {
 var logger = loggo.GetLogger("charm.cmd.charmtest")
 
 func (srv *dockerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger.Infof("dockerHandler.ServeHTTP %v", req.URL)
+	logger.Infof("dockerHandler.ServeHTTP %s %v", req.Method, req.URL)
 	req.ParseForm()
 	if !strings.HasPrefix(req.URL.Path, "/v1.38/images/") {
 		http.NotFound(w, req)
 		return
 	}
+	if req.Method == "DELETE" {
+		srv.serveImageDelete(w, req)
+		return
+	}
 	switch {
 	case strings.HasSuffix(req.URL.Path, "/push"):
 		srv.servePush(w, req)
+	case strings.HasSuffix(req.URL.Path, "/create"):
+		srv.servePull(w, req)
 	case strings.HasSuffix(req.URL.Path, "/tag"):
 		srv.serveTag(w, req)
 	default:
 		logger.Errorf("docker server page %q not found", req.URL)
 		http.NotFound(w, req)
 	}
+}
+
+func (srv *dockerHandler) serveImageDelete(w http.ResponseWriter, req *http.Request) {
+	path := strings.TrimPrefix(req.URL.Path, "/v1.38/images/")
+	srv.addRequest(deleteRequest{
+		imageID: path,
+	})
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+	w.Write([]byte("[]"))
 }
 
 func (srv *dockerHandler) serveTag(w http.ResponseWriter, req *http.Request) {
@@ -96,6 +121,20 @@ func (srv *dockerHandler) servePush(w http.ResponseWriter, req *http.Request) {
 	})
 }
 
+func (srv *dockerHandler) servePull(w http.ResponseWriter, req *http.Request) {
+	if req.URL.Path != "/v1.38/images/create" {
+		http.NotFound(w, req)
+		return
+	}
+	srv.addRequest(pullRequest{
+		imageID: req.Form.Get("fromImage"),
+		tag:     req.Form.Get("tag"),
+	})
+
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(200)
+}
+
 func (srv *dockerHandler) addRequest(req interface{}) {
 	srv.mu.Lock()
 	defer srv.mu.Unlock()
@@ -127,7 +166,7 @@ func (srv *dockerRegistryHandler) addImage(img *registeredImage) {
 }
 
 func (srv *dockerRegistryHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger.Infof("dockerRegistryHandler.ServeHTTP %v", req.URL)
+	logger.Infof("dockerRegistryHandler.ServeHTTP %s %v", req.Method, req.URL)
 	if req.Method != "GET" && req.Method != "HEAD" {
 		srv.addErrorf("unexpected method")
 		http.Error(w, "unexpected method", http.StatusMethodNotAllowed)
@@ -213,7 +252,7 @@ type tokenResp struct {
 }
 
 func (srv *dockerAuthHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	logger.Infof("dockerAuthHandler.ServeHTTP %v", req.URL)
+	logger.Infof("dockerAuthHandler.ServeHTTP %s %v", req.Method, req.URL)
 	req.ParseForm()
 	if req.URL.Path != "/token" {
 		http.Error(w, "unexpected call to docker auth handler", 500)

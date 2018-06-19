@@ -28,6 +28,7 @@ import (
 	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4/csclient"
+	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 const uploadIdCacheExpiryDuration = 48 * time.Hour
@@ -142,7 +143,7 @@ func uploadDockerResource(p uploadResourceParams) (int, error) {
 	if err != nil {
 		return 0, errgo.Notef(err, "cannot get upload info")
 	}
-	dockerClient, err := dockerclient.NewEnvClient()
+	dockerClient, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv)
 	if err != nil {
 		return 0, errgo.Notef(err, "cannot make docker client")
 	}
@@ -150,39 +151,19 @@ func uploadDockerResource(p uploadResourceParams) (int, error) {
 	if err := dockerClient.ImageTag(ctx, ref.String(), info.ImageName); err != nil {
 		return 0, errgo.Notef(err, "cannot tag image in local docker")
 	}
-	authData, err := json.Marshal(dockertypes.AuthConfig{
-		Username: info.Username,
-		Password: info.Password,
-	})
-	if err != nil {
-		return 0, errgo.Mask(err)
-	}
 	reader, err := dockerClient.ImagePush(ctx, info.ImageName, dockertypes.ImagePushOptions{
-		RegistryAuth: base64.URLEncoding.EncodeToString(authData),
+		RegistryAuth: dockerRegistryAuth(info),
 	})
 	if err != nil {
 		return 0, errgo.Notef(err, "cannot push image")
 	}
+	defer reader.Close()
 	var finalStatus struct {
 		Tag    string
 		Digest string
 		Size   int64
 	}
-	var (
-		progressOut   = p.ctxt.Stdout
-		progressFD    uintptr
-		progressIsTTY = false
-	)
-	if p.ctxt.Quiet() {
-		progressOut = ioutil.Discard
-	} else {
-		outf, ok := p.ctxt.Stdout.(*os.File)
-		if ok && terminal.IsTerminal(int(outf.Fd())) {
-			progressFD = outf.Fd()
-			progressIsTTY = true
-		}
-	}
-	err = jsonmessage.DisplayJSONMessagesStream(reader, progressOut, progressFD, progressIsTTY, func(m jsonmessage.JSONMessage) {
+	err = showDockerTransferProgress(p.ctxt, reader, func(m jsonmessage.JSONMessage) {
 		if err := json.Unmarshal(*m.Aux, &finalStatus); err != nil {
 			logger.Errorf("cannot unmarshal aux data: %v", err)
 		}
@@ -327,4 +308,35 @@ func readSeekerSHA256(r io.ReadSeeker) ([]byte, error) {
 		return nil, errgo.Mask(err)
 	}
 	return hasher.Sum(nil), nil
+}
+
+func dockerRegistryAuth(info *params.DockerInfoResponse) string {
+	authData, err := json.Marshal(dockertypes.AuthConfig{
+		Username: info.Username,
+		Password: info.Password,
+	})
+	if err != nil {
+		// Should never happen.
+		panic(err)
+	}
+	return base64.URLEncoding.EncodeToString(authData)
+}
+
+func showDockerTransferProgress(ctxt *cmd.Context, reader io.Reader, auxFunc func(m jsonmessage.JSONMessage)) error {
+	var (
+		progressOut   = ctxt.Stdout
+		progressFD    uintptr
+		progressIsTTY = false
+	)
+	if ctxt.Quiet() {
+		progressOut = ioutil.Discard
+	} else {
+		outf, ok := ctxt.Stdout.(*os.File)
+		if ok && terminal.IsTerminal(int(outf.Fd())) {
+			progressFD = outf.Fd()
+			progressIsTTY = true
+		}
+	}
+	err := jsonmessage.DisplayJSONMessagesStream(reader, progressOut, progressFD, progressIsTTY, auxFunc)
+	return errgo.Mask(err)
 }
