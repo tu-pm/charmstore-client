@@ -23,6 +23,7 @@ import (
 	"github.com/juju/usso"
 	"golang.org/x/net/publicsuffix"
 	"gopkg.in/errgo.v1"
+	charm "gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	esform "gopkg.in/juju/environschema.v1/form"
@@ -73,6 +74,7 @@ func New() *cmd.SuperCommand {
 	c.Register(&loginCommand{})
 	c.Register(&logoutCommand{})
 	c.Register(&pullCommand{})
+	c.Register(&pullResourceCommand{})
 	c.Register(&pushCommand{})
 	c.Register(&releaseCommand{})
 	c.Register(&revokeCommand{})
@@ -464,4 +466,17 @@ func readAgentFile(f string) (*agent.AuthInfo, error) {
 		return nil, errgo.Notef(err, "cannot parse agent data from %q", f)
 	}
 	return &v, nil
+}
+
+// charmMetadata returns the resolved charm URL and the
+// charm metadata for the given URL.
+func charmMetadata(client *csClient, id *charm.URL) (*charm.URL, *charm.Meta, error) {
+	var meta struct {
+		CharmMetadata charm.Meta
+	}
+	id, err := client.Meta(id, &meta)
+	if err != nil {
+		return nil, nil, errgo.Mask(err)
+	}
+	return id, &meta.CharmMetadata, nil
 }

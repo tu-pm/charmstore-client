@@ -321,7 +321,7 @@ func (s *attachSuite) TestUploadDockerResource(c *gc.C) {
 			imageID: imageName,
 		},
 	})
-	info, err := s.client.DockerResourceDownloadInfo(id.WithRevision(0), "docker-resource")
+	info, err := s.client.DockerResourceDownloadInfo(id.WithRevision(0), "docker-resource", -1)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(info.ImageName, gc.Equals, imageName+"@"+s.dockerHandler.imageDigest(imageName))
 }

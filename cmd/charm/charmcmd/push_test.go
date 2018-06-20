@@ -400,11 +400,11 @@ Uploaded "other/otherimage" as docker-resource2-0
 		},
 	})
 	id = id.WithRevision(0)
-	info, err := s.client.DockerResourceDownloadInfo(id, "docker-resource1")
+	info, err := s.client.DockerResourceDownloadInfo(id, "docker-resource1", -1)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(info.ImageName, gc.Equals, imageName1+"@"+s.dockerHandler.imageDigest(imageName1))
 
-	info, err = s.client.DockerResourceDownloadInfo(id, "docker-resource2")
+	info, err = s.client.DockerResourceDownloadInfo(id, "docker-resource2", -1)
 	c.Assert(err, gc.Equals, nil)
 	c.Assert(info.ImageName, gc.Equals, imageName2+"@"+s.dockerHandler.imageDigest(imageName2))
 

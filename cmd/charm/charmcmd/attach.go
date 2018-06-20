@@ -107,10 +107,8 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 		return errgo.New("A revision is required when attaching to a charm in the stable channel.")
 	}
 
-	var meta struct {
-		CharmMetadata charm.Meta
-	}
-	if _, err := client.Meta(c.id, &meta); err != nil {
+	_, meta, err := charmMetadata(client, c.id)
+	if err != nil {
 		return errgo.Mask(err)
 	}
 
@@ -118,7 +116,7 @@ func (c *attachCommand) Run(ctxt *cmd.Context) error {
 		ctxt:         ctxt,
 		client:       client,
 		charmId:      c.id,
-		meta:         &meta.CharmMetadata,
+		meta:         meta,
 		resourceName: c.resourceName,
 		reference:    c.reference,
 		cachePath:    c.uploadIdCachePath,
