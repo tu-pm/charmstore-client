@@ -52,7 +52,7 @@ var logger = loggo.GetLogger("charm.cmd.charmtest")
 func (srv *dockerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	logger.Infof("dockerHandler.ServeHTTP %s %v", req.Method, req.URL)
 	req.ParseForm()
-	if !strings.HasPrefix(req.URL.Path, "/v1.38/images/") {
+	if !strings.HasPrefix(req.URL.Path, "/v1.12/images/") {
 		http.NotFound(w, req)
 		return
 	}
@@ -74,7 +74,7 @@ func (srv *dockerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *dockerHandler) serveImageDelete(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/v1.38/images/")
+	path := strings.TrimPrefix(req.URL.Path, "/v1.12/images/")
 	srv.addRequest(deleteRequest{
 		imageID: path,
 	})
@@ -84,7 +84,7 @@ func (srv *dockerHandler) serveImageDelete(w http.ResponseWriter, req *http.Requ
 }
 
 func (srv *dockerHandler) serveTag(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/v1.38/images/")
+	path := strings.TrimPrefix(req.URL.Path, "/v1.12/images/")
 	path = strings.TrimSuffix(path, "/tag")
 	srv.addRequest(tagRequest{
 		tag:     req.Form.Get("tag"),
@@ -94,7 +94,7 @@ func (srv *dockerHandler) serveTag(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *dockerHandler) servePush(w http.ResponseWriter, req *http.Request) {
-	path := strings.TrimPrefix(req.URL.Path, "/v1.38/images/")
+	path := strings.TrimPrefix(req.URL.Path, "/v1.12/images/")
 	path = strings.TrimSuffix(path, "/push")
 	// TODO include authentication creds in pushRequest?
 	srv.addRequest(pushRequest{
@@ -122,7 +122,7 @@ func (srv *dockerHandler) servePush(w http.ResponseWriter, req *http.Request) {
 }
 
 func (srv *dockerHandler) servePull(w http.ResponseWriter, req *http.Request) {
-	if req.URL.Path != "/v1.38/images/create" {
+	if req.URL.Path != "/v1.12/images/create" {
 		http.NotFound(w, req)
 		return
 	}
