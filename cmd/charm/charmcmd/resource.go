@@ -143,7 +143,7 @@ func uploadDockerResource(p uploadResourceParams) (int, error) {
 	if err != nil {
 		return 0, errgo.Notef(err, "cannot get upload info")
 	}
-	dockerClient, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv)
+	dockerClient, err := newDockerClient()
 	if err != nil {
 		return 0, errgo.Notef(err, "cannot make docker client")
 	}
@@ -179,6 +179,16 @@ func uploadDockerResource(p uploadResourceParams) (int, error) {
 		return 0, errgo.Notef(err, "cannot add docker resource")
 	}
 	return rev, nil
+}
+
+func newDockerClient() (*dockerclient.Client, error) {
+	return dockerclient.NewClientWithOpts(
+		// Set the version before loading from the environment to
+		// allow the version to be overridden by
+		// DOCKER_API_VERSION.
+		dockerclient.WithVersion("1.12"),
+		dockerclient.FromEnv,
+	)
 }
 
 func uploadExternalDockerResource(p uploadResourceParams, ref reference.Named) (int, error) {

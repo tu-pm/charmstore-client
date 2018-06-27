@@ -14,7 +14,6 @@ import (
 
 	"github.com/docker/distribution/reference"
 	dockertypes "github.com/docker/docker/api/types"
-	dockerclient "github.com/docker/docker/client"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
@@ -165,7 +164,7 @@ func (c *pullResourceCommand) pullDockerResource(cmdCtxt *cmd.Context, client *c
 	if _, err := reference.ParseNormalizedNamed(imageName); err != nil {
 		return errgo.Notef(err, "cannot parse %q as image name", imageName)
 	}
-	dockerClient, err := dockerclient.NewClientWithOpts(dockerclient.FromEnv)
+	dockerClient, err := newDockerClient()
 	if err != nil {
 		return errgo.Notef(err, "cannot make docker client")
 	}
