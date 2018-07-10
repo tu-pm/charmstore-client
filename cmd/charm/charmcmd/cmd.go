@@ -180,7 +180,7 @@ func newCharmStoreClient(ctxt *cmd.Context, auth authInfo, channel params.Channe
 		if err := agent.SetUpAuth(bakeryClient, agentInfo); err != nil {
 			return nil, errgo.Notef(err, "cannot set up agent authentication")
 		}
-	} else {
+	} else if auth.noBrowser {
 		tokenStore := ussologin.NewFileTokenStore(ussoTokenPath())
 		bakeryClient.AddInteractor(ussologin.NewInteractor(ussologin.StoreTokenGetter{
 			Store: tokenStore,
@@ -252,12 +252,15 @@ func addAuthFlags(f *gnuflag.FlagSet, info *authInfo) {
 	f.Var(info, "auth", "user:passwd to use for basic HTTP authentication")
 	f.StringVar(&info.agentFile, "a", "", "name of file containing agent login details")
 	f.StringVar(&info.agentFile, "agent", "", "")
+	f.BoolVar(&info.noBrowser, "B", false, "do not use web browser for authentication")
+	f.BoolVar(&info.noBrowser, "no-browser-login", false, "")
 }
 
 type authInfo struct {
 	agentFile string
 	username  string
 	password  string
+	noBrowser bool
 }
 
 // Set implements gnuflag.Value.Set by validating
