@@ -43,7 +43,7 @@ If the id is not specified, the current logged-in charm store user name is
 used, and the charm or bundle name is taken from the provided directory name.
 
 The pushed charm or bundle is unpublished and therefore usually only available
-to a restricted set of users. See the publish command for info on how to make
+to a restricted set of users. See the release command for info on how to make
 charms and bundles available to others.
 
 	charm push .
