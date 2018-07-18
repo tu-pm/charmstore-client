@@ -19,23 +19,23 @@ func newDockerHandler() *dockerHandler {
 }
 
 type pushRequest struct {
-	imageID string
-	tag     string
+	ImageID string
+	Tag     string
 }
 
 type tagRequest struct {
-	imageID string
-	tag     string
-	repo    string
+	ImageID string
+	Tag     string
+	Repo    string
 }
 
 type deleteRequest struct {
-	imageID string
+	ImageID string
 }
 
 type pullRequest struct {
-	imageID string
-	tag     string
+	ImageID string
+	Tag     string
 }
 
 type dockerHandler struct {
@@ -76,7 +76,7 @@ func (srv *dockerHandler) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 func (srv *dockerHandler) serveImageDelete(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/v1.12/images/")
 	srv.addRequest(deleteRequest{
-		imageID: path,
+		ImageID: path,
 	})
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(200)
@@ -87,9 +87,9 @@ func (srv *dockerHandler) serveTag(w http.ResponseWriter, req *http.Request) {
 	path := strings.TrimPrefix(req.URL.Path, "/v1.12/images/")
 	path = strings.TrimSuffix(path, "/tag")
 	srv.addRequest(tagRequest{
-		tag:     req.Form.Get("tag"),
-		repo:    req.Form.Get("repo"),
-		imageID: path,
+		Tag:     req.Form.Get("tag"),
+		Repo:    req.Form.Get("repo"),
+		ImageID: path,
 	})
 }
 
@@ -98,8 +98,8 @@ func (srv *dockerHandler) servePush(w http.ResponseWriter, req *http.Request) {
 	path = strings.TrimSuffix(path, "/push")
 	// TODO include authentication creds in pushRequest?
 	srv.addRequest(pushRequest{
-		imageID: path,
-		tag:     req.Form.Get("tag"),
+		ImageID: path,
+		Tag:     req.Form.Get("tag"),
 	})
 
 	w.Header().Set("Content-Type", "application/json")
@@ -127,8 +127,8 @@ func (srv *dockerHandler) servePull(w http.ResponseWriter, req *http.Request) {
 		return
 	}
 	srv.addRequest(pullRequest{
-		imageID: req.Form.Get("fromImage"),
-		tag:     req.Form.Get("tag"),
+		ImageID: req.Form.Get("fromImage"),
+		Tag:     req.Form.Get("tag"),
 	})
 
 	w.Header().Set("Content-Type", "application/json")

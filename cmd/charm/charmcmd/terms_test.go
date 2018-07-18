@@ -8,91 +8,98 @@ package charmcmd_test
 // a mapping of term:[]charmUrl to be output to the user.
 
 import (
-	"os"
+	"testing"
 
-	gc "gopkg.in/check.v1"
+	qt "github.com/frankban/quicktest"
 	"gopkg.in/juju/charm.v6"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
+func TestTerms(t *testing.T) {
+	RunSuite(qt.New(t), &termsSuite{})
+}
+
 type termsSuite struct {
-	commonSuite
+	*charmstoreEnv
 }
 
-var _ = gc.Suite(&termsSuite{})
-
-func (s *termsSuite) TestInvalidServerURL(c *gc.C) {
-	os.Setenv("JUJU_CHARMSTORE", "#%zz")
-	stdout, stderr, exitCode := run(c.MkDir(), "terms-used")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(exitCode, gc.Equals, 1)
-	c.Assert(stderr, gc.Equals, "ERROR cannot retrieve identity: parse #%zz/v5/whoami: invalid URL escape \"%zz\"\n")
+func (s *termsSuite) Init(c *qt.C) {
+	fakeHome(c)
+	s.charmstoreEnv = initCharmstoreEnv(c)
 }
 
-func (s *termsSuite) TestTermsUserProvidedYAML(c *gc.C) {
+func (s *termsSuite) TestInvalidServerURL(c *qt.C) {
+	c.Setenv("JUJU_CHARMSTORE", "#%zz")
+	stdout, stderr, exitCode := run(c.Mkdir(), "terms-used")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(exitCode, qt.Equals, 1)
+	c.Assert(stderr, qt.Equals, "ERROR cannot retrieve identity: parse #%zz/v5/whoami: invalid URL escape \"%zz\"\n")
+}
+
+func (s *termsSuite) TestTermsUserProvidedYAML(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/foobar-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
-	dir := c.MkDir()
+	dir := c.Mkdir()
 	stdout, stderr, code := run(dir, "terms-used", "-u", "test-user", "--format", "yaml")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stderr, qt.Equals, "")
 
-	c.Assert(stdout, gc.Equals, `term1/1:
+	c.Assert(stdout, qt.Equals, `term1/1:
 - cs:~test-user/trusty/alambic-0
 - cs:~test-user/trusty/foobar-0
 term2/1:
 - cs:~test-user/trusty/alambic-0
 `)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, qt.Equals, 0)
 }
 
-func (s *termsSuite) TestTermsUserProvidedTabular(c *gc.C) {
+func (s *termsSuite) TestTermsUserProvidedTabular(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/foobar-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
-	dir := c.MkDir()
+	dir := c.Mkdir()
 	stdout, stderr, code := run(dir, "terms-used", "-u", "test-user")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stderr, qt.Equals, "")
 
-	c.Assert(stdout, gc.Equals, `TERM   	CHARM                         
+	c.Assert(stdout, qt.Equals, `TERM   	CHARM                         
 term1/1	cs:~test-user/trusty/alambic-0
        	cs:~test-user/trusty/foobar-0 
 term2/1	cs:~test-user/trusty/alambic-0
 `)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, qt.Equals, 0)
 }
 
-func (s *termsSuite) TestTermsUserProvidedEmpty(c *gc.C) {
+func (s *termsSuite) TestTermsUserProvidedEmpty(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/foobar-0"), -1, entitytesting.Repo.CharmDir("terms1"))
 	s.uploadCharmDir(c, charm.MustParseURL("~test-user/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms2"))
 	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/trusty/alambic-0"), -1, entitytesting.Repo.CharmDir("terms1"))
-	dir := c.MkDir()
+	dir := c.Mkdir()
 	stdout, stderr, code := run(dir, "terms-used", "-u", "test-user", "--format", "yaml")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(stdout, gc.Equals, `term1/1:
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(stdout, qt.Equals, `term1/1:
 - cs:~test-user/trusty/alambic-0
 - cs:~test-user/trusty/foobar-0
 term2/1:
 - cs:~test-user/trusty/alambic-0
 `)
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, qt.Equals, 0)
 }
 
-func (s *termsSuite) TestUnknownArgument(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "terms-used", "-u", "test-user", "foobar")
-	c.Assert(code, gc.Equals, 2)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Equals, `ERROR unrecognized args: ["foobar"]
+func (s *termsSuite) TestUnknownArgument(c *qt.C) {
+	stdout, stderr, code := run(c.Mkdir(), "terms-used", "-u", "test-user", "foobar")
+	c.Assert(code, qt.Equals, 2)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Equals, `ERROR unrecognized args: ["foobar"]
 `)
 }
 
-func (s *termsSuite) TestNoTerms(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "terms-used", "-u", "test-user")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "No terms found.\n")
-	c.Assert(stderr, gc.Equals, "")
+func (s *termsSuite) TestNoTerms(c *qt.C) {
+	stdout, stderr, code := run(c.Mkdir(), "terms-used", "-u", "test-user")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Equals, "No terms found.\n")
+	c.Assert(stderr, qt.Equals, "")
 }

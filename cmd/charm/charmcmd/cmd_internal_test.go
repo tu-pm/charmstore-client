@@ -4,18 +4,14 @@
 package charmcmd
 
 import (
+	"testing"
+
+	qt "github.com/frankban/quicktest"
+	"github.com/google/go-cmp/cmp"
 	"github.com/juju/gnuflag"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	"github.com/juju/loggo"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
-
-type cmdAuthInfoSuite struct {
-	testing.IsolationSuite
-}
-
-var _ = gc.Suite(&cmdAuthInfoSuite{})
 
 var authFlagTests = []struct {
 	about       string
@@ -49,60 +45,71 @@ var authFlagTests = []struct {
 	},
 }}
 
-func (*cmdAuthInfoSuite) TestAuthFlag(c *gc.C) {
-	for i, test := range authFlagTests {
-		c.Logf("test %d: %s", i, test.about)
-		fs := gnuflag.NewFlagSet("x", gnuflag.ContinueOnError)
-		var info authInfo
-		addAuthFlags(fs, &info)
-		err := fs.Parse(true, []string{"--auth", test.arg})
-		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
-		} else {
-			c.Assert(err, jc.ErrorIsNil)
-			c.Assert(info, jc.DeepEquals, test.expect)
-			c.Assert(info.String(), gc.Equals, test.arg)
-		}
+func TestAuthFlag(t *testing.T) {
+	c := qt.New(t)
+	for _, test := range authFlagTests {
+		c.Run(test.about, func(c *qt.C) {
+			fs := gnuflag.NewFlagSet("x", gnuflag.ContinueOnError)
+			var info authInfo
+			addAuthFlags(fs, &info)
+			err := fs.Parse(true, []string{"--auth", test.arg})
+			if test.expectError != "" {
+				c.Assert(err, qt.ErrorMatches, test.expectError)
+			} else {
+				c.Assert(err, qt.Equals, nil)
+				c.Assert(info, qt.CmpEquals(cmp.AllowUnexported(authInfo{})), test.expect)
+				c.Assert(info.String(), qt.Equals, test.arg)
+			}
+		})
 	}
 }
 
-type cmdChanValueSuite struct {
-	testing.IsolationSuite
-	fs      *gnuflag.FlagSet
-	channel chanValue
+func parseChannel(c *qt.C, channel string) params.Channel {
+	var ch chanValue
+	fs := gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
+	addChannelFlag(fs, &ch, nil)
+	err := fs.Parse(true, []string{"--channel", channel})
+	c.Assert(err, qt.Equals, nil)
+	return ch.C
 }
 
-var _ = gc.Suite(&cmdChanValueSuite{})
+func TestChannel(t *testing.T) {
+	c := qt.New(t)
+	ch := parseChannel(c, "beta")
+	c.Assert(ch, qt.Equals, params.BetaChannel)
 
-func (s *cmdChanValueSuite) SetUpTest(c *gc.C) {
-	s.IsolationSuite.SetUpTest(c)
-	s.fs = gnuflag.NewFlagSet("", gnuflag.ContinueOnError)
-	addChannelFlag(s.fs, &s.channel, nil)
+	ch = parseChannel(c, "stable")
+	c.Assert(ch, qt.Equals, params.StableChannel)
 }
 
-func (s *cmdChanValueSuite) run(c *gc.C, channel string) {
-	err := s.fs.Parse(true, []string{"--channel", channel})
-	c.Assert(err, jc.ErrorIsNil)
-}
-
-func (s *cmdChanValueSuite) TestChannel(c *gc.C) {
-	s.run(c, "beta")
-	c.Assert(s.channel.C, gc.Equals, params.BetaChannel)
-
-	s.run(c, "stable")
-	c.Assert(s.channel.C, gc.Equals, params.StableChannel)
-}
-
-func (s *cmdChanValueSuite) TestString(c *gc.C) {
-	for i, channel := range []string{"stable", "candidate", "beta", "edge", "unpublished"} {
-		c.Logf("\ntest %d: %s", i, channel)
-		s.run(c, channel)
-		c.Assert(s.channel.String(), gc.Equals, channel)
+func TestChannelString(t *testing.T) {
+	c := qt.New(t)
+	for _, channel := range []params.Channel{params.StableChannel, params.CandidateChannel, params.BetaChannel, params.EdgeChannel, params.UnpublishedChannel} {
+		c.Run(string(channel), func(c *qt.C) {
+			ch := chanValue{C: channel}
+			c.Assert(ch.String(), qt.Equals, string(channel))
+		})
 	}
 }
 
-func (s *cmdChanValueSuite) TestDevelopmentDeprecated(c *gc.C) {
-	s.run(c, "development")
-	c.Assert(s.channel.C, gc.Equals, params.EdgeChannel)
-	c.Assert(c.GetTestLog(), jc.Contains, "the development channel is deprecated: automatically switching to the edge channel")
+func TestChannelDevelopmentDeprecated(t *testing.T) {
+	c := qt.New(t)
+	defer c.Cleanup()
+	w := &testWriter{}
+	loggo.RegisterWriter("test", w)
+	c.AddCleanup(loggo.ResetWriters)
+
+	ch := parseChannel(c, "development")
+	c.Assert(ch, qt.Equals, params.EdgeChannel)
+	c.Assert(w.entries, qt.HasLen, 1)
+	c.Assert(w.entries[0].Level, qt.Equals, loggo.WARNING)
+	c.Assert(w.entries[0].Message, qt.Equals, "the development channel is deprecated: automatically switching to the edge channel")
+}
+
+type testWriter struct {
+	entries []loggo.Entry
+}
+
+func (w *testWriter) Write(e loggo.Entry) {
+	w.entries = append(w.entries, e)
 }

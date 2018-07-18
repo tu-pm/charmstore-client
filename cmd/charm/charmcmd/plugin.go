@@ -19,6 +19,7 @@ import (
 	"time"
 
 	"github.com/juju/cmd"
+	"github.com/juju/utils"
 	"gopkg.in/yaml.v2"
 )
 
@@ -139,7 +140,7 @@ func getPluginDescriptions() map[string]pluginDescription {
 	if len(pluginDescriptionsResults) > 0 {
 		return pluginDescriptionsResults
 	}
-	pluginCacheDir := filepath.Join(os.Getenv("HOME"), ".cache")
+	pluginCacheDir := filepath.Join(utils.Home(), ".cache")
 	if d := os.Getenv("XDG_CACHE_HOME"); d != "" {
 		pluginCacheDir = d
 	}

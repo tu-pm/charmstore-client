@@ -4,21 +4,29 @@
 package charmcmd_test
 
 import (
+	"fmt"
 	"strings"
+	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	qt "github.com/frankban/quicktest"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
-type revokeSuite struct {
-	commonSuite
+func TestRevoke(t *testing.T) {
+	RunSuite(qt.New(t), &revokeSuite{})
 }
 
-var _ = gc.Suite(&revokeSuite{})
+type revokeSuite struct {
+	*charmstoreEnv
+}
+
+func (s *revokeSuite) Init(c *qt.C) {
+	fakeHome(c)
+	s.charmstoreEnv = initCharmstoreEnv(c)
+}
 
 var revokeInitErrorTests = []struct {
 	args []string
@@ -51,15 +59,15 @@ var revokeInitErrorTests = []struct {
 	err:  "invalid name '\"foo \"'",
 }}
 
-func (s *revokeSuite) TestInitError(c *gc.C) {
-	dir := c.MkDir()
-	for i, test := range revokeInitErrorTests {
-		c.Logf("test %d: %q", i, test.args)
-		subcmd := []string{"revoke"}
-		stdout, stderr, code := run(dir, append(subcmd, test.args...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
-		c.Assert(code, gc.Equals, 2)
+func (s *revokeSuite) TestInitError(c *qt.C) {
+	for _, test := range revokeInitErrorTests {
+		c.Run(fmt.Sprintf("%q", test.args), func(c *qt.C) {
+			args := append([]string{"revoke"}, test.args...)
+			stdout, stderr, code := run(c.Mkdir(), args...)
+			c.Assert(stdout, qt.Equals, "")
+			c.Assert(stderr, qt.Matches, "ERROR "+test.err+"\n")
+			c.Assert(code, qt.Equals, 2)
+		})
 	}
 }
 
@@ -81,26 +89,26 @@ var revokeCharmNotFoundTests = []struct {
 	err:   "ERROR cannot get existing permissions: no matching charm or bundle for cs:no-such-entity\n",
 }}
 
-func (s *revokeSuite) TestRevokeCharmNotFound(c *gc.C) {
-	dir := c.MkDir()
-	for i, test := range revokeCharmNotFoundTests {
-		c.Logf("test %d: %s", i, test.about)
-		args := []string{"revoke", "no-such-entity"}
-		stdout, stderr, code := run(dir, append(args, strings.Split(test.args, " ")...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, test.err)
-		c.Assert(code, gc.Equals, 1)
+func (s *revokeSuite) TestRevokeCharmNotFound(c *qt.C) {
+	for _, test := range revokeCharmNotFoundTests {
+		c.Run(test.about, func(c *qt.C) {
+			args := []string{"revoke", "no-such-entity"}
+			stdout, stderr, code := run(c.Mkdir(), append(args, strings.Split(test.args, " ")...)...)
+			c.Assert(stdout, qt.Equals, "")
+			c.Assert(stderr, qt.Matches, test.err)
+			c.Assert(code, qt.Equals, 1)
+		})
 	}
 }
 
-func (s *revokeSuite) TestAuthenticationError(c *gc.C) {
+func (s *revokeSuite) TestAuthenticationError(c *qt.C) {
 	s.discharger.SetDefaultUser("someoneelse")
 	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, url, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "revoke", url.String(), "--acl=read", "foo")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `ERROR cannot set permissions: access denied for user "someoneelse"\n`)
-	c.Assert(code, gc.Equals, 1)
+	stdout, stderr, code := run(c.Mkdir(), "revoke", url.String(), "--acl=read", "foo")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, `ERROR cannot set permissions: access denied for user "someoneelse"\n`)
+	c.Assert(code, qt.Equals, 1)
 }
 
 var revokeSuccessTests = []struct {
@@ -133,42 +141,41 @@ var revokeSuccessTests = []struct {
 	expectedWrite: []string{"foo"},
 }}
 
-func (s *revokeSuite) TestRunSuccess(c *gc.C) {
+func (s *revokeSuite) TestRunSuccess(c *qt.C) {
 	// Prepare a charm to be used in tests.
 	ch := entitytesting.Repo.CharmDir("wordpress")
 	url := charm.MustParseURL("~charmers/utopic/wordpress")
-	dir := c.MkDir()
 
 	// Prepare the credentials arguments.
 	auth := s.serverParams.AuthUsername + ":" + s.serverParams.AuthPassword
 
 	for i, test := range revokeSuccessTests {
-		c.Logf("test %d: %s", i, test.about)
+		c.Run(test.about, func(c *qt.C) {
+			url.Revision = i
+			s.uploadCharmDir(c, url, -1, ch)
+			s.publish(c, url, params.StableChannel)
+			s.setReadPerms(c, url, test.initRead)
+			s.setWritePerms(c, url, test.initWrite)
 
-		url.Revision = i
-		s.uploadCharmDir(c, url, -1, ch)
-		s.publish(c, url, params.StableChannel)
-		s.setReadPerms(c, url, test.initRead)
-		s.setWritePerms(c, url, test.initWrite)
+			// Check that the command succeeded.
+			args := []string{"revoke", "~charmers/wordpress", "--auth", auth}
+			stdout, stderr, code := run(c.Mkdir(), append(args, test.args...)...)
+			c.Assert(stdout, qt.Equals, "")
+			c.Assert(stderr, qt.Matches, "")
+			c.Assert(code, qt.Equals, 0)
 
-		// Check that the command succeeded.
-		args := []string{"revoke", "~charmers/wordpress", "--auth", auth}
-		stdout, stderr, code := run(dir, append(args, test.args...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "")
-		c.Assert(code, gc.Equals, 0)
-
-		// Check that the entity grant has been updated.
-		c.Assert(s.getReadPerms(c, url), jc.DeepEquals, test.expectedRead)
-		c.Assert(s.getWritePerms(c, url), jc.DeepEquals, test.expectedWrite)
+			// Check that the entity grant has been updated.
+			c.Assert(s.getReadPerms(c, url), qt.DeepEquals, test.expectedRead)
+			c.Assert(s.getWritePerms(c, url), qt.DeepEquals, test.expectedWrite)
+		})
 	}
 }
 
-func (s *revokeSuite) TestAvoidNoUserReadWrite(c *gc.C) {
+func (s *revokeSuite) TestAvoidNoUserReadWrite(c *qt.C) {
 	// Prepare a charm to be used in tests.
 	ch := entitytesting.Repo.CharmDir("wordpress")
 	url := charm.MustParseURL("~charmers/utopic/wordpress")
-	dir := c.MkDir()
+	dir := c.Mkdir()
 
 	// Prepare the credentials arguments.
 	auth := s.serverParams.AuthUsername + ":" + s.serverParams.AuthPassword
@@ -181,20 +188,20 @@ func (s *revokeSuite) TestAvoidNoUserReadWrite(c *gc.C) {
 
 	// Check that the command succeeded.
 	stdout, stderr, code := run(dir, "revoke", url.String(), "foo,bar", "--auth", auth)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR need at least one user with read|write access")
-	c.Assert(code, gc.Equals, 1)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, `ERROR need at least one user with read\|write access\n`)
+	c.Assert(code, qt.Equals, 1)
 	stdout, stderr, code = run(dir, "revoke", url.String(), "foo,bar", "--acl=read", "--auth", auth)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR need at least one user with read|write access")
-	c.Assert(code, gc.Equals, 1)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, `ERROR need at least one user with read\|write access\n`)
+	c.Assert(code, qt.Equals, 1)
 	stdout, stderr, code = run(dir, "revoke", url.String(), "foo,bar", "--acl=write", "--auth", auth)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR need at least one user with read|write access")
-	c.Assert(code, gc.Equals, 1)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, `ERROR need at least one user with read\|write access\n`)
+	c.Assert(code, qt.Equals, 1)
 }
 
-func (s *revokeSuite) TestSuccessfulWithChannel(c *gc.C) {
+func (s *revokeSuite) TestSuccessfulWithChannel(c *qt.C) {
 	ch := entitytesting.Repo.CharmDir("wordpress")
 	url := charm.MustParseURL("~charmers/utopic/wordpress")
 	s.uploadCharmDir(c, url.WithRevision(40), -1, ch)
@@ -210,44 +217,44 @@ func (s *revokeSuite) TestSuccessfulWithChannel(c *gc.C) {
 	s.setReadPerms(c, url.WithRevision(42), []string{"foo", "bar"})
 	s.setWritePerms(c, url.WithRevision(42), []string{"foo", "bar"})
 
-	dir := c.MkDir()
+	dir := c.Mkdir()
 
 	// Prepare the credentials arguments.
 	auth := s.serverParams.AuthUsername + ":" + s.serverParams.AuthPassword
 
 	// Test with the edge channel.
 	_, stderr, code := run(dir, "revoke", url.String(), "-c", "edge", "foo", "--auth", auth)
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
 
 	// Check that the entity grant has been updated.
-	c.Assert(s.getReadPerms(c, url.WithRevision(42)), jc.DeepEquals, []string{"bar"})
-	c.Assert(s.getWritePerms(c, url.WithRevision(42)), jc.DeepEquals, []string{"bar"})
-	c.Assert(s.getReadPerms(c, url.WithRevision(41)), jc.DeepEquals, []string{"foo", "bar"})
-	c.Assert(s.getWritePerms(c, url.WithRevision(41)), jc.DeepEquals, []string{"foo", "bar"})
+	c.Assert(s.getReadPerms(c, url.WithRevision(42)), qt.DeepEquals, []string{"bar"})
+	c.Assert(s.getWritePerms(c, url.WithRevision(42)), qt.DeepEquals, []string{"bar"})
+	c.Assert(s.getReadPerms(c, url.WithRevision(41)), qt.DeepEquals, []string{"foo", "bar"})
+	c.Assert(s.getWritePerms(c, url.WithRevision(41)), qt.DeepEquals, []string{"foo", "bar"})
 
 	// Test with the stable channel.
 	_, stderr, code = run(dir, "revoke", url.String(), "bar", "--auth", auth)
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
 
 	// Check that the entity grant has been updated.
-	c.Assert(s.getReadPerms(c, url), jc.DeepEquals, []string{"foo"})
-	c.Assert(s.getWritePerms(c, url), jc.DeepEquals, []string{"foo"})
+	c.Assert(s.getReadPerms(c, url), qt.DeepEquals, []string{"foo"})
+	c.Assert(s.getWritePerms(c, url), qt.DeepEquals, []string{"foo"})
 }
 
-func (s *revokeSuite) getReadPerms(c *gc.C, id *charm.URL) []string {
+func (s *revokeSuite) getReadPerms(c *qt.C, id *charm.URL) []string {
 	return mustGetPerms(s.client, id).Read
 }
 
-func (s *revokeSuite) getWritePerms(c *gc.C, id *charm.URL) []string {
+func (s *revokeSuite) getWritePerms(c *qt.C, id *charm.URL) []string {
 	return mustGetPerms(s.client, id).Write
 }
 
-func (s *revokeSuite) setReadPerms(c *gc.C, id *charm.URL, p []string) {
+func (s *revokeSuite) setReadPerms(c *qt.C, id *charm.URL, p []string) {
 	mustSetPerms(s.client, "read", id, p)
 }
 
-func (s *revokeSuite) setWritePerms(c *gc.C, id *charm.URL, p []string) {
+func (s *revokeSuite) setWritePerms(c *qt.C, id *charm.URL, p []string) {
 	mustSetPerms(s.client, "write", id, p)
 }

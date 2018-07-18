@@ -6,20 +6,27 @@ package charmcmd_test
 import (
 	"encoding/json"
 	"fmt"
+	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	qt "github.com/frankban/quicktest"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
-type setSuite struct {
-	commonSuite
+func TestSet(t *testing.T) {
+	RunSuite(qt.New(t), &setSuite{})
 }
 
-var _ = gc.Suite(&setSuite{})
+type setSuite struct {
+	*charmstoreEnv
+}
+
+func (s *setSuite) Init(c *qt.C) {
+	fakeHome(c)
+	s.charmstoreEnv = initCharmstoreEnv(c)
+}
 
 var setInitErrorTests = []struct {
 	args []string
@@ -58,35 +65,35 @@ var setInitErrorTests = []struct {
 	err:  `invalid value "bad-wolf" for flag --auth: invalid auth credentials: expected "user:passwd"`,
 }}
 
-func (s *setSuite) TestInitError(c *gc.C) {
+func (s *setSuite) TestInitError(c *qt.C) {
 	s.discharger.SetDefaultUser("charmers")
-	dir := c.MkDir()
-	for i, test := range setInitErrorTests {
-		c.Logf("test %d: %q", i, test.args)
-		args := []string{"set"}
-		stdout, stderr, code := run(dir, append(args, test.args...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
-		c.Assert(code, gc.Equals, 2)
+	for _, test := range setInitErrorTests {
+		c.Run(fmt.Sprintf("%q", test.args), func(c *qt.C) {
+			args := []string{"set"}
+			stdout, stderr, code := run(c.Mkdir(), append(args, test.args...)...)
+			c.Assert(stdout, qt.Equals, "")
+			c.Assert(stderr, qt.Matches, "ERROR "+test.err+"\n")
+			c.Assert(code, qt.Equals, 2)
+		})
 	}
 }
 
-func (s *setSuite) TestRunError(c *gc.C) {
+func (s *setSuite) TestRunError(c *qt.C) {
 	s.discharger.SetDefaultUser("charmers")
-	stdout, stderr, code := run(c.MkDir(), "set", "no-such-entity", "homepage=value")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR cannot update the set arguments provided: no matching charm or bundle for cs:no-such-entity\n")
-	c.Assert(code, gc.Equals, 1)
+	stdout, stderr, code := run(c.Mkdir(), "set", "no-such-entity", "homepage=value")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, "ERROR cannot update the set arguments provided: no matching charm or bundle for cs:no-such-entity\n")
+	c.Assert(code, qt.Equals, 1)
 }
 
-func (s *setSuite) TestAuthenticationError(c *gc.C) {
+func (s *setSuite) TestAuthenticationError(c *qt.C) {
 	s.discharger.SetDefaultUser("someoneelse")
 	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, url, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "set", url.String(), "homepage=value")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `ERROR cannot update the set arguments provided: access denied for user "someoneelse"\n`)
-	c.Assert(code, gc.Equals, 1)
+	stdout, stderr, code := run(c.Mkdir(), "set", url.String(), "homepage=value")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, `ERROR cannot update the set arguments provided: access denied for user "someoneelse"\n`)
+	c.Assert(code, qt.Equals, 1)
 }
 
 var setCommonSuccessTests = []struct {
@@ -220,49 +227,50 @@ var setCommonSuccessTests = []struct {
 	},
 }}
 
-func (s *setSuite) TestSuccess(c *gc.C) {
+func (s *setSuite) TestSuccess(c *qt.C) {
 	s.discharger.SetDefaultUser("charmers")
 	for i, test := range setCommonSuccessTests {
-		ch := entitytesting.Repo.CharmDir("wordpress")
-		url := charm.MustParseURL(fmt.Sprint("~charmers/utopic/wordpress", i))
-		dir := c.MkDir()
-		c.Logf("test %d: %s", i, test.about)
-		url.Revision = i
-		s.uploadCharmDir(c, url, -1, ch)
-		s.publish(c, url, params.StableChannel)
+		c.Run(test.about, func(c *qt.C) {
+			ch := entitytesting.Repo.CharmDir("wordpress")
+			url := charm.MustParseURL(fmt.Sprint("~charmers/utopic/wordpress", i))
+			dir := c.Mkdir()
+			url.Revision = i
+			s.uploadCharmDir(c, url, -1, ch)
+			s.publish(c, url, params.StableChannel)
 
-		// Set initial common-info and extra-info on the charm if required.
-		if test.initialCommon != nil {
-			s.setCommon(c, url, test.initialCommon)
-		}
-		if test.initialExtra != nil {
-			s.setExtra(c, url, test.initialExtra)
-		}
+			// Set initial common-info and extra-info on the charm if required.
+			if test.initialCommon != nil {
+				s.setCommon(c, url, test.initialCommon)
+			}
+			if test.initialExtra != nil {
+				s.setExtra(c, url, test.initialExtra)
+			}
 
-		var msg json.RawMessage
-		err := s.client.Get("/"+url.Path()+"/meta/common-info", &msg)
-		c.Assert(err, gc.IsNil)
+			var msg json.RawMessage
+			err := s.client.Get("/"+url.Path()+"/meta/common-info", &msg)
+			c.Assert(err, qt.IsNil)
 
-		// Check that the command succeeded.
-		args := []string{"set", url.Path()}
-		stdout, stderr, code := run(dir, append(args, test.args...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "")
-		c.Assert(code, gc.Equals, 0)
+			// Check that the command succeeded.
+			args := []string{"set", url.Path()}
+			stdout, stderr, code := run(dir, append(args, test.args...)...)
+			c.Assert(stdout, qt.Equals, "")
+			c.Assert(stderr, qt.Matches, "")
+			c.Assert(code, qt.Equals, 0)
 
-		// Check that the entity has been updated.
-		expect := map[string]interface{}{
-			"Id": url,
-			"Meta": map[string]interface{}{
-				"extra-info":  test.expectExtraInfo,
-				"common-info": test.expectCommonInfo,
-			},
-		}
-		c.Assert(s.getInfo(c, url), jc.JSONEquals, expect)
+			// Check that the entity has been updated.
+			expect := map[string]interface{}{
+				"Id": url,
+				"Meta": map[string]interface{}{
+					"extra-info":  test.expectExtraInfo,
+					"common-info": test.expectCommonInfo,
+				},
+			}
+			assertJSONEquals(c, s.getInfo(c, url), expect)
+		})
 	}
 }
 
-func (s *setSuite) TestSuccessfulWithChannel(c *gc.C) {
+func (s *setSuite) TestSuccessfulWithChannel(c *qt.C) {
 	s.discharger.SetDefaultUser("charmers")
 	ch := entitytesting.Repo.CharmDir("wordpress")
 	url := charm.MustParseURL("~charmers/utopic/wordpress")
@@ -274,7 +282,7 @@ func (s *setSuite) TestSuccessfulWithChannel(c *gc.C) {
 
 	s.publish(c, url.WithRevision(42), params.EdgeChannel)
 
-	dir := c.MkDir()
+	dir := c.Mkdir()
 
 	expectStable := map[string]interface{}{
 		"Id": url.WithRevision(41),
@@ -294,39 +302,39 @@ func (s *setSuite) TestSuccessfulWithChannel(c *gc.C) {
 	}
 	// Test with the edge channel.
 	_, stderr, code := run(dir, "set", url.String(), "name=value", "-c", "edge")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.getInfo(c, url.WithRevision(42)), jc.JSONEquals, expectDevelopment)
-	c.Assert(s.getInfo(c, url.WithRevision(41)), jc.JSONEquals, expectStable)
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+	assertJSONEquals(c, s.getInfo(c, url.WithRevision(42)), expectDevelopment)
+	assertJSONEquals(c, s.getInfo(c, url.WithRevision(41)), expectStable)
 
 	// Test with the stable channel.
 	_, stderr, code = run(dir, "set", url.String(), "name=value1")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
 	expectStable["Meta"].(map[string]interface{})["extra-info"] = map[string]interface{}{
 		"name": "value1",
 	}
-	c.Assert(s.getInfo(c, url.WithRevision(41)), jc.JSONEquals, expectStable)
-	c.Assert(s.getInfo(c, url.WithRevision(42)), jc.JSONEquals, expectDevelopment)
+	assertJSONEquals(c, s.getInfo(c, url.WithRevision(41)), expectStable)
+	assertJSONEquals(c, s.getInfo(c, url.WithRevision(42)), expectDevelopment)
 }
 
 // getInfo returns the common and extra info for the given entity id as a JSON
 // encoded string.
-func (s *setSuite) getInfo(c *gc.C, id *charm.URL) string {
+func (s *setSuite) getInfo(c *qt.C, id *charm.URL) string {
 	var msg json.RawMessage
 	err := s.client.Get("/"+id.Path()+"/meta/any?include=common-info&include=extra-info", &msg)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 	return string(msg)
 }
 
 // setCommon sets the common info for the given entity id.
-func (s *setSuite) setCommon(c *gc.C, id *charm.URL, common map[string]interface{}) {
+func (s *setSuite) setCommon(c *qt.C, id *charm.URL, common map[string]interface{}) {
 	err := s.client.PutCommonInfo(id, common)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 }
 
 // setExtra sets the extra info for the given entity id.
-func (s *setSuite) setExtra(c *gc.C, id *charm.URL, extra map[string]interface{}) {
+func (s *setSuite) setExtra(c *qt.C, id *charm.URL, extra map[string]interface{}) {
 	err := s.client.PutExtraInfo(id, extra)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 }
