@@ -12,91 +12,88 @@ import (
 	"regexp"
 	"runtime"
 	"strings"
+	"testing"
 	"text/template"
 	"time"
 
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	qt "github.com/frankban/quicktest"
+	"github.com/juju/utils"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 )
 
+func TestPlugin(t *testing.T) {
+	RunSuite(qt.New(t), &pluginSuite{})
+}
+
 type pluginSuite struct {
-	testing.IsolationSuite
 	dir  string
 	dir2 string
 }
 
-var _ = gc.Suite(&pluginSuite{})
-
-func (s *pluginSuite) SetUpSuite(c *gc.C) {
-	s.IsolationSuite.SetUpSuite(c)
+func (s *pluginSuite) Init(c *qt.C) {
+	if runtime.GOOS == "windows" {
+		c.Skip("tests use bash scripts")
+	}
+	fakeHome(c)
 	charmcmd.WhiteListedCommands["foo"] = true
 	charmcmd.WhiteListedCommands["bar"] = true
 	charmcmd.WhiteListedCommands["baz"] = true
 	charmcmd.WhiteListedCommands["error"] = true
-}
-
-func (s *pluginSuite) SetUpTest(c *gc.C) {
-	if runtime.GOOS == "windows" {
-		c.Skip("tests use bash scripts")
-	}
-	s.IsolationSuite.SetUpTest(c)
-	s.dir = c.MkDir()
-	s.dir2 = c.MkDir()
-	s.PatchEnvironment("PATH", s.dir+":"+s.dir2)
+	s.dir = c.Mkdir()
+	s.dir2 = c.Mkdir()
+	c.Setenv("PATH", s.dir+":"+s.dir2)
 	charmcmd.ResetPluginDescriptionsResults()
 	os.Remove("/tmp/.cache/charm-command-cache")
-	os.Remove(filepath.Join(os.Getenv("HOME"), ".cache/charm-command-cache"))
+	os.Remove(filepath.Join(utils.Home(), ".cache/charm-command-cache"))
 }
 
-func (*pluginSuite) TestPluginHelpNoPlugins(c *gc.C) {
+func (*pluginSuite) TestPluginHelpNoPlugins(c *qt.C) {
 	stdout, stderr := runHelp(c)
-	c.Assert(stdout, gc.Equals, "No plugins found.\n")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stdout, qt.Equals, "No plugins found.\n")
+	c.Assert(stderr, qt.Equals, "")
 }
 
-func (s *pluginSuite) TestPluginHelpOrder(c *gc.C) {
+func (s *pluginSuite) TestPluginHelpOrder(c *qt.C) {
 	s.makePlugin("foo", 0744)
 	s.makePlugin("bar", 0744)
 	s.makePlugin("baz", 0744)
 	stdout, stderr := runHelp(c)
-	c.Assert(stdout, gc.Equals, `bar  bar --description
+	c.Assert(stdout, qt.Equals, `bar  bar --description
 baz  baz --description
 foo  foo --description
 `)
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stderr, qt.Equals, "")
 }
 
-func (s *pluginSuite) TestPluginHelpIgnoreNotExecutable(c *gc.C) {
+func (s *pluginSuite) TestPluginHelpIgnoreNotExecutable(c *qt.C) {
 	s.makePlugin("foo", 0644)
 	s.makePlugin("bar", 0666)
 	stdout, stderr := runHelp(c)
-	c.Assert(stdout, gc.Equals, "No plugins found.\n")
-	c.Assert(stderr, gc.Equals, "")
+	c.Assert(stdout, qt.Equals, "No plugins found.\n")
+	c.Assert(stderr, qt.Equals, "")
 }
 
-func (s *pluginSuite) TestPluginHelpSpecificCommand(c *gc.C) {
+func (s *pluginSuite) TestPluginHelpSpecificCommand(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	stdout, stderr, code := run(c.MkDir(), "help", "foo")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, `
+	stdout, stderr, code := run(c.Mkdir(), "help", "foo")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Equals, `
 foo longer help
 
 something useful
 `[1:])
 }
 
-func (s *pluginSuite) TestPluginHelpCommandNotFound(c *gc.C) {
-	stdout, stderr, code := run(c.MkDir(), "help", "foo")
-	c.Assert(stderr, gc.Equals, "ERROR unknown command or topic for foo\n")
-	c.Assert(code, gc.Equals, 1)
-	c.Assert(stdout, gc.Equals, "")
+func (s *pluginSuite) TestPluginHelpCommandNotFound(c *qt.C) {
+	stdout, stderr, code := run(c.Mkdir(), "help", "foo")
+	c.Assert(stderr, qt.Equals, "ERROR unknown command or topic for foo\n")
+	c.Assert(code, qt.Equals, 1)
+	c.Assert(stdout, qt.Equals, "")
 }
 
-func (s *pluginSuite) TestPluginHelpRunInParallel(c *gc.C) {
+func (s *pluginSuite) TestPluginHelpRunInParallel(c *qt.C) {
 	// Make plugins that will deadlock if we don't start them in parallel.
 	// Each plugin depends on another one being started before they will
 	// complete. They make a full loop, so no sequential ordering will ever
@@ -111,7 +108,7 @@ func (s *pluginSuite) TestPluginHelpRunInParallel(c *gc.C) {
 	outputChan := make(chan string)
 	go func() {
 		stdout, stderr := runHelp(c)
-		c.Assert(stderr, gc.Equals, "")
+		c.Assert(stderr, qt.Equals, "")
 		outputChan <- stdout
 	}()
 	// This time is arbitrary but should always be generously long. Test
@@ -124,87 +121,87 @@ func (s *pluginSuite) TestPluginHelpRunInParallel(c *gc.C) {
 	case <-time.After(wait):
 		c.Fatalf("took longer than %fs to complete", wait.Seconds())
 	}
-	c.Assert(output, gc.Equals, `bar    bar --description
+	c.Assert(output, qt.Equals, `bar    bar --description
 baz    baz --description
 error  error occurred running 'charm-error --description'
 foo    foo --description
 `)
 }
 
-func (s *pluginSuite) TestPluginRun(c *gc.C) {
+func (s *pluginSuite) TestPluginRun(c *qt.C) {
 	s.makePlugin("foo", 0755)
-	stdout, stderr, code := run(c.MkDir(), "foo", "some", "params")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "foo some params\n")
+	stdout, stderr, code := run(c.Mkdir(), "foo", "some", "params")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Equals, "foo some params\n")
 }
 
-func (s *pluginSuite) TestPluginRunWithError(c *gc.C) {
+func (s *pluginSuite) TestPluginRunWithError(c *qt.C) {
 	s.makeFailingPlugin("foo", 2)
-	stdout, stderr, code := run(c.MkDir(), "foo", "some", "params")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 2)
-	c.Assert(stdout, gc.Equals, "failing\n")
+	stdout, stderr, code := run(c.Mkdir(), "foo", "some", "params")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 2)
+	c.Assert(stdout, qt.Equals, "failing\n")
 }
 
-func (s *pluginSuite) TestPluginRunWithHelpFlag(c *gc.C) {
+func (s *pluginSuite) TestPluginRunWithHelpFlag(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	stdout, stderr, code := run(c.MkDir(), "foo", "--help")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, `
+	stdout, stderr, code := run(c.Mkdir(), "foo", "--help")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Equals, `
 foo longer help
 
 something useful
 `[1:])
 }
 
-func (s *pluginSuite) TestPluginRunWithDebugFlag(c *gc.C) {
+func (s *pluginSuite) TestPluginRunWithDebugFlag(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	stdout, stderr, code := run(c.MkDir(), "foo", "--debug")
-	c.Check(stderr, gc.Equals, "")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "some debug\n")
+	stdout, stderr, code := run(c.Mkdir(), "foo", "--debug")
+	c.Check(stderr, qt.Equals, "")
+	c.Check(code, qt.Equals, 0)
+	c.Check(stdout, qt.Equals, "some debug\n")
 }
 
-func (s *pluginSuite) TestPluginRunWithEnvVars(c *gc.C) {
+func (s *pluginSuite) TestPluginRunWithEnvVars(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	s.PatchEnvironment("ANSWER", "42")
-	stdout, stderr, code := run(c.MkDir(), "foo")
-	c.Check(stderr, gc.Equals, "")
-	c.Check(code, gc.Equals, 0)
-	c.Check(stdout, gc.Equals, "foo\nanswer is 42\n")
+	c.Setenv("ANSWER", "42")
+	stdout, stderr, code := run(c.Mkdir(), "foo")
+	c.Check(stderr, qt.Equals, "")
+	c.Check(code, qt.Equals, 0)
+	c.Check(stdout, qt.Equals, "foo\nanswer is 42\n")
 }
 
-func (s *pluginSuite) TestPluginRunWithMultipleNamesInPath(c *gc.C) {
+func (s *pluginSuite) TestPluginRunWithMultipleNamesInPath(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	s.PatchEnvironment("ANSWER", "42")
+	c.Setenv("ANSWER", "42")
 	s.makeFullPluginInSecondDir(pluginParams{Name: "foo"})
-	stdout, stderr, code := run(c.MkDir(), "foo")
-	c.Assert(stderr, gc.Equals, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "foo\nanswer is 42\n")
+	stdout, stderr, code := run(c.Mkdir(), "foo")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Equals, "foo\nanswer is 42\n")
 }
 
-func (s *pluginSuite) TestPluginRunWithUnknownFlag(c *gc.C) {
+func (s *pluginSuite) TestPluginRunWithUnknownFlag(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	stdout, stderr, code := run(c.MkDir(), "foo", "--unknown-to-juju")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Equals, "the flag was still there.\n")
+	stdout, stderr, code := run(c.Mkdir(), "foo", "--unknown-to-juju")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Equals, "the flag was still there.\n")
 }
 
-func (s *pluginSuite) TestHelp(c *gc.C) {
+func (s *pluginSuite) TestHelp(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	s.makeFullPlugin(pluginParams{Name: "bar"})
 	s.makeFullPlugin(pluginParams{Name: "help"}) // Duplicates "help" command.
 	s.makeFullPlugin(pluginParams{Name: "list"}) // Duplicates existing "list" command.
 	s.makeFullPluginInSecondDir(pluginParams{Name: "foo"})
 
-	stdout, stderr, code := run(c.MkDir(), "help")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Matches, `
+	stdout, stderr, code := run(c.Mkdir(), "help")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Matches, `
 (.|\n)*    bar                 - bar --description
 (.|\n)*    foo                 - foo --description
 (.|\n)*    help                - Show help on a command or other topic.
@@ -213,76 +210,76 @@ func (s *pluginSuite) TestHelp(c *gc.C) {
 `[1:])
 }
 
-func (s *pluginSuite) TestWhiteListWorks(c *gc.C) {
+func (s *pluginSuite) TestWhiteListWorks(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	s.makeFullPlugin(pluginParams{Name: "danger"})
-	stdout, stderr, code := run(c.MkDir(), "help")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Matches, `
+	stdout, stderr, code := run(c.Mkdir(), "help")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Matches, `
 (.|\n)*    foo                 - foo --description
 (.|\n)*
 `[1:])
 }
 
-func (s *pluginSuite) TestWhiteListIsExtensible(c *gc.C) {
+func (s *pluginSuite) TestWhiteListIsExtensible(c *qt.C) {
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	s.makeFullPlugin(pluginParams{Name: "danger"})
 	writePlugin(s.dir, "tools-commands", "#!/bin/bash --norc\necho [\"danger\",]", 0755)
-	stdout, stderr, code := run(c.MkDir(), "help")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(stdout, gc.Matches, `
+	stdout, stderr, code := run(c.Mkdir(), "help")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(stdout, qt.Matches, `
 (.|\n)*    danger              - danger --description
 (.|\n)*    foo                 - foo --description
 (.|\n)*
 `[1:])
 }
 
-func (s *pluginSuite) TestPluginCacheCaches(c *gc.C) {
-	s.PatchEnvironment("HOME", "/tmp")
+func (s *pluginSuite) TestPluginCacheCaches(c *qt.C) {
+	c.Setenv("HOME", "/tmp")
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	run(c.MkDir(), "help")
-	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	run(c.Mkdir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, qt.Equals, false)
 	charmcmd.ResetPluginDescriptionsResults()
-	run(c.MkDir(), "help")
-	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, true)
+	run(c.Mkdir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, qt.Equals, true)
 }
 
-func (s *pluginSuite) TestPluginCacheInvalidatesOnUpdate(c *gc.C) {
-	s.PatchEnvironment("HOME", "/tmp")
+func (s *pluginSuite) TestPluginCacheInvalidatesOnUpdate(c *qt.C) {
+	c.Setenv("HOME", "/tmp")
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	run(c.MkDir(), "help")
-	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	run(c.Mkdir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, qt.Equals, false)
 	charmcmd.ResetPluginDescriptionsResults()
 	time.Sleep(time.Second) // Sleep so that the written file has a different mtime
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	run(c.MkDir(), "help")
-	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	run(c.Mkdir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, qt.Equals, false)
 }
 
-func (s *pluginSuite) TestPluginCacheInvalidatesOnNewPlugin(c *gc.C) {
-	s.PatchEnvironment("HOME", "/tmp")
+func (s *pluginSuite) TestPluginCacheInvalidatesOnNewPlugin(c *qt.C) {
+	c.Setenv("HOME", "/tmp")
 	s.makeFullPlugin(pluginParams{Name: "foo"})
-	run(c.MkDir(), "help")
-	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	run(c.Mkdir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, qt.Equals, false)
 	charmcmd.ResetPluginDescriptionsResults()
 	s.makeFullPlugin(pluginParams{Name: "bar"})
-	run(c.MkDir(), "help")
-	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, gc.Equals, false)
+	run(c.Mkdir(), "help")
+	c.Assert(*charmcmd.PluginDescriptionLastCallReturnedCache, qt.Equals, false)
 }
 
-func (s *pluginSuite) TestPluginCacheInvalidatesRemovedPlugin(c *gc.C) {
-	s.PatchEnvironment("HOME", "/tmp")
+func (s *pluginSuite) TestPluginCacheInvalidatesRemovedPlugin(c *qt.C) {
+	c.Setenv("HOME", "/tmp")
 	s.makeFullPlugin(pluginParams{Name: "foo"})
 	// Add bar so that there is more than one plugin. If no plugins are found
 	// there is a short circuit which makes this test do the wrong thing.
 	s.makeFullPlugin(pluginParams{Name: "bar"})
-	run(c.MkDir(), "help")
+	run(c.Mkdir(), "help")
 	charmcmd.ResetPluginDescriptionsResults()
 	os.Remove(filepath.Join(s.dir, "charm-foo"))
-	stdout, _, _ := run(c.MkDir(), "help")
-	// The gc.Matches checker anchors the regex by surrounding it with ^ and $
+	stdout, _, _ := run(c.Mkdir(), "help")
+	// The qt.Matches checker anchors the regex by surrounding it with ^ and $
 	// Checking for a not match this way instead.
 	matches, err := regexp.MatchString(`
 foo            - foo --description
@@ -295,7 +292,7 @@ foo            - foo --description
 	if matches != expected {
 		c.Log("output did not match expected output:" + stdout)
 	}
-	c.Assert(matches, gc.Equals, expected)
+	c.Assert(matches, qt.Equals, expected)
 }
 
 func (s *pluginSuite) makePlugin(name string, perm os.FileMode) {
@@ -383,9 +380,9 @@ echo "answer is $ANSWER"
 exit {{.ExitStatus}}
 `
 
-func runHelp(c *gc.C) (string, string) {
-	stdout, stderr, code := run(c.MkDir(), "help", "plugins")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(strings.HasPrefix(stdout, charmcmd.PluginTopicText), jc.IsTrue)
+func runHelp(c *qt.C) (string, string) {
+	stdout, stderr, code := run(c.Mkdir(), "help", "plugins")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(strings.HasPrefix(stdout, charmcmd.PluginTopicText), qt.Equals, true)
 	return stdout[len(charmcmd.PluginTopicText):], stderr
 }

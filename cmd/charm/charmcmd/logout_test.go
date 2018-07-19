@@ -5,73 +5,104 @@ package charmcmd_test
 
 import (
 	"net/url"
+	"os"
 	"strings"
+	"testing"
 
+	qt "github.com/frankban/quicktest"
+	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/persistent-cookiejar"
-	"github.com/juju/testing"
-	jc "github.com/juju/testing/checkers"
 	"golang.org/x/net/publicsuffix"
-	gc "gopkg.in/check.v1"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
 )
 
 type logoutSuite struct {
-	commonSuite
+	*charmstoreEnv
 }
 
-var _ = gc.Suite(&logoutSuite{})
+func (s *logoutSuite) Init(c *qt.C) {
+	fakeHome(c)
+	s.charmstoreEnv = initCharmstoreEnv(c)
+}
 
-func (s *logoutSuite) TestNotLoggedIn(c *gc.C) {
+func TestLogout(t *testing.T) {
+	RunSuite(qt.New(t), &logoutSuite{})
+}
+
+func (s *logoutSuite) TestNotLoggedIn(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
-	stdout, stderr, code := run(c.MkDir(), "logout")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
+	stdout, stderr, code := run(c.Mkdir(), "logout")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
 	s.checkNoUser(c)
 }
 
-func (s *logoutSuite) TestWithCookie(c *gc.C) {
+func (s *logoutSuite) TestWithCookie(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
-	dir := c.MkDir()
+	dir := c.Mkdir()
 	_, stderr, code := run(dir, "login")
-	c.Assert(code, gc.Equals, 0, gc.Commentf("stderr: %s", stderr))
-	c.Assert(s.cookieFile, jc.IsNonEmptyFile)
+	c.Assert(code, qt.Equals, 0, qt.Commentf("stderr: %s", stderr))
+	c.Assert(isNonEmptyFile(s.cookieFile), qt.Equals, true)
 
 	stdout, stderr, code := run(dir, "logout")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
 	s.checkNoUser(c)
 }
 
-func (s *logoutSuite) TestWithToken(c *gc.C) {
+func (s *logoutSuite) TestWithToken(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
-	s.Home.AddFiles(c, testing.TestFile{
-		Name: ".local/share/juju/store-usso-token",
-		Data: "TEST!",
-	})
-	c.Assert(charmcmd.USSOTokenPath(), jc.IsNonEmptyFile)
-	dir := c.MkDir()
+	f, err := os.Create(osenv.JujuXDGDataHomePath("store-usso-token"))
+	c.Assert(err, qt.Equals, nil)
+	_, err = f.Write([]byte("TEST!"))
+	c.Assert(err, qt.Equals, nil)
+	c.Assert(f.Close(), qt.Equals, nil)
+	c.Assert(isNonEmptyFile(charmcmd.USSOTokenPath()), qt.Equals, true)
+	dir := c.Mkdir()
 	stdout, stderr, code := run(dir, "logout")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
 	s.checkNoUser(c)
 }
 
-func (s *logoutSuite) checkNoUser(c *gc.C) {
+func (s *logoutSuite) checkNoUser(c *qt.C) {
 	s.discharger.SetDefaultUser("test-user")
 	jar, err := cookiejar.New(&cookiejar.Options{
 		PublicSuffixList: publicsuffix.List,
 		Filename:         s.cookieFile,
 	})
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 	url, err := url.Parse(s.srv.URL)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 	cookies := jar.Cookies(url)
 	for _, cookie := range cookies {
-		c.Assert(strings.HasPrefix(cookie.Name, "macaroon-"), gc.Equals, false, gc.Commentf("cookie %s found", cookie.Name))
+		c.Assert(strings.HasPrefix(cookie.Name, "macaroon-"), qt.Equals, false, qt.Commentf("cookie %s found", cookie.Name))
 	}
-	c.Assert(charmcmd.USSOTokenPath(), jc.DoesNotExist)
+	c.Assert(fileExists(charmcmd.USSOTokenPath()), qt.Equals, false)
+}
+
+func isNonEmptyFile(path string) bool {
+	fi, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		panic(err)
+	}
+	return fi.Size() > 0
+}
+
+func fileExists(path string) bool {
+	_, err := os.Stat(path)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return false
+		}
+		panic(err)
+	}
+	return true
 }

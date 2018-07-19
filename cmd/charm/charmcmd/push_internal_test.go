@@ -8,16 +8,11 @@ import (
 	"io/ioutil"
 	"os/exec"
 	"strings"
+	"testing"
 	"time"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	qt "github.com/frankban/quicktest"
 )
-
-type pushInternalSuite struct {
-}
-
-var _ = gc.Suite(&pushInternalSuite{})
 
 var parseLogOutputTests = []struct {
 	about           string
@@ -312,27 +307,32 @@ Use --include-merged or -n0 to see merged revisions.
 	}},
 }}
 
-func (s *pushInternalSuite) TestParseLogOutput(c *gc.C) {
-	for i, test := range parseLogOutputTests {
-		c.Logf("test %d: %s", i, test.about)
-		var parse func(output string) ([]vcsRevision, error)
-		for _, p := range vcsLogParsers {
-			if p.name == test.vcsName {
-				parse = p.parse
-				break
+func TestParseLogOutput(t *testing.T) {
+	c := qt.New(t)
+	defer c.Cleanup()
+	for _, test := range parseLogOutputTests {
+		c.Run(test.about, func(c *qt.C) {
+			var parse func(output string) ([]vcsRevision, error)
+			for _, p := range vcsLogParsers {
+				if p.name == test.vcsName {
+					parse = p.parse
+					break
+				}
 			}
-		}
-		c.Assert(parse, gc.NotNil)
-		revs, err := parse(test.output)
-		if test.expectError != "" {
-			c.Assert(err, gc.ErrorMatches, test.expectError)
-			continue
-		}
-		assertEqualRevisions(c, revs, test.expectRevisions)
+			c.Assert(parse, qt.Not(qt.IsNil))
+			revs, err := parse(test.output)
+			if test.expectError != "" {
+				c.Assert(err, qt.ErrorMatches, test.expectError)
+				return
+			}
+			assertEqualRevisions(c, revs, test.expectRevisions)
+		})
 	}
 }
 
-func (s *pushInternalSuite) TestVCSRevisionJSONMarshal(c *gc.C) {
+func TestVCSRevisionJSONMarshal(t *testing.T) {
+	c := qt.New(t)
+	defer c.Cleanup()
 	rev := vcsRevision{
 		Authors: []vcsAuthor{{
 			Email: "marco@ceppi.net",
@@ -344,10 +344,10 @@ func (s *pushInternalSuite) TestVCSRevisionJSONMarshal(c *gc.C) {
 		Revno:   84,
 	}
 	data, err := json.Marshal(rev)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 	var got interface{}
 	err = json.Unmarshal(data, &got)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 
 	wantJSON := `
 	{
@@ -365,12 +365,12 @@ func (s *pushInternalSuite) TestVCSRevisionJSONMarshal(c *gc.C) {
 	`
 	var want interface{}
 	err = json.Unmarshal([]byte(wantJSON), &want)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 
-	c.Assert(got, jc.DeepEquals, want)
+	c.Assert(got, qt.DeepEquals, want)
 }
 
-func assertEqualRevisions(c *gc.C, got, want []vcsRevision) {
+func assertEqualRevisions(c *qt.C, got, want []vcsRevision) {
 	// Deal with times separately because we can't use DeepEquals.
 	wantTimes := make([]time.Time, len(want))
 	for i := range want {
@@ -382,7 +382,7 @@ func assertEqualRevisions(c *gc.C, got, want []vcsRevision) {
 		gotTimes[i] = got[i].Date
 		got[i].Date = time.Time{}
 	}
-	c.Assert(got, jc.DeepEquals, want)
+	c.Assert(got, qt.DeepEquals, want)
 	for i := range got {
 		if !gotTimes[i].Equal(wantTimes[i]) {
 			c.Errorf("time mismatch in entry %d; got %v want %v", i, gotTimes[i], wantTimes[i])
@@ -390,12 +390,14 @@ func assertEqualRevisions(c *gc.C, got, want []vcsRevision) {
 	}
 }
 
-func (s *pushInternalSuite) TestUpdateExtraInfoGit(c *gc.C) {
-	tempDir := c.MkDir()
+func TestUpdateExtraInfoGit(t *testing.T) {
+	c := qt.New(t)
+	defer c.Cleanup()
+	tempDir := c.Mkdir()
 	git(c, tempDir, "init")
 
 	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 
 	git(c, tempDir, "config", "user.name", "test")
 	git(c, tempDir, "config", "user.email", "test")
@@ -403,69 +405,73 @@ func (s *pushInternalSuite) TestUpdateExtraInfoGit(c *gc.C) {
 	git(c, tempDir, "commit", "-n", "-madd foo")
 
 	extraInfo := getExtraInfo(tempDir)
-	c.Assert(extraInfo, gc.NotNil)
+	c.Assert(extraInfo, qt.Not(qt.IsNil))
 	commits := extraInfo["vcs-revisions"].([]vcsRevision)
-	c.Assert(len(commits), gc.Equals, 1)
+	c.Assert(len(commits), qt.Equals, 1)
 }
 
-func (s *pushInternalSuite) TestUpdateExtraInfoHg(c *gc.C) {
-	tempDir := c.MkDir()
+func TestUpdateExtraInfoHg(t *testing.T) {
+	c := qt.New(t)
+	defer c.Cleanup()
+	tempDir := c.Mkdir()
 	hg(c, tempDir, "init")
 
 	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 
 	hg(c, tempDir, "add", "foo")
 	hg(c, tempDir, "commit", "-madd foo")
 
 	extraInfo := getExtraInfo(tempDir)
-	c.Assert(extraInfo, gc.NotNil)
+	c.Assert(extraInfo, qt.Not(qt.IsNil))
 	commits := extraInfo["vcs-revisions"].([]vcsRevision)
-	c.Assert(len(commits), gc.Equals, 1)
+	c.Assert(len(commits), qt.Equals, 1)
 }
 
-func (s *pushInternalSuite) TestUpdateExtraInfoBzr(c *gc.C) {
-	tempDir := c.MkDir()
+func TestUpdateExtraInfoBzr(t *testing.T) {
+	c := qt.New(t)
+	defer c.Cleanup()
+	tempDir := c.Mkdir()
 	bzr(c, tempDir, "init")
 
 	err := ioutil.WriteFile(tempDir+"/foo", []byte("bar"), 0600)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 
 	bzr(c, tempDir, "whoami", "--branch", "Someone <who@nowhere.com>")
 	bzr(c, tempDir, "add", "foo")
 	bzr(c, tempDir, "commit", "-madd foo")
 
 	extraInfo := getExtraInfo(tempDir)
-	c.Assert(extraInfo, gc.NotNil)
+	c.Assert(extraInfo, qt.Not(qt.IsNil))
 	commits := extraInfo["vcs-revisions"].([]vcsRevision)
-	c.Assert(commits, gc.HasLen, 1)
-	c.Assert(commits[0].Authors, jc.DeepEquals, []vcsAuthor{{
+	c.Assert(commits, qt.HasLen, 1)
+	c.Assert(commits[0].Authors, qt.DeepEquals, []vcsAuthor{{
 		Name:  "Someone",
 		Email: "who@nowhere.com",
 	}})
-	c.Assert(commits[0].Message, gc.Equals, "  add foo\n")
+	c.Assert(commits[0].Message, qt.Equals, "  add foo\n")
 }
 
-func git(c *gc.C, tempDir string, arg ...string) {
+func git(c *qt.C, tempDir string, arg ...string) {
 	runVCS(c, tempDir, "git", arg...)
 }
 
-func hg(c *gc.C, tempDir string, arg ...string) {
+func hg(c *qt.C, tempDir string, arg ...string) {
 	runVCS(c, tempDir, "hg", arg...)
 }
 
-func bzr(c *gc.C, tempDir string, arg ...string) {
+func bzr(c *qt.C, tempDir string, arg ...string) {
 	runVCS(c, tempDir, "bzr", arg...)
 }
 
-func runVCS(c *gc.C, tempDir, name string, arg ...string) {
+func runVCS(c *qt.C, tempDir, name string, arg ...string) {
 	if !vcsAvailable(name) {
 		c.Skip(name + " command not available")
 	}
 	cmd := exec.Command(name, arg...)
 	cmd.Dir = tempDir
 	out, err := cmd.CombinedOutput()
-	c.Assert(err, gc.IsNil, gc.Commentf("output: %q", out))
+	c.Assert(err, qt.IsNil, qt.Commentf("output: %q", out))
 }
 
 var vcsVersionOutput = map[string]string{

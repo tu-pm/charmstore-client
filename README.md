@@ -17,6 +17,7 @@ You'll then be able to run `$GOPATH/bin/charm`.
 
 The charm command provides commands and tools that access the Juju charm store.
 
+```
 commands:
     attach         - upload a file as a resource for a charm
     grant          - grant charm or bundle permissions
@@ -33,6 +34,4 @@ commands:
     show           - print information on a charm or bundle
     terms          - lists terms owned by the user
     whoami         - display jaas user id and group membership
-
-
-
+```

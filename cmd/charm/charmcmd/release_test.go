@@ -5,9 +5,10 @@ package charmcmd_test
 
 import (
 	"encoding/json"
+	"fmt"
+	"testing"
 
-	jc "github.com/juju/testing/checkers"
-	gc "gopkg.in/check.v1"
+	qt "github.com/frankban/quicktest"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
@@ -16,11 +17,18 @@ import (
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
-type releaseSuite struct {
-	commonSuite
+func TestRelease(t *testing.T) {
+	RunSuite(qt.New(t), &releaseSuite{})
 }
 
-var _ = gc.Suite(&releaseSuite{})
+type releaseSuite struct {
+	*charmstoreEnv
+}
+
+func (s *releaseSuite) Init(c *qt.C) {
+	fakeHome(c)
+	s.charmstoreEnv = initCharmstoreEnv(c)
+}
 
 var releaseInitErrorTests = []struct {
 	about string
@@ -56,95 +64,95 @@ var releaseInitErrorTests = []struct {
 	err:   `invalid value "someresource-bad" for flag --resource: invalid revision number`,
 }}
 
-func (s *releaseSuite) TestInitError(c *gc.C) {
+func (s *releaseSuite) TestInitError(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
-	dir := c.MkDir()
-	for i, test := range releaseInitErrorTests {
-		c.Logf("test %d: %s; %q", i, test.about, test.args)
-		args := []string{"release"}
-		stdout, stderr, code := run(dir, append(args, test.args...)...)
-		c.Assert(stdout, gc.Equals, "")
-		c.Assert(stderr, gc.Matches, "ERROR "+test.err+"\n")
-		c.Assert(code, gc.Equals, 2)
+	for _, test := range releaseInitErrorTests {
+		c.Run(fmt.Sprintf("%q", test.about), func(c *qt.C) {
+			args := []string{"release"}
+			stdout, stderr, code := run(c.Mkdir(), append(args, test.args...)...)
+			c.Assert(stdout, qt.Equals, "")
+			c.Assert(stderr, qt.Matches, "ERROR "+test.err+"\n")
+			c.Assert(code, qt.Equals, 2)
+		})
 	}
 }
 
-func (s *releaseSuite) TestRunNoSuchCharm(c *gc.C) {
+func (s *releaseSuite) TestRunNoSuchCharm(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
-	stdout, stderr, code := run(c.MkDir(), "release", "no-such-entity-55", "--channel", "stable")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
-	c.Assert(code, gc.Equals, 1)
+	stdout, stderr, code := run(c.Mkdir(), "release", "no-such-entity-55", "--channel", "stable")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
+	c.Assert(code, qt.Equals, 1)
 }
 
-func (s *releaseSuite) TestAuthenticationError(c *gc.C) {
+func (s *releaseSuite) TestAuthenticationError(c *qt.C) {
 	s.discharger.SetDefaultUser("someoneelse")
 	id := charm.MustParseURL("~charmers/utopic/wordpress-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "--channel", "stable")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: access denied for user "someoneelse"\n`)
-	c.Assert(code, gc.Equals, 1)
+	stdout, stderr, code := run(c.Mkdir(), "release", id.String(), "--channel", "stable")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(stderr, qt.Matches, `ERROR cannot release charm or bundle: access denied for user "someoneelse"\n`)
+	c.Assert(code, qt.Equals, 1)
 }
 
-func (s *releaseSuite) TestReleaseInvalidChannel(c *gc.C) {
+func (s *releaseSuite) TestReleaseInvalidChannel(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "-c", "bad-wolf")
-	c.Assert(stderr, gc.Matches, `ERROR cannot release charm or bundle: unrecognized channel "bad-wolf"\n`)
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(code, gc.Equals, 1)
+	stdout, stderr, code := run(c.Mkdir(), "release", id.String(), "-c", "bad-wolf")
+	c.Assert(stderr, qt.Matches, `ERROR cannot release charm or bundle: unrecognized channel "bad-wolf"\n`)
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(code, qt.Equals, 1)
 }
 
-func (s *releaseSuite) TestReleaseSuccess(c *gc.C) {
+func (s *releaseSuite) TestReleaseSuccess(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 
 	// Upload a charm.
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
 	// The stable entity is not released yet.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, -1)
 
 	// Release the newly uploaded charm to the edge channel.
-	stdout, stderr, code := run(c.MkDir(), "release", id.String(), "-c", "edge")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
-	c.Assert(code, gc.Equals, 0)
+	stdout, stderr, code := run(c.Mkdir(), "release", id.String(), "-c", "edge")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
+	c.Assert(code, qt.Equals, 0)
 	// The stable channel is not yet released, the edge channel is.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), qt.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, -1)
 
 	// Release the newly uploaded charm to the stable channel.
-	stdout, stderr, code = run(c.MkDir(), "release", id.String(), "-c", "stable")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
-	c.Assert(code, gc.Equals, 0)
+	stdout, stderr, code = run(c.Mkdir(), "release", id.String(), "-c", "stable")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
+	c.Assert(code, qt.Equals, 0)
 	// Both edge and stable channels are released.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), qt.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, 42)
 
 	// Releasing is idempotent.
-	stdout, stderr, code = run(c.MkDir(), "release", id.String(), "-c", "stable")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+	stdout, stderr, code = run(c.Mkdir(), "release", id.String(), "-c", "stable")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, 42)
 }
 
-func (s *releaseSuite) TestReleaseWithDefaultChannelSuccess(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithDefaultChannelSuccess(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 
 	// Upload a charm.
 	s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
 	// The stable entity is not released yet.
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
-	stdout, stderr, code := run(c.MkDir(), "release", id.String())
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, -1)
+	stdout, stderr, code := run(c.Mkdir(), "release", id.String())
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/django-42\nchannel: stable\nwarning: bugs-url and homepage are not set.  See set command.\n")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, 42)
 }
 
 var releaseDefaultChannelWarnings = []struct {
@@ -174,39 +182,40 @@ var releaseDefaultChannelWarnings = []struct {
 	warning: "",
 }}
 
-func (s *releaseSuite) TestReleaseWithDefaultChannelSuccessWithWarningIfBugsURLAndHomePageAreNotSet(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithDefaultChannelSuccessWithWarningIfBugsURLAndHomePageAreNotSet(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
-	for i, test := range releaseDefaultChannelWarnings {
-		c.Logf("test %d (%s): [%q]", i, test.about, test.commonFields)
-		id := charm.MustParseURL("~bob/wily/" + test.name + "-42")
+	for _, test := range releaseDefaultChannelWarnings {
+		c.Run(test.about, func(c *qt.C) {
+			id := charm.MustParseURL("~bob/wily/" + test.name + "-42")
 
-		// Upload a charm.
-		s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
-		// Set bugs-url & homepage
-		err := s.client.PutCommonInfo(id, test.commonFields)
-		c.Assert(err, gc.IsNil)
-		// The stable entity is not released yet.
-		c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, -1)
-		stdout, stderr, code := run(c.MkDir(), "release", id.String())
-		c.Assert(stderr, gc.Matches, "")
-		c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/"+test.name+"-42\nchannel: stable\n"+test.warning)
-		c.Assert(code, gc.Equals, 0)
-		c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), gc.Equals, 42)
+			// Upload a charm.
+			s.uploadCharmDir(c, id, -1, entitytesting.Repo.CharmDir("wordpress"))
+			// Set bugs-url & homepage
+			err := s.client.PutCommonInfo(id, test.commonFields)
+			c.Assert(err, qt.IsNil)
+			// The stable entity is not released yet.
+			c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, -1)
+			stdout, stderr, code := run(c.Mkdir(), "release", id.String())
+			c.Assert(stderr, qt.Matches, "")
+			c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/"+test.name+"-42\nchannel: stable\n"+test.warning)
+			c.Assert(code, qt.Equals, 0)
+			c.Assert(s.entityRevision(id.WithRevision(-1), params.StableChannel), qt.Equals, 42)
+		})
 	}
 }
 
-func (s *releaseSuite) TestReleaseWithNoRevision(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithNoRevision(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django")
 
 	// Upload a charm.
-	stdout, stderr, code := run(c.MkDir(), "release", id.String())
-	c.Assert(stderr, gc.Matches, "ERROR charm revision needs to be specified\n")
-	c.Assert(stdout, gc.Equals, "")
-	c.Assert(code, gc.Equals, 2)
+	stdout, stderr, code := run(c.Mkdir(), "release", id.String())
+	c.Assert(stderr, qt.Matches, "ERROR charm revision needs to be specified\n")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(code, qt.Equals, 2)
 }
 
-func (s *releaseSuite) TestReleasePartialURL(c *gc.C) {
+func (s *releaseSuite) TestReleasePartialURL(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 	ch := entitytesting.Repo.CharmDir("wordpress")
@@ -217,14 +226,14 @@ func (s *releaseSuite) TestReleasePartialURL(c *gc.C) {
 	s.publish(c, id, params.StableChannel)
 
 	// Release the stable charm as edge.
-	stdout, stderr, code := run(c.MkDir(), "release", "~bob/wily/django-42", "-c", "edge")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
+	stdout, stderr, code := run(c.Mkdir(), "release", "~bob/wily/django-42", "-c", "edge")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), qt.Equals, 42)
 }
 
-func (s *releaseSuite) TestReleaseAndShow(c *gc.C) {
+func (s *releaseSuite) TestReleaseAndShow(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	id := charm.MustParseURL("~bob/wily/django-42")
 	ch := entitytesting.Repo.CharmDir("wordpress")
@@ -233,24 +242,24 @@ func (s *releaseSuite) TestReleaseAndShow(c *gc.C) {
 	s.uploadCharmDir(c, id, -1, ch)
 	s.uploadCharmDir(c, id.WithRevision(43), -1, ch)
 
-	stdout, stderr, code := run(c.MkDir(), "release", "~bob/wily/django-42", "-c", "edge")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
-	c.Assert(code, gc.Equals, 0)
-	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), gc.Equals, 42)
+	stdout, stderr, code := run(c.Mkdir(), "release", "~bob/wily/django-42", "-c", "edge")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/wily/django-42\nchannel: edge\n")
+	c.Assert(code, qt.Equals, 0)
+	c.Assert(s.entityRevision(id.WithRevision(-1), params.EdgeChannel), qt.Equals, 42)
 
-	stdout, stderr, code = run(c.MkDir(), "show", "--format=json", "~bob/wily/django-42", "published")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(code, gc.Equals, 0)
+	stdout, stderr, code = run(c.Mkdir(), "show", "--format=json", "~bob/wily/django-42", "published")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(code, qt.Equals, 0)
 	var result map[string]interface{}
 	err := json.Unmarshal([]byte(stdout), &result)
-	c.Assert(err, gc.IsNil)
-	c.Assert(len(result), gc.Equals, 1)
-	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface{})[0], gc.DeepEquals,
+	c.Assert(err, qt.IsNil)
+	c.Assert(len(result), qt.Equals, 1)
+	c.Assert(result["published"].(map[string]interface{})["Info"].([]interface{})[0], qt.DeepEquals,
 		map[string]interface{}{"Channel": "edge", "Current": true})
 }
 
-func (s *releaseSuite) TestReleaseWithResources(c *gc.C) {
+func (s *releaseSuite) TestReleaseWithResources(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	// Note we include one resource with a hyphen in the name,
 	// just to make sure the resource flag parsing code works OK
@@ -259,24 +268,24 @@ func (s *releaseSuite) TestReleaseWithResources(c *gc.C) {
 		charm.MustParseURL("~bob/precise/wordpress"),
 		charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "resource1-name", "resource2")),
 	)
-	c.Assert(err, gc.IsNil)
+	c.Assert(err, qt.IsNil)
 
 	s.uploadResource(c, id, "resource1-name", "resource1 content")
 	s.uploadResource(c, id, "resource2", "resource2 content")
 	s.uploadResource(c, id, "resource2", "resource2 content rev 1")
 
-	stdout, stderr, code := run(c.MkDir(), "release", "~bob/precise/wordpress-0", "--resource=resource1-name-0", "-r", "resource2-1")
-	c.Assert(stderr, gc.Matches, "")
-	c.Assert(stdout, gc.Equals, `
+	stdout, stderr, code := run(c.Mkdir(), "release", "~bob/precise/wordpress-0", "--resource=resource1-name-0", "-r", "resource2-1")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, `
 url: cs:~bob/precise/wordpress-0
 channel: stable
 warning: bugs-url and homepage are not set.  See set command.
 `[1:])
-	c.Assert(code, gc.Equals, 0)
+	c.Assert(code, qt.Equals, 0)
 
 	resources, err := s.client.WithChannel(params.StableChannel).ListResources(id)
-	c.Assert(err, gc.IsNil)
-	c.Assert(resources, jc.DeepEquals, []params.Resource{{
+	c.Assert(err, qt.IsNil)
+	c.Assert(resources, qt.DeepEquals, []params.Resource{{
 		Name:        "resource1-name",
 		Type:        "file",
 		Path:        "resource1-name-file",
