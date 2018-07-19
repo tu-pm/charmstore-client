@@ -12,25 +12,27 @@ import (
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"net/url"
 )
 
 type listCommand struct {
 	cmd.CommandBase
 	auth authInfo
 	out  cmd.Output
-	user string
+	users string
 }
 
 var listDoc = `
-The list command lists the charms under a given user name, by default yours.
+The list command lists the charms under the given users, by default yours.
 
    charm list
+   charm list -u fred,bob
 `
 
 func (c *listCommand) Info() *cmd.Info {
 	return &cmd.Info{
 		Name:    "list",
-		Purpose: "list charms for a given user name",
+		Purpose: "list charms for the given users.",
 		Doc:     listDoc,
 	}
 }
@@ -56,7 +58,7 @@ func (c *listCommand) SetFlags(f *gnuflag.FlagSet) {
 		"json": cmd.FormatJson,
 		"text": formatText,
 	})
-	f.StringVar(&c.user, "u", "", "the given user name")
+	f.StringVar(&c.users, "u", "", "the given users (comma-separated list)")
 	addAuthFlags(f, &c.auth)
 }
 
@@ -71,24 +73,27 @@ func (c *listCommand) Run(ctxt *cmd.Context) error {
 	}
 	defer client.jar.Save()
 
-	if c.user == "" {
+	if c.users == "" {
 		resp, err := client.WhoAmI()
 		if err != nil {
 			return errgo.Notef(err, "cannot retrieve identity")
 		}
-		c.user = resp.User
+		c.users = resp.User
 	}
-
-	err = validateNames([]string{c.user})
+	users := strings.Split(c.users, ",")
+	err = validateNames(users)
 	if err != nil {
 		return errgo.Mask(err)
 	}
-
-	path := "/list?owner=" + c.user + "&sort=name,-series"
+	v := url.Values{
+		"sort": []string{"name,-series"},
+		"owner": users,
+	}
+	path := "/list?" + v.Encode()
 	var resp params.ListResponse
 	err = client.Get(path, &resp)
 	if err != nil {
-		return errgo.Notef(err, "cannot list for user %s", path)
+		return errgo.Notef(err, "cannot list for user(s) %s", users)
 	}
 	return c.out.Write(ctxt, resp.Results)
 }
