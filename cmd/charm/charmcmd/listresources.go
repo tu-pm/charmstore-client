@@ -8,6 +8,7 @@ import (
 	"io"
 	"text/tabwriter"
 
+	"encoding/hex"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
@@ -57,7 +58,7 @@ func (c *listResourcesCommand) SetFlags(f *gnuflag.FlagSet) {
 	addAuthFlags(f, &c.auth)
 	c.Output.AddFlags(f, "tabular", map[string]cmd.Formatter{
 		"json":    cmd.FormatJson,
-		"yaml":    cmd.FormatYaml,
+		"yaml":    yamlFormatter,
 		"tabular": tabularFormatter,
 		"short":   shortFormatter,
 	})
@@ -138,4 +139,35 @@ func shortFormatter(w io.Writer, resources0 interface{}) error {
 		)
 	}
 	return nil
+}
+
+func yamlFormatter(w io.Writer, resources0 interface{}) error {
+	resources, ok := resources0.([]params.Resource)
+	if ok == false {
+		return errgo.Newf("unexpected type provided: %T", resources)
+	}
+	yresources := make([]yamlResource, len(resources))
+	for i, r := range resources {
+		yresources[i] = yamlResource{
+			Name:        r.Name,
+			Type:        r.Type,
+			Description: r.Description,
+			Revision:    r.Revision,
+			Size:        r.Size,
+			Path:        r.Path,
+			Fingerprint: hex.EncodeToString(r.Fingerprint),
+		}
+	}
+	return cmd.FormatYaml(w, yresources)
+}
+
+// Resource describes a resource in the charm store but with Fingerprint as a string.
+type yamlResource struct {
+	Name        string
+	Type        string
+	Path        string
+	Description string `yaml:",omitempty"`
+	Revision    int
+	Fingerprint string
+	Size        int64
 }

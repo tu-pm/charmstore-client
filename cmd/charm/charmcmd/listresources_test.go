@@ -100,3 +100,30 @@ someResource 0
 	c.Check(stderr, qt.Equals, "")
 	c.Assert(code, qt.Equals, 0)
 }
+
+func (s *listResourcesSuite) TestListResourceYAML(c *qt.C) {
+	s.discharger.SetDefaultUser("bob")
+	id, err := s.client.UploadCharm(
+		charm.MustParseURL("~bob/precise/wordpress"),
+		charmtesting.NewCharmMeta(charmtesting.MetaWithResources(nil, "someResource")),
+	)
+	c.Assert(err, qt.IsNil)
+	s.uploadResource(c, id, "someResource", "content")
+
+	err = s.client.Publish(id, []params.Channel{params.StableChannel}, map[string]int{
+		"someResource": 0,
+	})
+	c.Assert(err, qt.IsNil)
+
+	stdout, stderr, code := run(".", "list-resources", "~bob/wordpress", "--format=yaml")
+	c.Check(stdout, qt.Equals, `\- name: someResource
+  type: file
+  path: someResource-file
+  description: someResource description
+  revision: 0
+  fingerprint: 5406ebea1618e9b73a7290c5d716f0b47b4f1fbc5d8c5e78c9010a3e01c18d8594aa942e3536f7e01574245d34647523
+  size: 7
+`[1:])
+	c.Check(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+}
