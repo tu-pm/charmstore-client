@@ -56,5 +56,16 @@ func (s *listSuite) TestListUserProvidedEmpty(c *qt.C) {
 	c.Assert(code, qt.Equals, 0)
 }
 
+func (s *listSuite) TestListMultipleUsers(c *qt.C) {
+	s.discharger.SetDefaultUser("test-user")
+	s.uploadCharmDir(c, charm.MustParseURL("~test-user/vivid/alambic-0"), -1, entitytesting.Repo.CharmDir("wordpress"))
+	s.uploadCharmDir(c, charm.MustParseURL("~someoneelse/utopic/wordpress-0"), -1, entitytesting.Repo.CharmDir("wordpress"))
+	dir := c.Mkdir()
+	stdout, stderr, code := run(dir, "list", "-u", "test-user,someoneelse")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(stdout, qt.Equals, "cs:~test-user/vivid/alambic-0\ncs:~someoneelse/utopic/wordpress-0\n")
+	c.Assert(code, qt.Equals, 0)
+}
+
 // TODO frankban: test the case in which the user name must be retrieved
 // from the charm store.

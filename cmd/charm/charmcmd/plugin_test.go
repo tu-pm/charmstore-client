@@ -205,7 +205,7 @@ func (s *pluginSuite) TestHelp(c *qt.C) {
 (.|\n)*    bar                 - bar --description
 (.|\n)*    foo                 - foo --description
 (.|\n)*    help                - Show help on a command or other topic.
-(.|\n)*    list                - list charms for a given user name
+(.|\n)*    list                - list charms for the given users.
 (.|\n)*
 `[1:])
 }
