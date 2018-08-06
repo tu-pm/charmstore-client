@@ -219,7 +219,10 @@ func imageDigestForReference(p uploadResourceParams, ref reference.Named) (strin
 		return "", errgo.Newf("cannot get information on %q: %v", ref, resp.Status)
 	}
 	if v := resp.Header.Get("Docker-Distribution-Api-Version"); !strings.HasPrefix(v, "registry/2.") {
-		return "", errgo.Newf("incompatible registry version %q", v)
+		if v == "" {
+			v = "registry/1.x"
+		}
+		return "", errgo.Newf("resource is hosted at incompatible Docker registry (version %q, need version 2)", v)
 	}
 	digest := resp.Header.Get("Docker-Content-Digest")
 	if digest == "" {
