@@ -306,7 +306,7 @@ func (s *attachSuite) TestUploadDockerResource(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})
@@ -343,7 +343,7 @@ func (s *attachSuite) TestUploadExternalDockerResource(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})
@@ -373,7 +373,7 @@ func (s *attachSuite) TestUploadExternalDockerResourceByDigest(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})
@@ -403,7 +403,7 @@ func (s *attachSuite) TestUploadExternalDockerResourceWithNonExistingDigest(c *q
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})
@@ -428,7 +428,7 @@ func (s *attachSuite) TestUploadExternalDockerResourceWithNonExistingTag(c *qt.C
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})
@@ -458,7 +458,7 @@ func (s *attachSuite) TestUploadExternalDockerResourceVersion1Image(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})

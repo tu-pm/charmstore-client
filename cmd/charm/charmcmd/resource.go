@@ -51,7 +51,7 @@ func uploadResource(p uploadResourceParams) (revno int, err error) {
 	switch r.Type {
 	case resource.TypeFile:
 		return uploadFileResource(p)
-	case resource.TypeDocker:
+	case resource.TypeContainerImage:
 		return uploadDockerResource(p)
 	default:
 		return 0, errgo.Newf("unsupported resource type %q", r.Type)
