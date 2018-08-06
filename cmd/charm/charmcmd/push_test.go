@@ -364,11 +364,11 @@ func (s *pushSuite) TestUploadCharmWithDockerResources(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource1": {
 				Name: "docker-resource1",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 			"docker-resource2": {
 				Name: "docker-resource2",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})

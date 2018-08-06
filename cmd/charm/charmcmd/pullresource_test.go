@@ -148,7 +148,7 @@ func (s *pullResourceSuite) TestPullDockerImageResource(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})
@@ -196,7 +196,7 @@ func (s *pullResourceSuite) TestPullDockerImageResourceTo(c *qt.C) {
 		Resources: map[string]resource.Meta{
 			"docker-resource": {
 				Name: "docker-resource",
-				Type: resource.TypeDocker,
+				Type: resource.TypeContainerImage,
 			},
 		},
 	})

@@ -112,7 +112,7 @@ func (c *pullResourceCommand) Run(ctxt *cmd.Context) error {
 		return errgo.Newf("resource %q does not exist in %q", c.resourceName, charmId)
 	}
 	switch resourceMeta.Type {
-	case resource.TypeDocker:
+	case resource.TypeContainerImage:
 		return c.pullDockerResource(ctxt, client, charmId)
 	case resource.TypeFile:
 		return c.pullFileResource(ctxt, client, charmId)
