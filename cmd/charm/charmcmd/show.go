@@ -285,6 +285,10 @@ func (s *showData) formatTabular() {
 
 func (s *showData) printChannels() {
 	fmt.Fprintln(s.tw, " \t ")
+	if len(s.channels) == 0 {
+		fmt.Fprintln(s.tw, "Not released to any channel.")
+		return
+	}
 	fmt.Fprint(s.tw, "CHANNEL\tCURRENT\n")
 	for _, v := range s.channels {
 		channel := v.(map[string]interface{})
