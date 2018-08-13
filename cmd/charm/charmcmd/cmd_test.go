@@ -103,7 +103,6 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 	c.AddCleanup(func() {
 		env.database.Close()
 	})
-
 	env.dockerHandler = newDockerHandler()
 	env.dockerSrv = httptest.NewServer(env.dockerHandler)
 	c.AddCleanup(env.dockerSrv.Close)
