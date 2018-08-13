@@ -316,3 +316,67 @@ func (s *showSuite) TestSuccessfulWithChannel(c *qt.C) {
 	c.Assert(len(result), qt.Equals, 1)
 	c.Assert(result["id-revision"].(map[string]interface{})["Revision"], qt.Equals, float64(41))
 }
+
+func (s *showSuite) TestShowUnpublished(c *qt.C) {
+	ch := entitytesting.Repo.CharmDir("wordpress")
+	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
+	s.uploadCharmDir(c, url, -1, ch)
+
+	dir := c.Mkdir()
+	stdout, stderr, code := run(dir, "show", url.String())
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+
+	expected := `Blog engine
+
+Name			wordpress
+Owner			charmers
+Revision		42
+Supported Series	utopic
+Tags			
+Subordinate		false
+Promulgated		false
+Home page		
+Bugs url		
+Read			everyone, charmers
+Write			charmers
+ 			 
+Not released to any channel.
+
+`
+
+	c.Assert(stdout, qt.Equals, expected)
+}
+
+func (s *showSuite) TestShowPublished(c *qt.C) {
+	ch := entitytesting.Repo.CharmDir("wordpress")
+	url := charm.MustParseURL("~charmers/utopic/wordpress-42")
+	s.uploadCharmDir(c, url, -1, ch)
+	s.publish(c, url, params.StableChannel)
+
+	dir := c.Mkdir()
+	stdout, stderr, code := run(dir, "show", url.String())
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(code, qt.Equals, 0)
+
+	expected := `Blog engine
+
+Name			wordpress
+Owner			charmers
+Revision		42
+Supported Series	utopic
+Tags			
+Subordinate		false
+Promulgated		false
+Home page		
+Bugs url		
+Read			everyone, charmers
+Write			charmers
+ 			 
+CHANNEL			CURRENT
+stable			true		
+
+`
+
+	c.Assert(stdout, qt.Equals, expected)
+}

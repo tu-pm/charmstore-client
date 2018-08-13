@@ -286,7 +286,6 @@ func (s *showData) formatTabular() {
 func (s *showData) printChannels() {
 	fmt.Fprintln(s.tw, " \t ")
 	if len(s.channels) == 0 {
-		// Unpublished charm
 		fmt.Fprintln(s.tw, "Not released to any channel.")
 		return
 	}
