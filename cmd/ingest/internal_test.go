@@ -19,7 +19,7 @@ var deepEquals = qt.CmpEquals(cmp.AllowUnexported(
 
 var resolveWhitelistTests = []struct {
 	testName     string
-	getter       charmstore
+	getter       csClient
 	whitelist    []WhitelistEntity
 	expect       map[string]*whitelistBaseEntity
 	expectErrors []string
@@ -297,20 +297,20 @@ func TestResolveWhitelist(t *testing.T) {
 
 var ingestTests = []struct {
 	testName       string
-	src            charmstore
-	dest           *fakeCharmStore
+	src            []entitySpec
+	dest           []entitySpec
 	whitelist      []WhitelistEntity
 	expectStats    IngestStats
 	expectContents []entitySpec
 }{{
 	testName: "copy_one",
-	src: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:        "cs:~charmers/wordpress-4",
 		chans:     "*stable",
 		content:   "some stuff",
 		extraInfo: `{"x":45,"y":"hello"}`,
-	}}),
-	dest: newFakeCharmStore(nil),
+	}},
+	dest: nil,
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -328,16 +328,16 @@ var ingestTests = []struct {
 	}},
 }, {
 	testName: "copy_one_already_exists",
-	src: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:      "cs:~charmers/wordpress-4",
 		chans:   "*stable",
 		content: "some stuff",
-	}}),
-	dest: newFakeCharmStore([]entitySpec{{
+	}},
+	dest: []entitySpec{{
 		id:      "cs:~charmers/wordpress-4",
 		chans:   "*stable",
 		content: "some stuff",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -354,16 +354,16 @@ var ingestTests = []struct {
 	}},
 }, {
 	testName: "copy_one_already_exists_with_different_published",
-	src: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:      "cs:~charmers/wordpress-4",
 		chans:   "*stable",
 		content: "some stuff",
-	}}),
-	dest: newFakeCharmStore([]entitySpec{{
+	}},
+	dest: []entitySpec{{
 		id:      "cs:~charmers/wordpress-4",
 		chans:   "stable",
 		content: "some stuff",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -380,18 +380,18 @@ var ingestTests = []struct {
 	}},
 }, {
 	testName: "copy_one_already_exists_with_different_extra_info",
-	src: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:        "cs:~charmers/wordpress-4",
 		chans:     "*stable",
 		content:   "some stuff",
 		extraInfo: `{"x":45,"y":"hello"}`,
-	}}),
-	dest: newFakeCharmStore([]entitySpec{{
+	}},
+	dest: []entitySpec{{
 		id:        "cs:~charmers/wordpress-4",
 		chans:     "*stable",
 		content:   "some stuff",
 		extraInfo: `{"x":10,"z":"other"}`,
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -409,7 +409,7 @@ var ingestTests = []struct {
 	}},
 }, {
 	testName: "copy_several",
-	src: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-3",
 		promulgatedId: "cs:wordpress-3",
 		chans:         "beta candidate *stable",
@@ -417,17 +417,12 @@ var ingestTests = []struct {
 	}, {
 		id:            "cs:~charmers/wordpress-4",
 		promulgatedId: "cs:wordpress-4",
-		chans:         "candidate *edge",
+		chans:         "*beta candidate *edge",
 		content:       "wordpress content 4",
 	}, {
 		id:            "cs:~charmers/wordpress-5",
 		promulgatedId: "cs:wordpress-5",
 		content:       "wordpress content 5",
-	}, {
-		id:            "cs:~oldcharmers/wordpress-10",
-		promulgatedId: "cs:wordpress-2",
-		chans:         "*beta candidate stable",
-		content:       "wordpress content 2",
 	}, {
 		id:      "cs:~bob/foo-1",
 		chans:   "stable",
@@ -436,8 +431,8 @@ var ingestTests = []struct {
 		id:      "cs:~evil/badness-1",
 		chans:   "stable",
 		content: "malicious stuff",
-	}}),
-	dest: newFakeCharmStore(nil),
+	}},
+	dest: nil,
 	whitelist: []WhitelistEntity{{
 		EntityId: "wordpress",
 		Channels: []params.Channel{
@@ -452,9 +447,9 @@ var ingestTests = []struct {
 		},
 	}},
 	expectStats: IngestStats{
-		BaseEntityCount:     3,
-		EntityCount:         4,
-		ArchivesCopiedCount: 4,
+		BaseEntityCount:     2,
+		EntityCount:         3,
+		ArchivesCopiedCount: 3,
 	},
 	expectContents: []entitySpec{{
 		id:      "cs:~bob/foo-1",
@@ -468,22 +463,12 @@ var ingestTests = []struct {
 	}, {
 		id:            "cs:~charmers/wordpress-4",
 		promulgatedId: "cs:wordpress-4",
-		chans:         "*edge",
+		chans:         "*beta *edge",
 		content:       "wordpress content 4",
-	}, {
-		id:            "cs:~oldcharmers/wordpress-10",
-		promulgatedId: "cs:wordpress-2",
-		chans:         "*beta stable",
-		content:       "wordpress content 2",
 	}},
 }, {
 	testName: "bundle",
-	src: newFakeCharmStore([]entitySpec{{
-		id:            "cs:~charmers/bundle/wordpressbundle-4",
-		promulgatedId: "cs:wordpressbundle-5",
-		chans:         "*stable",
-		content:       "cs:wordpress cs:~bob/foo-3",
-	}, {
+	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-2",
 		promulgatedId: "cs:wordpress-5",
 		chans:         "*stable",
@@ -492,8 +477,13 @@ var ingestTests = []struct {
 		id:      "cs:~bob/foo-3",
 		chans:   "*stable",
 		content: "foo content",
-	}}),
-	dest: newFakeCharmStore(nil),
+	}, {
+		id:            "cs:~charmers/bundle/wordpressbundle-4",
+		promulgatedId: "cs:wordpressbundle-5",
+		chans:         "*stable",
+		content:       "cs:wordpress cs:~bob/foo-3",
+	}},
+	dest: nil,
 	whitelist: []WhitelistEntity{{
 		EntityId: "wordpressbundle",
 		Channels: []params.Channel{params.StableChannel},
@@ -524,25 +514,27 @@ func TestIngest(t *testing.T) {
 	c := qt.New(t)
 	for _, test := range ingestTests {
 		c.Run(test.testName, func(c *qt.C) {
+			srcStore := newFakeCharmStore(test.src)
+			destStore := newFakeCharmStore(test.dest)
 			stats := ingest(ingestParams{
-				src:       test.src,
-				dest:      test.dest,
+				src:       srcStore,
+				dest:      destStore,
 				whitelist: test.whitelist,
 			})
 			c.Check(stats, qt.DeepEquals, test.expectStats)
-			c.Check(test.dest.contents(), deepEquals, test.expectContents)
+			c.Check(destStore.contents(), deepEquals, test.expectContents)
 
 			// Try again; we should transfer nothing and the contents should
 			// remain the same.
 			stats = ingest(ingestParams{
-				src:       test.src,
-				dest:      test.dest,
+				src:       srcStore,
+				dest:      destStore,
 				whitelist: test.whitelist,
 			})
 			expectStats := test.expectStats
 			expectStats.ArchivesCopiedCount = 0
 			c.Check(stats, qt.DeepEquals, expectStats)
-			c.Check(test.dest.contents(), deepEquals, test.expectContents)
+			c.Check(destStore.contents(), deepEquals, test.expectContents)
 		})
 	}
 }

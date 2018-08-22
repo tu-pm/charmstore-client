@@ -131,6 +131,7 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 		PublicKeyLocator:      bakeryV2LocatorToV2uLocator{env.discharger},
 		MinUploadPartSize:     minUploadPartSize,
 		DockerRegistryAddress: env.dockerHost,
+		NoIndexes:             true,
 	}
 	env.handler, err = charmstore.NewServer(env.database.Database, nil, "", env.serverParams, charmstore.V5)
 	c.Assert(err, qt.Equals, nil)

@@ -13,22 +13,22 @@ import (
 )
 
 type ingestParams struct {
-	src       charmstore
-	dest      charmstore
+	src       csClient
+	dest      csClient
 	whitelist []WhitelistEntity
 }
 
 var errNotFound = errgo.New("entity not found")
 
-type charmstore interface {
+type csClient interface {
 	// entityInfo looks up information on the charmstore entity with the
 	// given id. If the id is not found, it returns an error with a errNotFound
 	// cause.
 	entityInfo(ch params.Channel, id *charm.URL) (*entityInfo, error)
 	getArchive(id *charm.URL) (io.ReadCloser, error)
-	putArchive(id *charm.URL, r io.Reader, hash string, size int64, promulgatedRevision int) error
-	setExtraInfo(id *charm.URL, extraInfo map[string]json.RawMessage) error
-	publish(id *charm.URL, channels map[params.Channel]bool) error
+	putArchive(id *charm.URL, r io.ReadSeeker, hash string, size int64, promulgatedRevision int, channels []params.Channel) error
+	putExtraInfo(id *charm.URL, extraInfo map[string]json.RawMessage) error
+	publish(id *charm.URL, channels []params.Channel) error
 }
 
 // WhitelistEntity describes an entity to be whitelisted.
@@ -190,8 +190,8 @@ func (ing *ingester) transferEntity(e *entityInfo) {
 	// First find out whether the entity already exists in the destination charmstore.
 	// If so, we only need to transfer metadata.
 
-	// Use NoChannel which should pick a published channel for us, as we
-	// don't know what the destination has previously been published as. Sigh.
+	// Use NoChannel which picks an appropriate published channel to use
+	// for ACL checking.
 	destEntity, err := ing.dest.entityInfo(params.NoChannel, e.id)
 	if err == nil {
 		ing.transferExistingEntity(e, destEntity)
@@ -201,27 +201,41 @@ func (ing *ingester) transferEntity(e *entityInfo) {
 		ing.errorf("failed to get information from destination charmstore on %q: %v", e.id, err)
 		return
 	}
-	// The entity doesn't exist in the destination, so copy it.
-	r, err := ing.src.getArchive(e.id)
-	if err != nil {
-		ing.errorf("cannot get archive for %v: %v", e.id, err)
-		return
+
+	sr := &seekReopener{
+		open: func() (io.ReadCloser, error) {
+			// The entity doesn't exist in the destination, so copy it.
+			return ing.src.getArchive(e.id)
+		},
 	}
-	defer r.Close()
+	defer sr.Close()
 
 	promulgatedRevision := -1
 	if e.promulgatedId != nil {
 		promulgatedRevision = e.promulgatedId.Revision
 	}
-	if err := ing.dest.putArchive(e.id, r, e.hash, e.archiveSize, promulgatedRevision); err != nil {
+	// Upload the archive to all the channels that are
+	// specified.
+	chans := make([]params.Channel, 0, len(e.channels))
+	for ch, _ := range e.channels {
+		chans = append(chans, ch)
+	}
+	if err := ing.dest.putArchive(e.id, sr, e.hash, e.archiveSize, promulgatedRevision, chans); err != nil {
 		ing.errorf("failed to upload archive for %v: %v", e.id, err)
 	}
-	if err := ing.dest.setExtraInfo(e.id, e.extraInfo); err != nil {
+	if err := ing.dest.putExtraInfo(e.id, e.extraInfo); err != nil {
 		ing.errorf("failed to set extra-info for %q: %v", e.id, err)
 		return
 	}
-	if err := ing.dest.publish(e.id, e.channels); err != nil {
-		ing.errorf("cannot publish %q to %v: %v", e.id, e.channels, err)
+	// Publish the archive to all the current channels.
+	chans = chans[:0]
+	for ch, current := range e.channels {
+		if current {
+			chans = append(chans, ch)
+		}
+	}
+	if err := ing.dest.publish(e.id, chans); err != nil {
+		ing.errorf("cannot publish %q to %v: %v", e.id, chans, err)
 		return
 	}
 	e.archiveCopied = true
@@ -255,7 +269,7 @@ func (ing *ingester) transferExistingEntity(e, destEntity *entityInfo) {
 		}
 	}
 	if len(extraInfo) > 0 {
-		if err := ing.dest.setExtraInfo(e.id, extraInfo); err != nil {
+		if err := ing.dest.putExtraInfo(e.id, extraInfo); err != nil {
 			ing.errorf("failed to set extra-info for %q: %v", e.id, err)
 			return
 		}
@@ -266,14 +280,14 @@ func (ing *ingester) transferExistingEntity(e, destEntity *entityInfo) {
 	// unpublish a charm, so we'll just have to rely on the source
 	// charmstore having moved the published entity for a channel to a new
 	// revision.
-	channels := make(map[params.Channel]bool)
+	chans := make([]params.Channel, 0, len(e.channels))
 	for c, current := range e.channels {
 		if current && !destEntity.channels[c] {
-			channels[c] = true
+			chans = append(chans, c)
 		}
 	}
-	if err := ing.dest.publish(e.id, channels); err != nil {
-		ing.errorf("cannot publish %q to %v: %v", e.id, channels, err)
+	if err := ing.dest.publish(e.id, chans); err != nil {
+		ing.errorf("cannot publish %q to %v: %v", e.id, chans, err)
 		return
 	}
 	e.synced = true
@@ -281,8 +295,8 @@ func (ing *ingester) transferExistingEntity(e, destEntity *entityInfo) {
 }
 
 type ingester struct {
-	src     charmstore
-	dest    charmstore
+	src     csClient
+	dest    csClient
 	mu      sync.Mutex
 	errors  []string
 	limiter *limiter
@@ -477,4 +491,48 @@ func baseEntityId(url *charm.URL) *charm.URL {
 	newURL.Revision = -1
 	newURL.Series = ""
 	return &newURL
+}
+
+// seekReopener implements io.ReadSeeker by calling the
+// open function to obtain the reader, and reopening
+// it if it seeks back to the start.
+type seekReopener struct {
+	open func() (io.ReadCloser, error)
+	r    io.ReadCloser
+}
+
+func (sr *seekReopener) Seek(offset int64, whence int) (int64, error) {
+	if offset != 0 || whence != io.SeekStart {
+		return 0, errgo.Newf("cannot seek except to start of file")
+	}
+	if sr.r != nil {
+		sr.r.Close()
+		sr.r = nil
+	}
+	r, err := sr.open()
+	if err != nil {
+		return 0, errgo.Mask(err)
+	}
+	sr.r = r
+	return 0, nil
+}
+
+func (sr *seekReopener) Read(buf []byte) (int, error) {
+	if sr.r == nil {
+		r, err := sr.open()
+		if err != nil {
+			return 0, errgo.Mask(err)
+		}
+		sr.r = r
+	}
+	return sr.r.Read(buf)
+}
+
+func (sr *seekReopener) Close() error {
+	if sr.r == nil {
+		return nil
+	}
+	err := sr.r.Close()
+	sr.r = nil
+	return errgo.Mask(err)
 }

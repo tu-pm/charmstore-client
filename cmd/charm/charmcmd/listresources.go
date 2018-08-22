@@ -4,11 +4,11 @@
 package charmcmd
 
 import (
+	"encoding/hex"
 	"fmt"
 	"io"
 	"text/tabwriter"
 
-	"encoding/hex"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
