@@ -6,7 +6,7 @@ github.com/docker/distribution	git	f0cc927784781fa395c06317c58dea2841ece3a9	2018
 github.com/docker/docker	git	65bd038fc5e47ed37d2702cbdd6ce484d320380b	2018-05-30T01:28:07Z
 github.com/frankban/quicktest	git	65a7a415c433ed58782bc90cc0e77b094883ab39	2018-08-21T10:59:29Z
 github.com/golang/protobuf	git	925541529c1fa6821df4e44ce2723319eb2be768	2018-01-25T21:43:03Z
-github.com/google/go-cmp	git	3af367b6b30c263d47e8895973edcca9a49cf029	2018-02-02T21:19:42Z
+github.com/google/go-cmp	git	5411ab924f9ffa6566244a9e504bc347edacffd3	2018-03-28T20:15:12Z
 github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-04T20:39:58Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
 github.com/juju/cmd	git	c766ef3f2a8296463b28a65e2ef388447efe212c	2018-05-18T10:01:08Z
