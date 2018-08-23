@@ -202,9 +202,10 @@ func (ing *ingester) transferEntity(e *entityInfo) {
 		return
 	}
 
+	// The entity doesn't exist in the destination, so copy it.
+
 	sr := &seekReopener{
 		open: func() (io.ReadCloser, error) {
-			// The entity doesn't exist in the destination, so copy it.
 			return ing.src.getArchive(e.id)
 		},
 	}
