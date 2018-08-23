@@ -9,6 +9,7 @@ import (
 func TestIngestWithRealCharmstore(t *testing.T) {
 	c := qt.New(t)
 	for _, test := range ingestTests {
+		test := test
 		c.Run(test.testName, func(c *qt.C) {
 			c.Parallel()
 			srcStore := newTestCharmstore(c)

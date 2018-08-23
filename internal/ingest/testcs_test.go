@@ -123,7 +123,11 @@ func (cs *testCharmstore) addEntity(c *qt.C, spec entitySpec) {
 		}
 	}
 	if len(channels) > 0 {
-		err = cs.client.Publish(e.id, channels, nil)
+		err := cs.client.Publish(e.id, channels, nil)
+		c.Assert(err, qt.Equals, nil)
+	}
+	if len(e.extraInfo) > 0 {
+		err := charmstoreShim{cs.client}.putExtraInfo(e.id, e.extraInfo)
 		c.Assert(err, qt.Equals, nil)
 	}
 }

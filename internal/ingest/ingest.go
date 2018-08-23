@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"sort"
 	"sync"
 
 	"gopkg.in/errgo.v1"
@@ -56,6 +57,17 @@ type WhitelistEntity struct {
 	// the latest revision for that channel will be used as the
 	// current revision.
 	Channels []params.Channel
+
+	// Resources holds a map from resource name to the resource
+	// revisions of that resource to include for this entity.
+	Resources map[string][]int
+}
+
+// bundleCharm holds information on a charm used by a bundle
+// and the resource revisions it requires.
+type bundleCharm struct {
+	charm     string
+	resources map[string]int
 }
 
 // entityInfo holds information on one charm or bundle
@@ -76,7 +88,7 @@ type entityInfo struct {
 
 	// When the entity is a bundle, bundleCharms holds the
 	// all the charms used by the bundle.
-	bundleCharms []string
+	bundleCharms []bundleCharm
 
 	// archiveSize holds the size of the charm or bundle archive.
 	archiveSize int64
@@ -91,6 +103,10 @@ type entityInfo struct {
 	// commonInfo holds any extra metadata stored on the entity's
 	// base entity.
 	commonInfo map[string]json.RawMessage
+
+	// resources holds a map from resource name to
+	// the revisions of that resource associated with the entity.
+	resources map[string][]int
 
 	// synced is set to true when the entity has been transferred
 	// successfully.
@@ -377,9 +393,34 @@ func (ing *ingester) resolveWhitelist(entities []WhitelistEntity) map[string]*wh
 			for ch, current := range e.channels {
 				entity.channels[ch] = current || entity.channels[ch]
 			}
+			// Add information about any more resource revisions.
+			entity.resources = appendResources(entity.resources, e.resources)
+		}
+	}
+	// Sort all resource revisions so that we're deterministic.
+	for _, be := range baseEntities {
+		for _, e := range be.entities {
+			for _, revs := range e.resources {
+				sort.Ints(revs)
+			}
 		}
 	}
 	return baseEntities
+}
+
+// appendResources appends all the resource revisions in r1 to r0
+// and returns the resulting map.
+func appendResources(r0, r1 map[string][]int) map[string][]int {
+	if len(r1) == 0 {
+		return r0
+	}
+	if r0 == nil {
+		r0 = make(map[string][]int)
+	}
+	for name, revs := range r1 {
+		r0[name] = append(r0[name], revs...)
+	}
+	return r0
 }
 
 // sendResolvedURLs sends all the resolved URLs implied by the given whitelisted entity
@@ -418,7 +459,6 @@ func (ing *ingester) sendResolvedURLs1(e WhitelistEntity, mustBeCharm bool, c ch
 		ing.limiter.start()
 		result, err := ing.src.entityInfo(ch, curl)
 		ing.limiter.stop()
-
 		if err != nil {
 			if errgo.Cause(err) == errNotFound {
 				// The user has tried to whitelist a charm that's not in
@@ -442,6 +482,8 @@ func (ing *ingester) sendResolvedURLs1(e WhitelistEntity, mustBeCharm bool, c ch
 				result.channels[pch] = false
 			}
 		}
+		// Add any resources required by the whitelisting.
+		result.resources = appendResources(result.resources, e.Resources)
 		c <- result
 		if result.id.Series == "bundle" {
 			if mustBeCharm {
@@ -453,16 +495,21 @@ func (ing *ingester) sendResolvedURLs1(e WhitelistEntity, mustBeCharm bool, c ch
 	return nil
 }
 
-func (ing *ingester) sendResolvedURLsForBundle(curl *charm.URL, charms []string, c chan<- *entityInfo) {
-	for _, ch := range charms {
+func (ing *ingester) sendResolvedURLsForBundle(curl *charm.URL, bundleCharms []bundleCharm, c chan<- *entityInfo) {
+	for _, bc := range bundleCharms {
+		resources := make(map[string][]int)
+		for name, rev := range bc.resources {
+			resources[name] = []int{rev}
+		}
 		if err := ing.sendResolvedURLs1(WhitelistEntity{
-			EntityId: ch,
+			EntityId: bc.charm,
 			// TODO when sendResolvedURLs supports it, send an empty
 			// Channels slice here and let it be resolved to the correct channel.
 			// For now, stable seems a reasonable compromise.
-			Channels: []params.Channel{params.StableChannel},
+			Channels:  []params.Channel{params.StableChannel},
+			Resources: resources,
 		}, true, c); err != nil {
-			ing.errorf("invalid charm %q in bundle %q", ch, curl)
+			ing.errorf("invalid charm %q in bundle %q", bc.charm, curl)
 		}
 	}
 }
