@@ -7,7 +7,6 @@ import (
 	"net/http"
 	"strings"
 	"sync"
-
 	"time"
 
 	"github.com/docker/docker/pkg/jsonmessage"

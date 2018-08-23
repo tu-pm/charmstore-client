@@ -81,10 +81,11 @@ func (es entitySpec) entity() *fakeEntity {
 	return e
 }
 
-func fakeEntityToSpec(e *fakeEntity) entitySpec {
+// entityInfoToSpec returns an entitySpec from
+// the info in e. It does not fill out the content field.
+func entityInfoToSpec(e *entityInfo) entitySpec {
 	es := entitySpec{
-		id:      e.id.String(),
-		content: e.content,
+		id: e.id.String(),
 	}
 	if e.promulgatedId != nil {
 		es.promulgatedId = e.promulgatedId.String()
@@ -112,6 +113,12 @@ func fakeEntityToSpec(e *fakeEntity) entitySpec {
 		}
 		es.extraInfo = string(data)
 	}
+	return es
+}
+
+func fakeEntityToSpec(e *fakeEntity) entitySpec {
+	es := entityInfoToSpec(e.entityInfo)
+	es.content = e.content
 	return es
 }
 
@@ -197,7 +204,7 @@ func (s *fakeCharmStore) getArchive(id *charm.URL) (io.ReadCloser, error) {
 	return ioutil.NopCloser(strings.NewReader(e.content)), nil
 }
 
-func (s *fakeCharmStore) putArchive(id *charm.URL, r io.Reader, hash string, size int64, promulgatedRevision int) error {
+func (s *fakeCharmStore) putArchive(id *charm.URL, r io.ReadSeeker, hash string, size int64, promulgatedRevision int, channels []params.Channel) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if s.get(id) != nil {
@@ -227,6 +234,10 @@ func (s *fakeCharmStore) putArchive(id *charm.URL, r io.Reader, hash string, siz
 	if id.Series == "bundle" {
 		bundleCharms = strings.Fields(content)
 	}
+	channels1 := make(map[params.Channel]bool)
+	for _, c := range channels {
+		channels1[c] = false
+	}
 	s.entities = append(s.entities, &fakeEntity{
 		content: content,
 		entityInfo: &entityInfo{
@@ -235,17 +246,22 @@ func (s *fakeCharmStore) putArchive(id *charm.URL, r io.Reader, hash string, siz
 			hash:          hash,
 			archiveSize:   size,
 			bundleCharms:  bundleCharms,
+			channels:      channels1,
 		},
 	})
 	return nil
 }
 
-func (s *fakeCharmStore) publish(id *charm.URL, channels map[params.Channel]bool) error {
+func (s *fakeCharmStore) publish(id *charm.URL, channels []params.Channel) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e := s.get(id)
 	if e == nil {
 		return errgo.WithCausef(nil, errNotFound, "publish to non-existent id %q", id)
+	}
+	channels1 := make(map[params.Channel]bool)
+	for _, c := range channels {
+		channels1[c] = true
 	}
 	// First set current=false for in all entities
 	// for channels that are being set to current=true - this
@@ -258,27 +274,28 @@ func (s *fakeCharmStore) publish(id *charm.URL, channels map[params.Channel]bool
 			continue
 		}
 		for ch, current := range e.channels {
-			if current && channels[ch] {
+			if current && channels1[ch] {
 				e.channels[ch] = false
 			}
 		}
 	}
 	if e.channels == nil {
-		e.channels = make(map[params.Channel]bool)
-	}
-	// Then publish the found entity to all the required channels.
-	for ch, current := range channels {
-		e.channels[ch] = current
+		e.channels = channels1
+	} else {
+		// Then publish the found entity to all the required channels.
+		for _, ch := range channels {
+			e.channels[ch] = true
+		}
 	}
 	return nil
 }
 
-func (s *fakeCharmStore) setExtraInfo(id *charm.URL, extraInfo map[string]json.RawMessage) error {
+func (s *fakeCharmStore) putExtraInfo(id *charm.URL, extraInfo map[string]json.RawMessage) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e := s.get(id)
 	if e == nil {
-		return errgo.WithCausef(nil, errNotFound, "setExtraInfo on non-existent id %q", id)
+		return errgo.WithCausef(nil, errNotFound, "putExtraInfo on non-existent id %q", id)
 	}
 	if e.extraInfo == nil {
 		e.extraInfo = make(map[string]json.RawMessage)
@@ -346,7 +363,11 @@ func copyCharmURL(u *charm.URL) *charm.URL {
 }
 
 func hashOf(x string) string {
+	return hashOfBytes([]byte(x))
+}
+
+func hashOfBytes(x []byte) string {
 	h := sha512.New384()
-	h.Write([]byte(x))
+	h.Write(x)
 	return fmt.Sprintf("%x", h.Sum(nil))
 }

@@ -6,19 +6,19 @@ package charmcmd
 import (
 	"fmt"
 	"io"
+	"net/url"
 	"strings"
 
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
-	"net/url"
 )
 
 type listCommand struct {
 	cmd.CommandBase
-	auth authInfo
-	out  cmd.Output
+	auth  authInfo
+	out   cmd.Output
 	users string
 }
 
@@ -86,7 +86,7 @@ func (c *listCommand) Run(ctxt *cmd.Context) error {
 		return errgo.Mask(err)
 	}
 	v := url.Values{
-		"sort": []string{"name,-series"},
+		"sort":  []string{"name,-series"},
 		"owner": users,
 	}
 	path := "/list?" + v.Encode()
