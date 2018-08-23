@@ -49,7 +49,6 @@ require (
 	github.com/juju/bundlechanges v0.0.0-20180718043943-bc5b7e5db166 // indirect
 	github.com/juju/cmd v0.0.0-20180518100108-c766ef3f2a82
 	github.com/juju/description v0.0.0-20180530031750-25349c35a6b1 // indirect
-	github.com/juju/errgo v0.0.0-20140925100237-08cceb5d0b53
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
 	github.com/juju/go-oracle-cloud v0.0.0-20170510162943-95ad2a088ab9 // indirect
 	github.com/juju/go4 v0.0.0-20160222163258-40d72ab9641a // indirect
@@ -116,7 +115,7 @@ require (
 	google.golang.org/appengine v1.1.0 // indirect
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/amz.v3 v3.0.0-20161215130849-8c3190dff075 // indirect
-	gopkg.in/errgo.v1 v1.0.0-20161222125816-442357a80af5
+	gopkg.in/errgo.v1 v1.0.0
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/httprequest.v1 v1.0.0-20180319131214-7d6c4413c5fe // indirect
