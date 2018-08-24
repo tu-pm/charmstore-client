@@ -9,6 +9,7 @@ import (
 
 	"gopkg.in/errgo.v1"
 	"gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
@@ -16,6 +17,18 @@ type ingestParams struct {
 	src       csClient
 	dest      csClient
 	whitelist []WhitelistEntity
+}
+
+// IngestParams holds information about the charmstores to use for ingestion and the entities to whitelist
+type IngestParams struct {
+	// Src holds the charmstore client to ingest from.
+	Src *csclient.Client
+
+	// Dest holds the charmstore client to ingest into.
+	Dest *csclient.Client
+
+	// Whitelist holds a slice of entities to ingest.
+	Whitelist []WhitelistEntity
 }
 
 var errNotFound = errgo.New("entity not found")
@@ -111,6 +124,16 @@ type IngestStats struct {
 	FailedEntityCount   int
 	ArchivesCopiedCount int
 	Errors              []string
+}
+
+// Ingest retrieves whitelisted entities from one charmstore and adds them to another,
+// returning statistics on this operation.
+func Ingest(params IngestParams) IngestStats {
+	return ingest(ingestParams{
+		src:       charmstoreShim{params.Src},
+		dest:      charmstoreShim{params.Dest},
+		whitelist: params.Whitelist,
+	})
 }
 
 func ingest(p ingestParams) IngestStats {
