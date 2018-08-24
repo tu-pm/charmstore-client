@@ -7,6 +7,7 @@ import (
 	"io"
 	"io/ioutil"
 	"sort"
+	"strconv"
 	"strings"
 	"sync"
 
@@ -15,6 +16,62 @@ import (
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
+// baseEntitySpec holds an easy-to-write-for-tests
+// specification for the resources associated with a base
+// entity.
+type baseEntitySpec struct {
+	// id holds the base entity id that the resources are associated
+	// with. It should have a username but no revision id.
+	id string
+	// resources holds a map from resourcename:revision to content.
+	resources map[string]string
+	// published holds information about which resources are published
+	// to which channels, in a similar to syntax to that parsed by parseBundleCharms,
+	// except with a channel name in place of a charm name, e.g.
+	//
+	//	stable,resource1:0,resource2:4 edge,resource1:3,resource2:5
+	published string
+}
+
+func (rs baseEntitySpec) baseEntity() *fakeBaseEntity {
+	curl, err := charm.ParseURL(rs.id)
+	if err != nil {
+		panic(err)
+	}
+	if curl.User == "" {
+		panic(fmt.Sprintf("resourcesSpec.id %q must have user", rs.id))
+	}
+	if curl.Revision != -1 {
+		panic(fmt.Sprintf("resourcesSpec.id %q has revision but should not", rs.id))
+	}
+	resources := make(map[string]map[int]string)
+	for resRev, content := range rs.resources {
+		res, rev, err := parseResourceRevision(resRev)
+		if err != nil {
+			panic(err)
+		}
+		if resources[res] == nil {
+			resources[res] = make(map[int]string)
+		}
+		resources[res][rev] = content
+	}
+	bcs, err := parseBundleCharms(rs.published)
+	if err != nil {
+		panic(err)
+	}
+	published := make(map[params.Channel]map[string]int)
+	for _, bc := range bcs {
+		published[params.Channel(bc.charm)] = bc.resources
+	}
+	return &fakeBaseEntity{
+		id:        curl,
+		resources: resources,
+		published: published,
+	}
+}
+
+// entitySpec holds an easy-to-write-for-tests specification
+// for a single charm or bundle.
 type entitySpec struct {
 	// id holds the canonical charm or bundle id of the entity.
 	id string
@@ -76,9 +133,72 @@ func (es entitySpec) entity() *fakeEntity {
 		content: es.content,
 	}
 	if id.Series == "bundle" {
-		e.bundleCharms = strings.Fields(es.content)
+		bundleCharms, err := parseBundleCharms(es.content)
+		if err != nil {
+			panic(err)
+		}
+		e.bundleCharms = bundleCharms
 	}
 	return e
+}
+
+// parseBundleCharms parses a set of bundle charms and their associated
+// resources, in the form:
+//
+//	wordpress-3,resa:4,resb:6
+//
+// Before the first comma is the charm id; after the comma comes a comma-separated
+// set of (resource-name: revision) pairs.
+func parseBundleCharms(s string) ([]bundleCharm, error) {
+	var bcs []bundleCharm
+	for _, f := range strings.Fields(s) {
+		subf := strings.SplitN(f, ",", 2)
+		bc := bundleCharm{
+			charm: subf[0],
+		}
+		if len(subf) > 1 {
+			resources, err := parseResourceRevisions(subf[1])
+			if err != nil {
+				return nil, errgo.Notef(err, "bad bundlecharms spec %q", s)
+			}
+			bc.resources = resources
+		}
+		bcs = append(bcs, bc)
+	}
+	return bcs, nil
+}
+
+// parseResourceRevisions parses a set of resource names and associated
+// revisions in the form:
+//
+//	resa:4,resb:6
+func parseResourceRevisions(s string) (map[string]int, error) {
+	rs := strings.Split(s, ",")
+	resources := make(map[string]int)
+	for _, f := range rs {
+		res, rev, err := parseResourceRevision(f)
+		if err != nil {
+			return nil, errgo.Mask(err)
+		}
+		resources[res] = rev
+	}
+	return resources, nil
+}
+
+// parseResourceRevision parses a resource, revision pair
+// in the form:
+//
+//	resourcename:34
+func parseResourceRevision(s string) (string, int, error) {
+	resRev := strings.SplitN(s, ":", 2)
+	if len(resRev) != 2 {
+		return "", 0, errgo.Newf("invalid resource revision %q", s)
+	}
+	rev, err := strconv.Atoi(resRev[1])
+	if err != nil {
+		return "", 0, errgo.Newf("invalid resource revision %q", s)
+	}
+	return resRev[0], rev, nil
 }
 
 // entityInfoToSpec returns an entitySpec from
@@ -128,14 +248,25 @@ func sortEntitySpecs(ess []entitySpec) {
 	})
 }
 
-func newFakeCharmStore(entities []entitySpec) *fakeCharmStore {
+func newFakeCharmStore(entities []entitySpec, baseEntities []baseEntitySpec) *fakeCharmStore {
 	entities1 := make([]*fakeEntity, len(entities))
 	for i, e := range entities {
 		entities1[i] = e.entity()
 	}
-	return &fakeCharmStore{
-		entities: entities1,
+	baseEntities1 := make([]*fakeBaseEntity, len(baseEntities))
+	for i, e := range baseEntities {
+		baseEntities1[i] = e.baseEntity()
 	}
+	return &fakeCharmStore{
+		entities:     entities1,
+		baseEntities: baseEntities1,
+	}
+}
+
+type fakeBaseEntity struct {
+	id        *charm.URL
+	resources map[string]map[int]string
+	published map[params.Channel]map[string]int
 }
 
 type fakeEntity struct {
@@ -146,6 +277,10 @@ type fakeEntity struct {
 type fakeCharmStore struct {
 	mu       sync.Mutex
 	entities []*fakeEntity
+	// baseEntities holds any information on any base entities
+	// that have associated resources. If an entry doesn't
+	// exist, it's assumed to have no resources.
+	baseEntities []*fakeBaseEntity
 }
 
 func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entityInfo, rerr error) {
@@ -153,6 +288,18 @@ func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entit
 	defer s.mu.Unlock()
 	if ch == params.NoChannel {
 		ch = params.StableChannel
+	}
+	var resources map[string][]int
+	if be := s.baseEntity(id); be != nil {
+		if ch == params.UnpublishedChannel {
+			panic("unimplemented: unpublished channel should get latest rev of all resources")
+		}
+		if published := be.published[ch]; len(published) > 0 {
+			resources = make(map[string][]int)
+			for name, rev := range published {
+				resources[name] = []int{rev}
+			}
+		}
 	}
 	if id.Revision == -1 {
 		// Revision not specified - find the current published
@@ -163,7 +310,9 @@ func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entit
 				checkId = e.promulgatedId
 			}
 			if e.channels[ch] && checkId != nil && *checkId.WithRevision(-1) == *id {
-				return copyEntity(e.entityInfo), nil
+				info := copyEntity(e.entityInfo)
+				info.resources = resources
+				return info, nil
 			}
 		}
 		return nil, errNotFound
@@ -174,13 +323,25 @@ func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entit
 			checkId = e.promulgatedId
 		}
 		if checkId != nil && *checkId == *id {
-			return copyEntity(e.entityInfo), nil
+			info := copyEntity(e.entityInfo)
+			info.resources = resources
+			return info, nil
 		}
 	}
 	return nil, errNotFound
 }
 
-func (s *fakeCharmStore) contents() []entitySpec {
+func (s *fakeCharmStore) baseEntity(id *charm.URL) *fakeBaseEntity {
+	id = baseEntityId(id)
+	for _, e := range s.baseEntities {
+		if *e.id == *id {
+			return e
+		}
+	}
+	return nil
+}
+
+func (s *fakeCharmStore) entityContents() []entitySpec {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	ess := make([]entitySpec, len(s.entities))
@@ -230,9 +391,12 @@ func (s *fakeCharmStore) putArchive(id *charm.URL, r io.ReadSeeker, hash string,
 	if h := hashOf(content); h != hash {
 		return errgo.Newf("hash mismatch when putting archive (got %s want %s)", h, hash)
 	}
-	var bundleCharms []string
+	var bundleCharms []bundleCharm
 	if id.Series == "bundle" {
-		bundleCharms = strings.Fields(content)
+		bundleCharms, err = parseBundleCharms(content)
+		if err != nil {
+			return errgo.Mask(err)
+		}
 	}
 	channels1 := make(map[params.Channel]bool)
 	for _, c := range channels {
@@ -334,7 +498,7 @@ func copyEntity(e *entityInfo) *entityInfo {
 		e1.channels[ch] = curr
 	}
 	if e.bundleCharms != nil {
-		e1.bundleCharms = make([]string, len(e.bundleCharms))
+		e1.bundleCharms = make([]bundleCharm, len(e.bundleCharms))
 		copy(e1.bundleCharms, e.bundleCharms)
 	}
 

@@ -15,20 +15,22 @@ var deepEquals = qt.CmpEquals(cmp.AllowUnexported(
 	whitelistBaseEntity{},
 	entityInfo{},
 	entitySpec{},
+	bundleCharm{},
 ))
 
 var resolveWhitelistTests = []struct {
 	testName     string
-	getter       csClient
+	src          []entitySpec
+	srcResources []baseEntitySpec
 	whitelist    []WhitelistEntity
 	expect       map[string]*whitelistBaseEntity
 	expectErrors []string
 }{{
 	testName: "single_entity",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:    "cs:~charmers/wordpress-4",
 		chans: "*stable",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -49,10 +51,10 @@ var resolveWhitelistTests = []struct {
 	},
 }, {
 	testName: "single_entity",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:    "cs:~charmers/wordpress-4",
 		chans: "*stable",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/wordpress-4",
 		Channels: []params.Channel{params.StableChannel},
@@ -72,12 +74,56 @@ var resolveWhitelistTests = []struct {
 		},
 	},
 }, {
+	testName: "single_entity_with_resources",
+	src: []entitySpec{{
+		id:    "cs:~charmers/wordpress-4",
+		chans: "*stable",
+	}},
+	srcResources: []baseEntitySpec{{
+		id: "cs:~charmers/wordpress",
+		resources: map[string]string{
+			"foo:0": "foo:0 content",
+			"foo:1": "foo:1 content",
+			"foo:2": "foo:2 content",
+			"bar:2": "bar:2 content",
+			"bar:3": "bar:3 content",
+			"bar:4": "bar:4 content",
+		},
+		published: "stable,foo:0,bar:2 edge,foo:1,bar:3",
+	}},
+	whitelist: []WhitelistEntity{{
+		EntityId: "~charmers/wordpress-4",
+		Channels: []params.Channel{
+			params.StableChannel,
+			params.EdgeChannel,
+			params.CandidateChannel,
+		},
+	}},
+	expect: map[string]*whitelistBaseEntity{
+		"cs:~charmers/wordpress": {
+			baseId: parseURL("cs:~charmers/wordpress"),
+			entities: map[string]*entityInfo{
+				"cs:~charmers/wordpress-4": {
+					id: parseURL("cs:~charmers/wordpress-4"),
+					channels: map[params.Channel]bool{
+						params.StableChannel: false,
+					},
+					hash: hashOf(""),
+					resources: map[string][]int{
+						"foo": {0, 1},
+						"bar": {2, 3},
+					},
+				},
+			},
+		},
+	},
+}, {
 	testName: "promugated_entity",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-3",
 		promulgatedId: "cs:wordpress-6",
 		chans:         "*stable",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -99,11 +145,11 @@ var resolveWhitelistTests = []struct {
 	},
 }, {
 	testName: "duplicated_entity",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-3",
 		promulgatedId: "cs:wordpress-6",
 		chans:         "*stable",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "wordpress",
 		Channels: []params.Channel{params.StableChannel},
@@ -131,7 +177,7 @@ var resolveWhitelistTests = []struct {
 	},
 }, {
 	testName: "several_channels",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-3",
 		promulgatedId: "cs:wordpress-6",
 		chans:         "beta edge candidate *stable",
@@ -146,7 +192,7 @@ var resolveWhitelistTests = []struct {
 	}, {
 		id:    "cs:~charmers/wordpress-6",
 		chans: "edge candidate stable",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "wordpress",
 		Channels: []params.Channel{
@@ -194,11 +240,11 @@ var resolveWhitelistTests = []struct {
 	},
 }, {
 	testName: "entity_not_available_in_channel",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-3",
 		promulgatedId: "cs:wordpress-6",
 		chans:         "*candidate",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "wordpress",
 		Channels: []params.Channel{params.CandidateChannel, params.StableChannel},
@@ -223,7 +269,7 @@ var resolveWhitelistTests = []struct {
 	},
 }, {
 	testName: "bundle",
-	getter: newFakeCharmStore([]entitySpec{{
+	src: []entitySpec{{
 		id:      "cs:~charmers/bundle/fun-3",
 		chans:   "*stable",
 		content: "cs:~charmers/wordpress cs:~other/foo-3",
@@ -233,7 +279,7 @@ var resolveWhitelistTests = []struct {
 	}, {
 		id:    "cs:~other/foo-3",
 		chans: "stable",
-	}}),
+	}},
 	whitelist: []WhitelistEntity{{
 		EntityId: "~charmers/bundle/fun",
 		Channels: []params.Channel{params.StableChannel},
@@ -247,9 +293,13 @@ var resolveWhitelistTests = []struct {
 					channels: map[params.Channel]bool{
 						params.StableChannel: true,
 					},
-					bundleCharms: []string{"cs:~charmers/wordpress", "cs:~other/foo-3"},
-					archiveSize:  int64(len("cs:~charmers/wordpress cs:~other/foo-3")),
-					hash:         hashOf("cs:~charmers/wordpress cs:~other/foo-3"),
+					bundleCharms: []bundleCharm{{
+						charm: "cs:~charmers/wordpress",
+					}, {
+						charm: "cs:~other/foo-3",
+					}},
+					archiveSize: int64(len("cs:~charmers/wordpress cs:~other/foo-3")),
+					hash:        hashOf("cs:~charmers/wordpress cs:~other/foo-3"),
 				},
 			},
 		},
@@ -278,6 +328,92 @@ var resolveWhitelistTests = []struct {
 			},
 		},
 	},
+}, {
+	testName: "bundle_with_resources",
+	src: []entitySpec{{
+		id:      "cs:~charmers/bundle/fun-3",
+		chans:   "*stable",
+		content: "cs:~charmers/wordpress,w1:3,w2:4 cs:~other/foo-3,f:12",
+	}, {
+		id:    "cs:~charmers/wordpress-12",
+		chans: "*stable",
+	}, {
+		id:    "cs:~other/foo-3",
+		chans: "stable",
+	}},
+	srcResources: []baseEntitySpec{{
+		id: "cs:~charmers/wordpress",
+		resources: map[string]string{
+			"w1:3": "w1:3 content",
+			"w1:2": "w1:2 content",
+			"w2:4": "w2:4 content",
+			"w2:5": "w2:5 content",
+		},
+		published: "stable,w1:2,w2:5",
+	}, {
+		id: "cs:~other/foo",
+		resources: map[string]string{
+			"f:11": "f:11 content",
+			"f:12": "f:12 content",
+		},
+	}},
+	whitelist: []WhitelistEntity{{
+		EntityId: "~charmers/bundle/fun",
+		Channels: []params.Channel{params.StableChannel},
+	}},
+	expect: map[string]*whitelistBaseEntity{
+		"cs:~charmers/fun": {
+			baseId: parseURL("cs:~charmers/fun"),
+			entities: map[string]*entityInfo{
+				"cs:~charmers/bundle/fun-3": {
+					id: parseURL("cs:~charmers/bundle/fun-3"),
+					channels: map[params.Channel]bool{
+						params.StableChannel: true,
+					},
+					bundleCharms: []bundleCharm{{
+						charm:     "cs:~charmers/wordpress",
+						resources: map[string]int{"w1": 3, "w2": 4},
+					}, {
+						charm:     "cs:~other/foo-3",
+						resources: map[string]int{"f": 12},
+					}},
+					archiveSize: int64(len("cs:~charmers/wordpress,w1:3,w2:4 cs:~other/foo-3,f:12")),
+					hash:        hashOf("cs:~charmers/wordpress,w1:3,w2:4 cs:~other/foo-3,f:12"),
+				},
+			},
+		},
+		"cs:~charmers/wordpress": {
+			baseId: parseURL("cs:~charmers/wordpress"),
+			entities: map[string]*entityInfo{
+				"cs:~charmers/wordpress-12": {
+					id: parseURL("cs:~charmers/wordpress-12"),
+					channels: map[params.Channel]bool{
+						params.StableChannel: true,
+					},
+					hash: hashOf(""),
+					resources: map[string][]int{
+						"w1": {2, 3},
+						"w2": {4, 5},
+					},
+				},
+			},
+		},
+		"cs:~other/foo": {
+			baseId: parseURL("cs:~other/foo"),
+			entities: map[string]*entityInfo{
+				"cs:~other/foo-3": {
+					id: parseURL("cs:~other/foo-3"),
+					channels: map[params.Channel]bool{
+						params.StableChannel: false,
+					},
+					hash: hashOf(""),
+					resources: map[string][]int{
+						"f": {12},
+					},
+				},
+			},
+		},
+	},
 }}
 
 func TestResolveWhitelist(t *testing.T) {
@@ -285,7 +421,7 @@ func TestResolveWhitelist(t *testing.T) {
 	for _, test := range resolveWhitelistTests {
 		c.Run(test.testName, func(c *qt.C) {
 			ing := &ingester{
-				src:     test.getter,
+				src:     newFakeCharmStore(test.src, test.srcResources),
 				limiter: newLimiter(10),
 			}
 			got := ing.resolveWhitelist(test.whitelist)
@@ -513,16 +649,17 @@ var ingestTests = []struct {
 func TestIngest(t *testing.T) {
 	c := qt.New(t)
 	for _, test := range ingestTests {
+		test := test
 		c.Run(test.testName, func(c *qt.C) {
-			srcStore := newFakeCharmStore(test.src)
-			destStore := newFakeCharmStore(test.dest)
+			srcStore := newFakeCharmStore(test.src, nil)
+			destStore := newFakeCharmStore(test.dest, nil)
 			stats := ingest(ingestParams{
 				src:       srcStore,
 				dest:      destStore,
 				whitelist: test.whitelist,
 			})
 			c.Check(stats, qt.DeepEquals, test.expectStats)
-			c.Check(destStore.contents(), deepEquals, test.expectContents)
+			c.Check(destStore.entityContents(), deepEquals, test.expectContents)
 
 			// Try again; we should transfer nothing and the contents should
 			// remain the same.
@@ -534,7 +671,7 @@ func TestIngest(t *testing.T) {
 			expectStats := test.expectStats
 			expectStats.ArchivesCopiedCount = 0
 			c.Check(stats, qt.DeepEquals, expectStats)
-			c.Check(destStore.contents(), deepEquals, test.expectContents)
+			c.Check(destStore.entityContents(), deepEquals, test.expectContents)
 		})
 	}
 }
