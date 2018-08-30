@@ -13,6 +13,7 @@ import (
 
 	"gopkg.in/errgo.v1"
 	charm "gopkg.in/juju/charm.v6"
+	"gopkg.in/juju/charm.v6/resource"
 	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
@@ -31,6 +32,12 @@ type baseEntitySpec struct {
 	//
 	//	stable,resource1:0,resource2:4 edge,resource1:3,resource2:5
 	published string
+
+	// perms holds information about the permissions on a base
+	// entity. Each entry holds permissions on a channel.
+	// e.g. "stable reader1,reader2 writer1,writer2"
+	// use - for no permissions, e.g. "stable - writer1,writer2"
+	perms []string
 }
 
 func (rs baseEntitySpec) baseEntity() *fakeBaseEntity {
@@ -64,10 +71,39 @@ func (rs baseEntitySpec) baseEntity() *fakeBaseEntity {
 		published[params.Channel(bc.charm)] = bc.resources
 	}
 	return &fakeBaseEntity{
-		id:        curl,
-		resources: resources,
-		published: published,
+		id:                 curl,
+		resources:          resources,
+		publishedResources: published,
+		perms:              parsePerms(rs.perms),
 	}
+}
+
+func parsePerms(ss []string) map[params.Channel]permission {
+	m := make(map[params.Channel]permission)
+	for _, s := range ss {
+		ch, perm := parsePerm(s)
+		m[ch] = perm
+	}
+	return m
+}
+
+func parsePerm(s string) (params.Channel, permission) {
+	fields := strings.Fields(s)
+	if len(fields) != 3 {
+		panic("permissions must have three fields")
+	}
+	ch := params.Channel(fields[0])
+	if !params.ValidChannels[ch] {
+		panic("invalid channel in perm")
+	}
+	var r permission
+	if fields[1] != "-" {
+		r.read = strings.Split(fields[1], ",")
+	}
+	if fields[2] != "-" {
+		r.write = strings.Split(fields[2], ",")
+	}
+	return ch, r
 }
 
 // entitySpec holds an easy-to-write-for-tests specification
@@ -83,6 +119,9 @@ type entitySpec struct {
 	// is current for that channel, the channel is
 	// prefixed with an asterisk (*).
 	chans string
+	// resources holds a whitespace-separated set of
+	// resources that the entity requires.
+	resources string
 	// extraInfo holds the JSON-marshaled extra-info
 	// metadata for the entity. If there are no entries, it
 	// should be empty, not "{}".
@@ -115,6 +154,10 @@ func (es entitySpec) entity() *fakeEntity {
 		}
 		pchans[params.Channel(c)] = current
 	}
+	supportedResources := make(map[string]bool)
+	for _, resourceName := range strings.Fields(es.resources) {
+		supportedResources[resourceName] = true
+	}
 	var extraInfo map[string]json.RawMessage
 	if es.extraInfo != "" {
 		if err := json.Unmarshal([]byte(es.extraInfo), &extraInfo); err != nil {
@@ -130,7 +173,8 @@ func (es entitySpec) entity() *fakeEntity {
 			hash:          hashOf(es.content),
 			extraInfo:     extraInfo,
 		},
-		content: es.content,
+		content:            es.content,
+		supportedResources: supportedResources,
 	}
 	if id.Series == "bundle" {
 		bundleCharms, err := parseBundleCharms(es.content)
@@ -264,14 +308,24 @@ func newFakeCharmStore(entities []entitySpec, baseEntities []baseEntitySpec) *fa
 }
 
 type fakeBaseEntity struct {
-	id        *charm.URL
+	id *charm.URL
+	// resources maps from resource name to revision
+	// to the content of the resource with that name
+	// and revision.
 	resources map[string]map[int]string
-	published map[params.Channel]map[string]int
+	// publishedResources maps from a published channel
+	// to the revision published in that channel for
+	// each resource.
+	publishedResources map[params.Channel]map[string]int
+	// perms holds the permissions for the entities
+	// associated with the entity.
+	perms map[params.Channel]permission
 }
 
 type fakeEntity struct {
 	*entityInfo
-	content string
+	supportedResources map[string]bool
+	content            string
 }
 
 type fakeCharmStore struct {
@@ -283,24 +337,89 @@ type fakeCharmStore struct {
 	baseEntities []*fakeBaseEntity
 }
 
-func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entityInfo, rerr error) {
+func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (*entityInfo, error) {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	if ch == params.NoChannel {
 		ch = params.StableChannel
 	}
-	var resources map[string][]int
-	if be := s.baseEntity(id); be != nil {
-		if ch == params.UnpublishedChannel {
-			panic("unimplemented: unpublished channel should get latest rev of all resources")
-		}
-		if published := be.published[ch]; len(published) > 0 {
-			resources = make(map[string][]int)
-			for name, rev := range published {
+	e := s.bestEntity(ch, id)
+	if e == nil {
+		return nil, errgo.WithCausef(nil, errNotFound, "")
+	}
+	info := copyEntity(e.entityInfo)
+	be := s.baseEntity(e.id)
+	if be == nil {
+		return info, nil
+	}
+	if ch == params.UnpublishedChannel {
+		panic("unimplemented: unpublished channel should get latest rev of all resources")
+	}
+	if published := be.publishedResources[ch]; len(published) > 0 {
+		resources := make(map[string][]int)
+		for name, rev := range published {
+			if e.supportedResources[name] {
 				resources[name] = []int{rev}
 			}
 		}
+		if len(resources) > 0 {
+			info.resources = resources
+		}
 	}
+	return info, nil
+}
+
+func defaultPerms(user string) map[params.Channel]permission {
+	m := make(map[params.Channel]permission)
+	for ch := range params.ValidChannels {
+		m[ch] = permission{
+			read:  []string{user},
+			write: []string{user},
+		}
+	}
+	return m
+}
+
+func (s *fakeCharmStore) getBaseEntity(id *charm.URL) (*baseEntityInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	be := s.baseEntity(id)
+	if be != nil {
+		return &baseEntityInfo{
+			perms: be.perms,
+		}, nil
+	}
+	// If there's no explicit base entity entry, return
+	// a base entity with default permissions.
+	baseId := baseEntityId(id)
+	for _, e := range s.entities {
+		if *baseEntityId(e.id) == *baseId {
+			return &baseEntityInfo{
+				perms: defaultPerms(id.User),
+			}, nil
+		}
+	}
+	return nil, errNotFound
+}
+
+func (s *fakeCharmStore) setPerm(id *charm.URL, ch params.Channel, perm permission) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e := s.get(id)
+	if e == nil {
+		return errNotFound
+	}
+	be := s.ensureBaseEntity(id)
+	be.perms[ch] = perm
+	return nil
+}
+
+// bestEntity returns the entity corresponding to the given id, resolving
+// an id without a revision to the entity with the current published revision,
+// and also allowing lookup of promulgated ids.
+//
+// It returns nil if the entity cannot be found.
+func (s *fakeCharmStore) bestEntity(ch params.Channel, id *charm.URL) *fakeEntity {
 	if id.Revision == -1 {
 		// Revision not specified - find the current published
 		// revision for the channel.
@@ -310,12 +429,10 @@ func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entit
 				checkId = e.promulgatedId
 			}
 			if e.channels[ch] && checkId != nil && *checkId.WithRevision(-1) == *id {
-				info := copyEntity(e.entityInfo)
-				info.resources = resources
-				return info, nil
+				return e
 			}
 		}
-		return nil, errNotFound
+		return nil
 	}
 	for _, e := range s.entities {
 		checkId := e.id
@@ -323,18 +440,6 @@ func (s *fakeCharmStore) entityInfo(ch params.Channel, id *charm.URL) (re *entit
 			checkId = e.promulgatedId
 		}
 		if checkId != nil && *checkId == *id {
-			info := copyEntity(e.entityInfo)
-			info.resources = resources
-			return info, nil
-		}
-	}
-	return nil, errNotFound
-}
-
-func (s *fakeCharmStore) baseEntity(id *charm.URL) *fakeBaseEntity {
-	id = baseEntityId(id)
-	for _, e := range s.baseEntities {
-		if *e.id == *id {
 			return e
 		}
 	}
@@ -350,6 +455,10 @@ func (s *fakeCharmStore) entityContents() []entitySpec {
 	}
 	sortEntitySpecs(ess)
 	return ess
+}
+
+func (s *fakeCharmStore) baseEntityContents() []baseEntitySpec {
+	panic("unimplemented")
 }
 
 func (s *fakeCharmStore) getArchive(id *charm.URL) (io.ReadCloser, error) {
@@ -416,7 +525,7 @@ func (s *fakeCharmStore) putArchive(id *charm.URL, r io.ReadSeeker, hash string,
 	return nil
 }
 
-func (s *fakeCharmStore) publish(id *charm.URL, channels []params.Channel) error {
+func (s *fakeCharmStore) publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
 	e := s.get(id)
@@ -451,6 +560,11 @@ func (s *fakeCharmStore) publish(id *charm.URL, channels []params.Channel) error
 			e.channels[ch] = true
 		}
 	}
+	// Update the published resource revisions in the base entity.
+	be := s.ensureBaseEntity(id)
+	for _, ch := range channels {
+		be.publishedResources[ch] = resources
+	}
 	return nil
 }
 
@@ -474,6 +588,75 @@ func (s *fakeCharmStore) putExtraInfo(id *charm.URL, extraInfo map[string]json.R
 	return nil
 }
 
+func (s *fakeCharmStore) resourceInfo(id *charm.URL, name string, rev int) (*resourceInfo, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	content, err := s.resourceContent(id, name, rev)
+	if err != nil {
+		return nil, errgo.Mask(err, errgo.Is(errNotFound))
+	}
+	return &resourceInfo{
+		kind: resource.TypeFile,
+		size: int64(len(content)),
+		hash: hashOf(content),
+	}, nil
+}
+
+func (s *fakeCharmStore) getResource(id *charm.URL, name string, rev int) (io.ReadCloser, int64, error) {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	content, err := s.resourceContent(id, name, rev)
+	if err != nil {
+		return nil, 0, errgo.Mask(err, errgo.Is(errNotFound))
+	}
+	return ioutil.NopCloser(strings.NewReader(content)), int64(len(content)), nil
+}
+
+func (s *fakeCharmStore) putResource(id *charm.URL, name string, rev int, r io.ReaderAt, size int64) error {
+	s.mu.Lock()
+	defer s.mu.Unlock()
+	e := s.get(id)
+	if e == nil {
+		return errgo.Newf("charm %q not found", id)
+	}
+	// TODO check that the resource exists in the given entity?
+	be := s.ensureBaseEntity(id)
+	if _, ok := be.resources[name][rev]; ok {
+		return errgo.Newf("resource %s/%d in %q already exists", name, rev, id)
+	}
+	data, err := ioutil.ReadAll(io.NewSectionReader(r, 0, size))
+	if err != nil {
+		return errgo.Mask(err)
+	}
+	resMap := be.resources[name]
+	if resMap == nil {
+		resMap = make(map[int]string)
+		be.resources[name] = resMap
+	}
+	resMap[rev] = string(data)
+	return nil
+}
+
+func (s *fakeCharmStore) resourceContent(id *charm.URL, name string, rev int) (string, error) {
+	e := s.get(id)
+	if e == nil {
+		return "", errgo.WithCausef(nil, errNotFound, "charm %q not found", id)
+	}
+	// TODO check that the resource exists in the given entity?
+	//if _, ok := e.resources[name]; !ok {
+	//	return "", errgo.WithCausef(nil, errNotFound, "resource %q not found in %q", name, id)
+	//}
+	be := s.baseEntity(id)
+	if be == nil {
+		return "", errgo.WithCausef(nil, errNotFound, "no existing resources in %q", id)
+	}
+	content, ok := be.resources[name][rev]
+	if !ok {
+		return "", errgo.WithCausef(nil, errNotFound, "no resource %s/%d found in %q", name, rev, id)
+	}
+	return content, nil
+}
+
 func (s *fakeCharmStore) get(id *charm.URL) *fakeEntity {
 	for _, e := range s.entities {
 		if id.User == "" {
@@ -487,6 +670,31 @@ func (s *fakeCharmStore) get(id *charm.URL) *fakeEntity {
 		}
 	}
 	return nil
+}
+
+func (s *fakeCharmStore) baseEntity(id *charm.URL) *fakeBaseEntity {
+	id = baseEntityId(id)
+	for _, e := range s.baseEntities {
+		if *e.id == *id {
+			return e
+		}
+	}
+	return nil
+}
+
+func (s *fakeCharmStore) ensureBaseEntity(id *charm.URL) *fakeBaseEntity {
+	be := s.baseEntity(id)
+	if be != nil {
+		return be
+	}
+	be = &fakeBaseEntity{
+		id:                 baseEntityId(id),
+		resources:          make(map[string]map[int]string),
+		publishedResources: make(map[params.Channel]map[string]int),
+		perms:              make(map[params.Channel]permission),
+	}
+	s.baseEntities = append(s.baseEntities, be)
+	return be
 }
 
 func copyEntity(e *entityInfo) *entityInfo {

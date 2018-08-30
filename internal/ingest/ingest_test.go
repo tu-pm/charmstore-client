@@ -13,15 +13,16 @@ func TestIngestWithRealCharmstore(t *testing.T) {
 		c.Run(test.testName, func(c *qt.C) {
 			c.Parallel()
 			srcStore := newTestCharmstore(c)
-			srcStore.addEntities(c, test.src)
+			srcStore.addEntities(c, test.src, test.srcResources)
 
 			destStore := newTestCharmstore(c)
-			destStore.addEntities(c, test.dest)
+			destStore.addEntities(c, test.dest, test.destResources)
 
 			stats := Ingest(IngestParams{
 				Src:       srcStore.client,
 				Dest:      destStore.client,
 				Whitelist: test.whitelist,
+				Log:       testLogFunc(c),
 			})
 			c.Check(stats, qt.DeepEquals, test.expectStats)
 			destStore.assertContents(c, test.expectContents)
