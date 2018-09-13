@@ -282,6 +282,32 @@ func ingest(p ingestParams) IngestStats {
 	}
 	resolvedEntities := ing.resolveWhitelist(p.whitelist)
 
+	// Upload dependencies.
+	//
+	// We can't just get all the charms, bundles and resources from
+	// the source charm store and put them into the destination
+	// independently because there are dependency relationships
+	// between them.
+	//
+	// - We can only upload a resource when there's at least one
+	// charm transferred that refers to that resource.
+	//
+	// - A charm can only be published when all its required
+	// resources are uploaded.
+	//
+	// - A bundle can only be published when all its charms and
+	// resources are available and published correctly.
+	//
+	// - We can only set permissions on a charm or bundle when it
+	// has at least one existing uploaded revision.
+	//
+	// To respect these requirements, we use the following ordering:
+	//	- transfer charms
+	//	- transfer resources
+	//	- publish charms
+	//	- transfer bundles
+	//	- set permissions
+
 	// First transfer all charms.
 	for _, baseInfo := range resolvedEntities {
 		for _, entity := range baseInfo.entities {
@@ -296,6 +322,7 @@ func ingest(p ingestParams) IngestStats {
 	}
 	ing.limiter.wait()
 
+	// Now transfer resources.
 	resourceCount := ing.transferResources(resolvedEntities)
 
 	// Then publish all charms (we have to do this after transferring
@@ -323,11 +350,17 @@ func ingest(p ingestParams) IngestStats {
 	for _, baseInfo := range resolvedEntities {
 		for _, entity := range baseInfo.entities {
 			entity := entity
-			if entity.id.Series == "bundle" {
-				ing.limiter.do(func() {
-					ing.transferEntity(entity)
-				})
+			if entity.id.Series != "bundle" {
+				continue
 			}
+			ing.limiter.do(func() {
+				ing.transferEntity(entity)
+				if err := ing.publishEntity(entity); err != nil {
+					ing.errorf("%v", err)
+					return
+				}
+				entity.synced = true
+			})
 		}
 	}
 	ing.limiter.wait()
@@ -495,6 +528,7 @@ func (ing *ingester) stats(es map[string]*whitelistBaseEntity) IngestStats {
 		stats.EntityCount += len(baseEntity.entities)
 		for _, e := range baseEntity.entities {
 			if !e.synced {
+				ing.logf("%v failed to sync", e.id)
 				stats.FailedEntityCount++
 			}
 			if e.archiveCopied {

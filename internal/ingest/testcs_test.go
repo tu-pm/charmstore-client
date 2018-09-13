@@ -77,19 +77,39 @@ func newTestCharmstore(c *qt.C) *testCharmstore {
 
 func (cs *testCharmstore) addEntities(c *qt.C, entities []entitySpec, baseEntities []baseEntitySpec) {
 	fakeEntities := make([]*fakeEntity, len(entities))
+	// Charms first.
 	for i, e := range entities {
-		cs.addEntity(c, e)
 		fakeEntities[i] = e.entity()
+		if !e.isBundle() {
+			cs.addEntity(c, e)
+		}
 	}
+	// Then resources for the charms.
 	fakeBaseEntities := make([]*fakeBaseEntity, len(baseEntities))
 	for i, e := range baseEntities {
-		cs.addBaseEntity(c, e, fakeEntities)
 		fakeBaseEntities[i] = e.baseEntity()
+		cs.addResources(c, e, fakeEntities)
 	}
+	// Publish charms so we can upload bundles.
 	// Note: we can't publish before uploading the entities'
 	// resources, so this can't be done in addEntity.
 	for _, e := range entities {
-		cs.publishEntity(c, e, fakeBaseEntities)
+		if !e.isBundle() {
+			cs.publishEntity(c, e, fakeBaseEntities)
+		}
+	}
+
+	// Upload and publish bundles.
+	for _, e := range entities {
+		if e.isBundle() {
+			cs.addEntity(c, e)
+			cs.publishEntity(c, e, fakeBaseEntities)
+		}
+	}
+
+	// Set permissions.
+	for _, e := range baseEntities {
+		cs.setPerms(c, e, fakeEntities)
 	}
 }
 
@@ -129,6 +149,45 @@ func (cs *testCharmstore) addEntity(c *qt.C, spec entitySpec) {
 	c.Assert(err, qt.Equals, nil)
 	if len(e.extraInfo) > 0 {
 		err := charmstoreShim{cs.client}.putExtraInfo(e.id, e.extraInfo)
+		c.Assert(err, qt.Equals, nil)
+	}
+}
+
+func (cs *testCharmstore) addResources(c *qt.C, be baseEntitySpec, entities []*fakeEntity) {
+	fakebe := be.baseEntity()
+	for resourceName, revs := range fakebe.resources {
+		// Find an entry in the entities that has a matching resource name.
+		var id *charm.URL
+		for _, e := range entities {
+			if e.supportedResources[resourceName] {
+				id = e.id
+			}
+		}
+		if id == nil {
+			c.Fatalf("no entity found for base entity %v and resource %q", be.id, resourceName)
+		}
+		for rev, content := range revs {
+			_, err := cs.client.UploadResourceWithRevision(id, resourceName, rev, "", strings.NewReader(content), int64(len(content)), nil)
+			c.Assert(err, qt.Equals, nil)
+		}
+	}
+}
+
+func (cs *testCharmstore) setPerms(c *qt.C, be baseEntitySpec, entities []*fakeEntity) {
+	fakebe := be.baseEntity()
+	csShim := charmstoreShim{cs.client}
+	// Find an entity we can use as a handle on the base entity.
+	var id *charm.URL
+	for _, e := range entities {
+		if *baseEntityId(fakebe.id) == *baseEntityId(e.id) {
+			id = e.id
+		}
+	}
+	if id == nil {
+		panic(fmt.Sprintf("no entity found for base entity %v", be.id))
+	}
+	for ch, perm := range fakebe.perms {
+		err := csShim.setPerm(id, ch, perm)
 		c.Assert(err, qt.Equals, nil)
 	}
 }

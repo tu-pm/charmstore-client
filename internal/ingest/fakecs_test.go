@@ -132,6 +132,14 @@ type entitySpec struct {
 	content string
 }
 
+func (es entitySpec) isBundle() bool {
+	id, err := charm.ParseURL(es.id)
+	if err != nil {
+		panic(err)
+	}
+	return id.Series == "bundle"
+}
+
 func (es entitySpec) entity() *fakeEntity {
 	id, err := charm.ParseURL(es.id)
 	if err != nil {

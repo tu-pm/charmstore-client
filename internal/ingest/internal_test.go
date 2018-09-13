@@ -114,6 +114,12 @@ var resolveWhitelistTests = []struct {
 						"foo": {0, 1},
 						"bar": {2, 3},
 					},
+					publishedResources: map[params.Channel]map[string]int{
+						params.StableChannel: {
+							"bar": 2,
+							"foo": 0,
+						},
+					},
 				},
 			},
 		},
@@ -397,6 +403,12 @@ var resolveWhitelistTests = []struct {
 					resources: map[string][]int{
 						"w1": {2, 3},
 						"w2": {4, 5},
+					},
+					publishedResources: map[params.Channel]map[string]int{
+						params.StableChannel: {
+							"w1": 2,
+							"w2": 5,
+						},
 					},
 				},
 			},
