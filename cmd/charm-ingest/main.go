@@ -49,6 +49,8 @@ Currently there is no way to specify username/password for the source charmstore
 
 func main() {
 	debug := gnuflag.Bool("debug", false, "show debugging messages")
+	maxDisk := gnuflag.Int64("maxdisk", 0, "max disk space to use (0 means unlimited)")
+	softDiskLimit := gnuflag.Bool("softlimit", true, "allow any single resource to exceed disk limit")
 	var auth authInfo
 	gnuflag.Var(&auth, "auth", "user:passwd to use for basic HTTP authentication to destination URL")
 	gnuflag.Usage = func() {
@@ -85,9 +87,11 @@ func main() {
 	bakeryClient.AddInteractor(httpbakery.WebBrowserInteractor{})
 
 	p := ingest.IngestParams{
-		Src:       newCharmStoreClient(sourceURL(), bakeryClient, nil),
-		Dest:      newCharmStoreClient(destURL, bakeryClient, &auth),
-		Whitelist: whitelist,
+		Src:           newCharmStoreClient(sourceURL(), bakeryClient, nil),
+		Dest:          newCharmStoreClient(destURL, bakeryClient, &auth),
+		Whitelist:     whitelist,
+		MaxDisk:       *maxDisk,
+		SoftDiskLimit: *softDiskLimit,
 	}
 	if *debug {
 		p.Log = func(s string) {
