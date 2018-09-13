@@ -108,6 +108,7 @@ require (
 	golang.org/x/crypto v0.0.0-20180723164146-c126467f60eb
 	golang.org/x/net v0.0.0-20180724234803-3673e40ba225
 	golang.org/x/oauth2 v0.0.0-20180820191322-f720f1faee02 // indirect
+	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
 	golang.org/x/sys v0.0.0-20180202135801-37707fdb30a5 // indirect
 	golang.org/x/text v0.3.0 // indirect
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
@@ -126,9 +127,8 @@ require (
 	gopkg.in/juju/charm.v6-unstable v6.0.0-20170728194100-514bb811b021 // indirect
 	gopkg.in/juju/charmrepo.v2 v2.0.0-20180628053430-0252517febee // indirect
 	gopkg.in/juju/charmrepo.v2-unstable v2.0.0-20161117152528-e79aa298df89 // indirect
-	gopkg.in/juju/charmrepo.v3 v3.0.0-20180803043737-7778a447283b // indirect
-	gopkg.in/juju/charmrepo.v4 v4.0.1
-	gopkg.in/juju/charmstore.v5 v5.5.2
+	gopkg.in/juju/charmrepo.v4 v4.1.0
+	gopkg.in/juju/charmstore.v5 v5.6.0
 	gopkg.in/juju/charmstore.v5-unstable v5.0.0-20180220120900-925d3c2cb8b8 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.0-20151104115810-7359fc7857ab
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8

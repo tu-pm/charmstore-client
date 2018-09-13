@@ -76,8 +76,9 @@ var resolveWhitelistTests = []struct {
 }, {
 	testName: "single_entity_with_resources",
 	src: []entitySpec{{
-		id:    "cs:~charmers/wordpress-4",
-		chans: "*stable",
+		id:        "cs:~charmers/wordpress-4",
+		chans:     "*stable",
+		resources: "foo bar",
 	}},
 	srcResources: []baseEntitySpec{{
 		id: "cs:~charmers/wordpress",
@@ -112,6 +113,12 @@ var resolveWhitelistTests = []struct {
 					resources: map[string][]int{
 						"foo": {0, 1},
 						"bar": {2, 3},
+					},
+					publishedResources: map[params.Channel]map[string]int{
+						params.StableChannel: {
+							"bar": 2,
+							"foo": 0,
+						},
 					},
 				},
 			},
@@ -335,11 +342,13 @@ var resolveWhitelistTests = []struct {
 		chans:   "*stable",
 		content: "cs:~charmers/wordpress,w1:3,w2:4 cs:~other/foo-3,f:12",
 	}, {
-		id:    "cs:~charmers/wordpress-12",
-		chans: "*stable",
+		id:        "cs:~charmers/wordpress-12",
+		resources: "w1 w2",
+		chans:     "*stable",
 	}, {
-		id:    "cs:~other/foo-3",
-		chans: "stable",
+		id:        "cs:~other/foo-3",
+		resources: "f",
+		chans:     "stable",
 	}},
 	srcResources: []baseEntitySpec{{
 		id: "cs:~charmers/wordpress",
@@ -395,6 +404,12 @@ var resolveWhitelistTests = []struct {
 						"w1": {2, 3},
 						"w2": {4, 5},
 					},
+					publishedResources: map[params.Channel]map[string]int{
+						params.StableChannel: {
+							"w1": 2,
+							"w2": 5,
+						},
+					},
 				},
 			},
 		},
@@ -421,7 +436,10 @@ func TestResolveWhitelist(t *testing.T) {
 	for _, test := range resolveWhitelistTests {
 		c.Run(test.testName, func(c *qt.C) {
 			ing := &ingester{
-				src:     newFakeCharmStore(test.src, test.srcResources),
+				params: ingestParams{
+					src: newFakeCharmStore(test.src, test.srcResources),
+					log: testLogFunc(c),
+				},
 				limiter: newLimiter(10),
 			}
 			got := ing.resolveWhitelist(test.whitelist)
@@ -434,7 +452,9 @@ func TestResolveWhitelist(t *testing.T) {
 var ingestTests = []struct {
 	testName       string
 	src            []entitySpec
+	srcResources   []baseEntitySpec
 	dest           []entitySpec
+	destResources  []baseEntitySpec
 	whitelist      []WhitelistEntity
 	expectStats    IngestStats
 	expectContents []entitySpec
@@ -544,6 +564,42 @@ var ingestTests = []struct {
 		extraInfo: `{"x":45,"y":"hello"}`,
 	}},
 }, {
+	testName: "copy_with_resources",
+	src: []entitySpec{{
+		id:        "cs:~charmers/wordpress-4",
+		chans:     "*stable",
+		content:   "some stuff",
+		resources: "foo bar",
+	}},
+	srcResources: []baseEntitySpec{{
+		id: "cs:~charmers/wordpress",
+		resources: map[string]string{
+			"foo:0": "foo:0 content",
+			"foo:1": "foo:1 content",
+			"foo:2": "foo:2 content",
+			"bar:2": "bar:2 content",
+			"bar:3": "bar:3 content",
+			"bar:4": "bar:4 content",
+		},
+		published: "stable,foo:0,bar:2 edge,foo:1,bar:3",
+	}},
+	whitelist: []WhitelistEntity{{
+		EntityId: "~charmers/wordpress",
+		Channels: []params.Channel{params.StableChannel},
+	}},
+	expectStats: IngestStats{
+		BaseEntityCount:     1,
+		EntityCount:         1,
+		ArchivesCopiedCount: 1,
+		ResourceCount:       2,
+		// ResourcesCopiedCount: 2, TODO
+	},
+	expectContents: []entitySpec{{
+		id:      "cs:~charmers/wordpress-4",
+		chans:   "*stable",
+		content: "some stuff",
+	}},
+}, {
 	testName: "copy_several",
 	src: []entitySpec{{
 		id:            "cs:~charmers/wordpress-3",
@@ -651,12 +707,15 @@ func TestIngest(t *testing.T) {
 	for _, test := range ingestTests {
 		test := test
 		c.Run(test.testName, func(c *qt.C) {
-			srcStore := newFakeCharmStore(test.src, nil)
-			destStore := newFakeCharmStore(test.dest, nil)
+			srcStore := newFakeCharmStore(test.src, test.srcResources)
+			destStore := newFakeCharmStore(test.dest, test.destResources)
 			stats := ingest(ingestParams{
 				src:       srcStore,
 				dest:      destStore,
 				whitelist: test.whitelist,
+				log: func(s string) {
+					c.Log(s)
+				},
 			})
 			c.Check(stats, qt.DeepEquals, test.expectStats)
 			c.Check(destStore.entityContents(), deepEquals, test.expectContents)
@@ -673,5 +732,11 @@ func TestIngest(t *testing.T) {
 			c.Check(stats, qt.DeepEquals, expectStats)
 			c.Check(destStore.entityContents(), deepEquals, test.expectContents)
 		})
+	}
+}
+
+func testLogFunc(c *qt.C) func(s string) {
+	return func(s string) {
+		c.Logf("LOG %s", s)
 	}
 }

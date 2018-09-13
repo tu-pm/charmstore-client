@@ -5,6 +5,7 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"os"
 	"strings"
 
@@ -47,6 +48,7 @@ Currently there is no way to specify username/password for the source charmstore
 }
 
 func main() {
+	debug := gnuflag.Bool("debug", false, "show debugging messages")
 	var auth authInfo
 	gnuflag.Var(&auth, "auth", "user:passwd to use for basic HTTP authentication to destination URL")
 	gnuflag.Usage = func() {
@@ -82,11 +84,17 @@ func main() {
 	bakeryClient.Jar = jar
 	bakeryClient.AddInteractor(httpbakery.WebBrowserInteractor{})
 
-	stats := ingest.Ingest(ingest.IngestParams{
+	p := ingest.IngestParams{
 		Src:       newCharmStoreClient(sourceURL(), bakeryClient, nil),
 		Dest:      newCharmStoreClient(destURL, bakeryClient, &auth),
 		Whitelist: whitelist,
-	})
+	}
+	if *debug {
+		p.Log = func(s string) {
+			log.Println(s)
+		}
+	}
+	stats := ingest.Ingest(p)
 
 	for _, e := range stats.Errors {
 		// TODO add a callback to IngestParams so that we can print these as they happen?

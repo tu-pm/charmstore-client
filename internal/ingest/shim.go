@@ -2,6 +2,7 @@ package ingest
 
 import (
 	"encoding/json"
+	"fmt"
 	"io"
 	"sort"
 
@@ -83,6 +84,32 @@ func (cs charmstoreShim) entityInfo(ch params.Channel, id *charm.URL) (*entityIn
 	return e, nil
 }
 
+func (cs charmstoreShim) getBaseEntity(id *charm.URL) (*baseEntityInfo, error) {
+	var perms params.AllPermsResponse
+	if err := cs.WithChannel(params.UnpublishedChannel).Get("/"+baseEntityId(id).Path()+"/allperms", &perms); err != nil {
+		if errgo.Cause(err) == params.ErrNotFound {
+			return nil, errgo.WithCausef(nil, errNotFound, "")
+		}
+	}
+	m := make(map[params.Channel]permission)
+	for ch, p := range perms.Perms {
+		m[ch] = permission{
+			read:  p.Read,
+			write: p.Write,
+		}
+	}
+	return &baseEntityInfo{
+		perms: m,
+	}, nil
+}
+
+func (cs charmstoreShim) setPerm(id *charm.URL, ch params.Channel, perm permission) error {
+	if err := cs.WithChannel(ch).Put("/"+id.Path()+"/meta/perm", perm); err != nil {
+		return errgo.Mask(err)
+	}
+	return nil
+}
+
 func sortBundleCharms(bcs []bundleCharm) {
 	sort.Slice(bcs, func(i, j int) bool {
 		return bcs[i].charm < bcs[j].charm
@@ -113,10 +140,36 @@ func (cs charmstoreShim) putExtraInfo(id *charm.URL, extraInfo map[string]json.R
 	return nil
 }
 
-func (cs charmstoreShim) publish(id *charm.URL, channels []params.Channel) error {
-	err := cs.Publish(id, channels, nil)
+func (cs charmstoreShim) publish(id *charm.URL, channels []params.Channel, resources map[string]int) error {
+	err := cs.Publish(id, channels, resources)
 	if err != nil {
 		return errgo.Mask(err)
 	}
 	return nil
+}
+
+func (cs charmstoreShim) resourceInfo(id *charm.URL, name string, rev int) (*resourceInfo, error) {
+	var r params.Resource
+	if err := cs.Get(fmt.Sprintf("/%s/meta/resources/%s/%d", id.Path(), name, rev), &r); err != nil {
+		if cause := errgo.Cause(err); cause == params.ErrMetadataNotFound || cause == params.ErrNotFound {
+			return nil, errgo.WithCausef(nil, errNotFound, "")
+		}
+	}
+	return &resourceInfo{
+		size: r.Size,
+		hash: fmt.Sprintf("%x", r.Fingerprint),
+	}, nil
+}
+
+func (cs charmstoreShim) getResource(id *charm.URL, name string, rev int) (io.ReadCloser, int64, error) {
+	r, err := cs.GetResource(id, name, rev)
+	if err != nil {
+		return nil, 0, errgo.Mask(err)
+	}
+	return r.ReadCloser, r.Size, nil
+}
+
+func (cs charmstoreShim) putResource(id *charm.URL, name string, rev int, r io.ReaderAt, size int64) error {
+	_, err := cs.UploadResourceWithRevision(id, name, rev, "", r, size, nil)
+	return errgo.Mask(err)
 }
