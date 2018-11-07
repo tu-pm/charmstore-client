@@ -375,15 +375,18 @@ func ingest(p ingestParams) IngestStats {
 }
 
 func (ing *ingester) transferBaseEntities(resolvedEntities map[string]*whitelistBaseEntity) {
+	ing.logf("transferring base entities")
 	for _, baseInfo := range resolvedEntities {
 		baseInfo := baseInfo
 		ing.limiter.do(func() {
 			ing.transferBaseEntity(baseInfo)
 		})
 	}
+	ing.limiter.wait()
 }
 
 func (ing *ingester) transferBaseEntity(e *whitelistBaseEntity) {
+	ing.logf("transferring base entity for %v", e.baseId)
 	// Get the base entity in the destination, which should
 	// definitely exist because we've transferred all the entities
 	// for this base entity.
@@ -396,38 +399,42 @@ func (ing *ingester) transferBaseEntity(e *whitelistBaseEntity) {
 		ing.errorf("no base entity found for %v after transferring entities", e.baseId)
 		return
 	}
+	ing.logf("got base entity perms: %#v", be.perms)
 	// Check whether all the permissions are the same as the default
 	// permissions. If they are, then change them to the usual starting
 	// permissions.
-	for _, perms := range be.perms {
+	for ch, perms := range be.perms {
 		if !ing.isDefaultPerm(e.baseId, perms) {
+			ing.logf("%s permissions for %s have been changed (currently %#v); leaving alone", e.baseId, ch, perms)
 			// Someone has manually changed the permissions
 			// so leave 'em be.
 			return
 		}
 	}
-	// We need to use an entity id with a revision
-	// because none of the revisions might be current,
-	// so just choose an arbitrary one.
-	var id *charm.URL
-	for _, e := range e.entities {
-		id = e.id
-		break
-	}
 	var writeACL []string
 	if ing.params.owner != "" {
 		writeACL = []string{ing.params.owner}
 	}
-	for _, ch := range params.OrderedChannels {
-		if err := ing.params.dest.setPerm(id, ch, permission{
-			read:  []string{"everyone"},
-			write: writeACL,
-		}); err != nil {
-			ing.errorf("cannot set perm on %v: %v", id, err)
-			break
+	// In general, we can only set permissions on channels that the charm has been
+	// published to already
+	doneChannels := make(map[params.Channel]bool)
+
+	for _, e := range e.entities {
+		for ch := range e.channels {
+			if doneChannels[ch] {
+				continue
+			}
+			ing.logf("granting %s (channel %s) read permissions to everyone; write: %s", e.id, ch, writeACL)
+			if err := ing.params.dest.setPerm(e.id, ch, permission{
+				read:  []string{"everyone"},
+				write: writeACL,
+			}); err != nil {
+				ing.errorf("cannot set perm on %v (channel %s): %v", e.id, ch, err)
+				continue
+			}
+			doneChannels[ch] = true
 		}
 	}
-
 	// TODO transfer common-info too.
 }
 

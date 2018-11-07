@@ -128,7 +128,7 @@ require (
 	gopkg.in/juju/charmrepo.v2 v2.0.0-20180628053430-0252517febee // indirect
 	gopkg.in/juju/charmrepo.v2-unstable v2.0.0-20161117152528-e79aa298df89 // indirect
 	gopkg.in/juju/charmrepo.v4 v4.1.0
-	gopkg.in/juju/charmstore.v5 v5.6.0
+	gopkg.in/juju/charmstore.v5 v5.6.4
 	gopkg.in/juju/charmstore.v5-unstable v5.0.0-20180220120900-925d3c2cb8b8 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.0-20151104115810-7359fc7857ab
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8

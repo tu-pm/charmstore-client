@@ -1,6 +1,7 @@
 package ingest
 
 import (
+	"bytes"
 	"crypto/sha512"
 	"encoding/json"
 	"fmt"
@@ -288,6 +289,17 @@ func entityInfoToSpec(e *entityInfo) entitySpec {
 	return es
 }
 
+// baseEntityInfo returns a baseEntitySpec from the info
+// in e. It only fills out the perms field because the
+// baseEntityInfo struct has no information on the other
+// resource-related fields.
+func baseEntityInfoToSpec(id *charm.URL, e *baseEntityInfo) baseEntitySpec {
+	return baseEntitySpec{
+		id:    id.String(),
+		perms: permMapToSpec(id, e.perms),
+	}
+}
+
 func fakeEntityToSpec(e *fakeEntity) entitySpec {
 	es := entityInfoToSpec(e.entityInfo)
 	es.content = e.content
@@ -330,6 +342,86 @@ type fakeBaseEntity struct {
 	perms map[params.Channel]permission
 }
 
+func (e *fakeBaseEntity) spec() baseEntitySpec {
+	fe := baseEntitySpec{
+		id:        e.id.String(),
+		published: publishedSpec(e.publishedResources),
+		perms:     permMapToSpec(e.id, e.perms),
+	}
+	for rname, revs := range e.resources {
+		for rev, content := range revs {
+			if fe.resources == nil {
+				fe.resources = make(map[string]string)
+			}
+			fe.resources[fmt.Sprintf("%s:%d", rname, rev)] = content
+		}
+	}
+	return fe
+}
+
+func permMapToSpec(id *charm.URL, m map[params.Channel]permission) []string {
+	var perms []string
+	for ch, perm := range m {
+		if len(perm.read) == 1 && len(perm.write) == 1 &&
+			perm.read[0] == id.User && perm.write[0] == id.User {
+			// The permissions are the default permissions, so omit them.
+			continue
+		}
+		readPerm := "-"
+		if len(perm.read) > 0 {
+			readPerm = strings.Join(perm.read, ",")
+		}
+		writePerm := "-"
+		if len(perm.write) > 0 {
+			writePerm = strings.Join(perm.write, ",")
+		}
+		perms = append(perms, fmt.Sprintf("%s %s %s", ch, readPerm, writePerm))
+	}
+	sort.Strings(perms)
+	return perms
+}
+
+func publishedSpec(publishedMap map[params.Channel]map[string]int) string {
+	type publishedResource struct {
+		ch   params.Channel
+		name string
+		rev  int
+	}
+	var published []publishedResource
+	for ch, revs := range publishedMap {
+		for name, rev := range revs {
+			published = append(published, publishedResource{
+				ch:   ch,
+				name: name,
+				rev:  rev,
+			})
+		}
+	}
+	sort.Slice(published, func(i, j int) bool {
+		p1, p2 := &published[i], &published[j]
+		if p1.ch != p2.ch {
+			return p1.ch < p2.ch
+		}
+		if p1.name != p2.name {
+			return p1.name < p2.name
+		}
+		return p1.rev < p2.rev
+	})
+	var buf bytes.Buffer
+	var currentChannel params.Channel
+	for i, p := range published {
+		if p.ch != currentChannel {
+			if i > 0 {
+				buf.WriteByte(' ')
+			}
+			buf.WriteString(string(p.ch))
+			currentChannel = p.ch
+		}
+		fmt.Fprintf(&buf, ",%s:%d", p.name, p.rev)
+	}
+	return buf.String()
+}
+
 type fakeEntity struct {
 	*entityInfo
 	supportedResources map[string]bool
@@ -340,7 +432,7 @@ type fakeCharmStore struct {
 	mu       sync.Mutex
 	entities []*fakeEntity
 	// baseEntities holds any information on any base entities
-	// that have associated resources. If an entry doesn't
+	// that have associated resources or permissions. If an entry doesn't
 	// exist, it's assumed to have no resources.
 	baseEntities []*fakeBaseEntity
 }
@@ -466,7 +558,21 @@ func (s *fakeCharmStore) entityContents() []entitySpec {
 }
 
 func (s *fakeCharmStore) baseEntityContents() []baseEntitySpec {
-	panic("unimplemented")
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	var specs []baseEntitySpec
+	for _, e := range s.baseEntities {
+		spec := e.spec()
+		if len(spec.resources) == 0 && len(spec.published) == 0 && len(spec.perms) == 0 {
+			continue
+		}
+		specs = append(specs, spec)
+	}
+	sort.Slice(specs, func(i, j int) bool {
+		return specs[i].id < specs[i].id
+	})
+	return specs
 }
 
 func (s *fakeCharmStore) getArchive(id *charm.URL) (io.ReadCloser, error) {

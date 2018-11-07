@@ -64,7 +64,7 @@ gopkg.in/juju/charm.v6-unstable	git	514bb811b021ebeb3e7ffcf1c267e9803968f59d	201
 gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7	2016-11-17T15:25:28Z
 gopkg.in/juju/charmrepo.v3	git	637712781b6d0705e719fce562a282d3a162f615	2018-09-05T14:52:33Z
 gopkg.in/juju/charmrepo.v4	git	f37d11e95fc278aef354377031aaae3c11a3a07d	2018-09-06T16:23:14Z
-gopkg.in/juju/charmstore.v5	git	4306629e4b33f264fd017d2836577edb1b74ba32	2018-09-05T17:05:07Z
+gopkg.in/juju/charmstore.v5	git	c47146b516096f8cbc05294a9ca5159721674c13	2018-10-18T09:08:10Z
 gopkg.in/juju/environschema.v1	git	7359fc7857abe2b11b5b3e23811a9c64cb6b01e0	2015-11-04T11:58:10Z
 gopkg.in/juju/idmclient.v1	git	203d20774ce8aeaa6f662ee0b48f8cb5bc0816a1	2018-03-20T16:18:56Z
 gopkg.in/juju/jujusvg.v3	git	b69768dfdf884defd0eaf7b7f3c4e04372922d05	2018-06-28T07:42:25Z
