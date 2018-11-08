@@ -15,16 +15,17 @@ var deepEquals = qt.CmpEquals(cmp.AllowUnexported(
 	whitelistBaseEntity{},
 	entityInfo{},
 	entitySpec{},
+	baseEntitySpec{},
 	bundleCharm{},
 ))
 
 var resolveWhitelistTests = []struct {
-	testName     string
-	src          []entitySpec
-	srcResources []baseEntitySpec
-	whitelist    []WhitelistEntity
-	expect       map[string]*whitelistBaseEntity
-	expectErrors []string
+	testName        string
+	src             []entitySpec
+	srcBaseEntities []baseEntitySpec
+	whitelist       []WhitelistEntity
+	expect          map[string]*whitelistBaseEntity
+	expectErrors    []string
 }{{
 	testName: "single_entity",
 	src: []entitySpec{{
@@ -80,7 +81,7 @@ var resolveWhitelistTests = []struct {
 		chans:     "*stable",
 		resources: "foo bar",
 	}},
-	srcResources: []baseEntitySpec{{
+	srcBaseEntities: []baseEntitySpec{{
 		id: "cs:~charmers/wordpress",
 		resources: map[string]string{
 			"foo:0": "foo:0 content",
@@ -350,7 +351,7 @@ var resolveWhitelistTests = []struct {
 		resources: "f",
 		chans:     "stable",
 	}},
-	srcResources: []baseEntitySpec{{
+	srcBaseEntities: []baseEntitySpec{{
 		id: "cs:~charmers/wordpress",
 		resources: map[string]string{
 			"w1:3": "w1:3 content",
@@ -437,7 +438,7 @@ func TestResolveWhitelist(t *testing.T) {
 		c.Run(test.testName, func(c *qt.C) {
 			ing := &ingester{
 				params: ingestParams{
-					src: newFakeCharmStore(test.src, test.srcResources),
+					src: newFakeCharmStore(test.src, test.srcBaseEntities),
 					log: testLogFunc(c),
 				},
 				limiter: newLimiter(10),
@@ -450,14 +451,15 @@ func TestResolveWhitelist(t *testing.T) {
 }
 
 var ingestTests = []struct {
-	testName       string
-	src            []entitySpec
-	srcResources   []baseEntitySpec
-	dest           []entitySpec
-	destResources  []baseEntitySpec
-	whitelist      []WhitelistEntity
-	expectStats    IngestStats
-	expectContents []entitySpec
+	testName                 string
+	src                      []entitySpec
+	srcBaseEntities          []baseEntitySpec
+	dest                     []entitySpec
+	destBaseEntities         []baseEntitySpec
+	whitelist                []WhitelistEntity
+	expectStats              IngestStats
+	expectContents           []entitySpec
+	expectBaseEntityContents []baseEntitySpec
 }{{
 	testName: "copy_one",
 	src: []entitySpec{{
@@ -481,6 +483,10 @@ var ingestTests = []struct {
 		chans:     "*stable",
 		content:   "some stuff",
 		extraInfo: `{"x":45,"y":"hello"}`,
+	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"stable everyone -"},
 	}},
 }, {
 	testName: "copy_one_already_exists",
@@ -508,6 +514,10 @@ var ingestTests = []struct {
 		chans:   "*stable",
 		content: "some stuff",
 	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"stable everyone -"},
+	}},
 }, {
 	testName: "copy_one_already_exists_with_different_published",
 	src: []entitySpec{{
@@ -533,6 +543,10 @@ var ingestTests = []struct {
 		id:      "cs:~charmers/wordpress-4",
 		chans:   "*stable",
 		content: "some stuff",
+	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"stable everyone -"},
 	}},
 }, {
 	testName: "copy_one_already_exists_with_different_extra_info",
@@ -563,6 +577,10 @@ var ingestTests = []struct {
 		content:   "some stuff",
 		extraInfo: `{"x":45,"y":"hello"}`,
 	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"stable everyone -"},
+	}},
 }, {
 	testName: "copy_with_resources",
 	src: []entitySpec{{
@@ -571,7 +589,7 @@ var ingestTests = []struct {
 		content:   "some stuff",
 		resources: "foo bar",
 	}},
-	srcResources: []baseEntitySpec{{
+	srcBaseEntities: []baseEntitySpec{{
 		id: "cs:~charmers/wordpress",
 		resources: map[string]string{
 			"foo:0": "foo:0 content",
@@ -598,6 +616,15 @@ var ingestTests = []struct {
 		id:      "cs:~charmers/wordpress-4",
 		chans:   "*stable",
 		content: "some stuff",
+	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"stable everyone -"},
+		resources: map[string]string{
+			"bar:2": "bar:2 content",
+			"foo:0": "foo:0 content",
+		},
+		published: "stable,bar:2,foo:0",
 	}},
 }, {
 	testName: "copy_several",
@@ -658,6 +685,13 @@ var ingestTests = []struct {
 		chans:         "*beta *edge",
 		content:       "wordpress content 4",
 	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"beta everyone -", "edge everyone -", "stable everyone -"},
+	}, {
+		id:    "cs:~bob/foo",
+		perms: []string{"stable everyone -"},
+	}},
 }, {
 	testName: "bundle",
 	src: []entitySpec{{
@@ -700,6 +734,16 @@ var ingestTests = []struct {
 		chans:         "*stable",
 		content:       "wordpress content",
 	}},
+	expectBaseEntityContents: []baseEntitySpec{{
+		id:    "cs:~charmers/wordpress",
+		perms: []string{"stable everyone -"},
+	}, {
+		id:    "cs:~charmers/wordpressbundle",
+		perms: []string{"stable everyone -"},
+	}, {
+		id:    "cs:~bob/foo",
+		perms: []string{"stable everyone -"},
+	}},
 }}
 
 func TestIngest(t *testing.T) {
@@ -707,8 +751,8 @@ func TestIngest(t *testing.T) {
 	for _, test := range ingestTests {
 		test := test
 		c.Run(test.testName, func(c *qt.C) {
-			srcStore := newFakeCharmStore(test.src, test.srcResources)
-			destStore := newFakeCharmStore(test.dest, test.destResources)
+			srcStore := newFakeCharmStore(test.src, test.srcBaseEntities)
+			destStore := newFakeCharmStore(test.dest, test.destBaseEntities)
 			stats := ingest(ingestParams{
 				src:       srcStore,
 				dest:      destStore,
@@ -719,6 +763,7 @@ func TestIngest(t *testing.T) {
 			})
 			c.Check(stats, qt.DeepEquals, test.expectStats)
 			c.Check(destStore.entityContents(), deepEquals, test.expectContents)
+			c.Check(destStore.baseEntityContents(), deepEquals, test.expectBaseEntityContents)
 
 			// Try again; we should transfer nothing and the contents should
 			// remain the same.
@@ -731,6 +776,7 @@ func TestIngest(t *testing.T) {
 			expectStats.ArchivesCopiedCount = 0
 			c.Check(stats, qt.DeepEquals, expectStats)
 			c.Check(destStore.entityContents(), deepEquals, test.expectContents)
+			c.Check(destStore.baseEntityContents(), deepEquals, test.expectBaseEntityContents)
 		})
 	}
 }

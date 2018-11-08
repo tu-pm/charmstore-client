@@ -104,7 +104,10 @@ func (cs charmstoreShim) getBaseEntity(id *charm.URL) (*baseEntityInfo, error) {
 }
 
 func (cs charmstoreShim) setPerm(id *charm.URL, ch params.Channel, perm permission) error {
-	if err := cs.WithChannel(ch).Put("/"+id.Path()+"/meta/perm", perm); err != nil {
+	if err := cs.WithChannel(ch).Put("/"+id.Path()+"/meta/perm", params.PermRequest{
+		Read:  perm.read,
+		Write: perm.write,
+	}); err != nil {
 		return errgo.Mask(err)
 	}
 	return nil

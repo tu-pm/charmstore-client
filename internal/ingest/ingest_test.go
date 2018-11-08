@@ -13,10 +13,10 @@ func TestIngestWithRealCharmstore(t *testing.T) {
 		c.Run(test.testName, func(c *qt.C) {
 			c.Parallel()
 			srcStore := newTestCharmstore(c)
-			srcStore.addEntities(c, test.src, test.srcResources)
+			srcStore.addEntities(c, test.src, test.srcBaseEntities)
 
 			destStore := newTestCharmstore(c)
-			destStore.addEntities(c, test.dest, test.destResources)
+			destStore.addEntities(c, test.dest, test.destBaseEntities)
 
 			stats := Ingest(IngestParams{
 				Src:       srcStore.client,
@@ -25,7 +25,7 @@ func TestIngestWithRealCharmstore(t *testing.T) {
 				Log:       testLogFunc(c),
 			})
 			c.Check(stats, qt.DeepEquals, test.expectStats)
-			destStore.assertContents(c, test.expectContents)
+			destStore.assertContents(c, test.expectContents, test.expectBaseEntityContents)
 
 			// Try again; we should transfer nothing and the contents should
 			// remain the same.
@@ -37,7 +37,7 @@ func TestIngestWithRealCharmstore(t *testing.T) {
 			expectStats := test.expectStats
 			expectStats.ArchivesCopiedCount = 0
 			c.Check(stats, qt.DeepEquals, expectStats)
-			destStore.assertContents(c, test.expectContents)
+			destStore.assertContents(c, test.expectContents, test.expectBaseEntityContents)
 		})
 	}
 }

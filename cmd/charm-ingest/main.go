@@ -63,6 +63,9 @@ func main() {
 		gnuflag.Usage()
 	}
 
+	if auth.username == "" {
+		fatalf("required -auth flag is missing")
+	}
 	fileName := gnuflag.Arg(0)
 	destURL := gnuflag.Arg(1)
 
@@ -84,7 +87,14 @@ func main() {
 
 	bakeryClient := httpbakery.NewClient()
 	bakeryClient.Jar = jar
-	bakeryClient.AddInteractor(httpbakery.WebBrowserInteractor{})
+
+	// Note: we could add a web browser interactor to the bakery
+	// client but we don't really want that, because:
+	// a) ingesting to a destination charmstore won't work properly unless you're admin,
+	// which can only be done with basic auth.
+	// b) we're probably only wanting to transfer public charms, because
+	// the charms are made public in the destination charmstore, so
+	// we'll want to fail for private charms.
 
 	p := ingest.IngestParams{
 		Src:           newCharmStoreClient(sourceURL(), bakeryClient, nil),

@@ -113,7 +113,7 @@ func (cs *testCharmstore) addEntities(c *qt.C, entities []entitySpec, baseEntiti
 	}
 }
 
-func (cs0 *testCharmstore) assertContents(c *qt.C, entities []entitySpec) {
+func (cs0 *testCharmstore) assertContents(c *qt.C, entities []entitySpec, baseEntities []baseEntitySpec) {
 	cs := charmstoreShim{cs0.client}
 	specs := make([]entitySpec, len(entities))
 	for i, e := range entities {
@@ -124,6 +124,25 @@ func (cs0 *testCharmstore) assertContents(c *qt.C, entities []entitySpec) {
 		specs[i].content = specContent(c, cs0.client, info)
 	}
 	c.Assert(specs, deepEquals, entities)
+
+	// Make a copy of baseEntities with the resource-related
+	// fields removed, because they're a bit awkward to
+	// get out of the real charm store.
+	baseEntities1 := make([]baseEntitySpec, len(baseEntities))
+	copy(baseEntities1, baseEntities)
+	for i := range baseEntities1 {
+		e := &baseEntities1[i]
+		e.resources = nil
+		e.published = ""
+	}
+	baseSpecs := make([]baseEntitySpec, len(baseEntities))
+	for i, e := range baseEntities1 {
+		id := charm.MustParseURL(e.id)
+		info, err := cs.getBaseEntity(id)
+		c.Assert(err, qt.Equals, nil, qt.Commentf("cannot get base info on %v: %v", e.id, err))
+		baseSpecs[i] = baseEntityInfoToSpec(id, info)
+	}
+	c.Assert(baseSpecs, deepEquals, baseEntities1)
 }
 
 func (cs *testCharmstore) addEntity(c *qt.C, spec entitySpec) {
