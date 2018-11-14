@@ -59,7 +59,7 @@ gopkg.in/check.v1	git	788fd78401277ebd861206a03c884797c6ec5541	2018-06-28T17:31:
 gopkg.in/errgo.v1	git	b20caedf0710d0988e92b5f2d76843ad1f231f2d	2018-08-18T17:50:15Z
 gopkg.in/goose.v2	git	c6b4881f832a0e573afec9b7b115d913954b3448	2018-08-14T19:10:12Z
 gopkg.in/httprequest.v1	git	7d6c4413c5fe1b6d1fee366252d42bc8bae66420	2018-03-19T13:12:14Z
-gopkg.in/juju/charm.v6	git	abaa717bc6ed4f694281737cb01f32f7de7ea357	2018-08-03T03:00:15Z
+gopkg.in/juju/charm.v6	git	3469d139dfb3c189a92bebb42f7075fac4bba707	2018-11-07T03:25:05Z
 gopkg.in/juju/charm.v6-unstable	git	514bb811b021ebeb3e7ffcf1c267e9803968f59d	2017-07-28T19:41:00Z
 gopkg.in/juju/charmrepo.v2-unstable	git	e79aa298df89ea887c9bffec46063c24bfb730f7	2016-11-17T15:25:28Z
 gopkg.in/juju/charmrepo.v3	git	637712781b6d0705e719fce562a282d3a162f615	2018-09-05T14:52:33Z
