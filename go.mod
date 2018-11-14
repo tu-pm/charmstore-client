@@ -123,7 +123,7 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.38.1 // indirect
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d // indirect
-	gopkg.in/juju/charm.v6 v6.0.0-20180803030015-abaa717bc6ed
+	gopkg.in/juju/charm.v6 v6.0.0-20181107032505-3469d139dfb3
 	gopkg.in/juju/charm.v6-unstable v6.0.0-20170728194100-514bb811b021 // indirect
 	gopkg.in/juju/charmrepo.v2 v2.0.0-20180628053430-0252517febee // indirect
 	gopkg.in/juju/charmrepo.v2-unstable v2.0.0-20161117152528-e79aa298df89 // indirect
