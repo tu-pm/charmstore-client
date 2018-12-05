@@ -45,7 +45,6 @@ require (
 	github.com/joyent/gosign v0.0.0-20161114191744-9abcee278795 // indirect
 	github.com/json-iterator/go v0.0.0-20180806060727-1624edc4454b // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
-	github.com/juju/ansiterm v0.0.0-20160907234532-b99631de12cf // indirect
 	github.com/juju/bundlechanges v0.0.0-20180718043943-bc5b7e5db166 // indirect
 	github.com/juju/cmd v0.0.0-20180518100108-c766ef3f2a82
 	github.com/juju/description v0.0.0-20180530031750-25349c35a6b1 // indirect
@@ -80,13 +79,10 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161021065934-cf70aae60f5b // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20180223064246-8204d40bbcd7 // indirect
-	github.com/lunixbochs/vtclean v0.0.0-20160125035106-4fbf7632a2c6 // indirect
 	github.com/lxc/lxd v0.0.0-20180820201306-caf879a891bf // indirect
 	github.com/marstr/guid v1.1.0 // indirect
 	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
 	github.com/masterzen/winrm v0.0.0-20180702085143-58761a495ca4 // indirect
-	github.com/mattn/go-colorable v0.0.6 // indirect
-	github.com/mattn/go-isatty v0.0.0-20160806122752-66b8e73f3f5c // indirect
 	github.com/mattn/go-runewidth v0.0.0-20151118072159-d96d1bd051f2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180718012357-94122c33edd3 // indirect
@@ -127,7 +123,7 @@ require (
 	gopkg.in/juju/charm.v6-unstable v6.0.0-20170728194100-514bb811b021 // indirect
 	gopkg.in/juju/charmrepo.v2 v2.0.0-20180628053430-0252517febee // indirect
 	gopkg.in/juju/charmrepo.v2-unstable v2.0.0-20161117152528-e79aa298df89 // indirect
-	gopkg.in/juju/charmrepo.v4 v4.1.0
+	gopkg.in/juju/charmrepo.v4 v4.1.1
 	gopkg.in/juju/charmstore.v5 v5.6.4
 	gopkg.in/juju/charmstore.v5-unstable v5.0.0-20180220120900-925d3c2cb8b8 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.0-20151104115810-7359fc7857ab
