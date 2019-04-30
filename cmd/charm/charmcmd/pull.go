@@ -109,6 +109,7 @@ func (c *pullCommand) Run(ctxt *cmd.Context) error {
 		return errgo.Notef(err, "cannot make temporary file")
 	}
 	defer f.Close()
+	defer os.Remove(f.Name())
 	hash := sha512.New384()
 	_, err = io.Copy(io.MultiWriter(hash, f), r)
 	if err != nil {
