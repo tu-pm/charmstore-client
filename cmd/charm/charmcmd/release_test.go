@@ -43,6 +43,10 @@ var releaseInitErrorTests = []struct {
 	args:  []string{"invalid:entity"},
 	err:   `invalid charm or bundle id: cannot parse URL "invalid:entity": schema "invalid" not valid`,
 }, {
+	about: "no charm user",
+	args:  []string{"wordpress"},
+	err:   `charm user needs to be specified`,
+}, {
 	about: "too many args",
 	args:  []string{"wordpress", "foo"},
 	err:   "too many arguments",

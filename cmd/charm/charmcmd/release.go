@@ -86,6 +86,9 @@ func (c *releaseCommand) Init(args []string) error {
 	if err != nil {
 		return errgo.Notef(err, "invalid charm or bundle id")
 	}
+	if id.User == "" {
+		return errgo.Newf("charm user needs to be specified")
+	}
 	if id.Revision == -1 {
 		return errgo.Newf("charm revision needs to be specified")
 	}
