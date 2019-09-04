@@ -85,7 +85,7 @@ func (s *releaseSuite) TestRunNoSuchCharm(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	stdout, stderr, code := run(c.Mkdir(), "release", "~bob/no-such-entity-55", "--channel", "stable")
 	c.Assert(stdout, qt.Equals, "")
-	c.Assert(stderr, qt.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
+	c.Assert(stderr, qt.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:~bob/no-such-entity-55\n")
 	c.Assert(code, qt.Equals, 1)
 }
 
