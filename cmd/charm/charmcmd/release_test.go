@@ -48,23 +48,23 @@ var releaseInitErrorTests = []struct {
 	err:   `charm user needs to be specified`,
 }, {
 	about: "too many args",
-	args:  []string{"wordpress", "foo"},
+	args:  []string{"~bob/wordpress", "foo"},
 	err:   "too many arguments",
 }, {
 	about: "no resource",
-	args:  []string{"wily/wordpress", "--resource"},
+	args:  []string{"~bob/wily/wordpress", "--resource"},
 	err:   "flag needs an argument: --resource",
 }, {
 	about: "no revision",
-	args:  []string{"wily/wordpress", "--resource", "foo"},
+	args:  []string{"~bob/wily/wordpress", "--resource", "foo"},
 	err:   `invalid value "foo" for flag --resource: expected name-revision format`,
 }, {
 	about: "no resource name",
-	args:  []string{"wily/wordpress", "--resource", "-3"},
+	args:  []string{"~bob/wily/wordpress", "--resource", "-3"},
 	err:   `invalid value "-3" for flag --resource: expected name-revision format`,
 }, {
 	about: "bad revision number",
-	args:  []string{"wily/wordpress", "--resource", "someresource-bad"},
+	args:  []string{"~bob/wily/wordpress", "--resource", "someresource-bad"},
 	err:   `invalid value "someresource-bad" for flag --resource: invalid revision number`,
 }}
 
@@ -83,7 +83,7 @@ func (s *releaseSuite) TestInitError(c *qt.C) {
 
 func (s *releaseSuite) TestRunNoSuchCharm(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
-	stdout, stderr, code := run(c.Mkdir(), "release", "no-such-entity-55", "--channel", "stable")
+	stdout, stderr, code := run(c.Mkdir(), "release", "~bob/no-such-entity-55", "--channel", "stable")
 	c.Assert(stdout, qt.Equals, "")
 	c.Assert(stderr, qt.Matches, "ERROR cannot release charm or bundle: no matching charm or bundle for cs:no-such-entity-55\n")
 	c.Assert(code, qt.Equals, 1)
