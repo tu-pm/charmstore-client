@@ -67,8 +67,7 @@ func (c *whoamiCommand) Run(ctxt *cmd.Context) error {
 	}
 	storeurl.Path = strings.TrimSuffix(storeurl.Path, "/") + "/"
 	if len(client.jar.Cookies(storeurl)) == 0 {
-		fmt.Fprintf(ctxt.Stdout, "not logged into %v\n", csurl)
-		return nil
+		return errgo.Notef(err, "not logged into %v", csurl)
 	}
 	resp, err := client.WhoAmI()
 	if err != nil {

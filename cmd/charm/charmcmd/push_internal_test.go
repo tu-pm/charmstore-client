@@ -309,7 +309,8 @@ Use --include-merged or -n0 to see merged revisions.
 
 func TestParseLogOutput(t *testing.T) {
 	c := qt.New(t)
-	defer c.Cleanup()
+	defer c.Done()
+
 	for _, test := range parseLogOutputTests {
 		c.Run(test.about, func(c *qt.C) {
 			var parse func(output string) ([]vcsRevision, error)
@@ -332,7 +333,8 @@ func TestParseLogOutput(t *testing.T) {
 
 func TestVCSRevisionJSONMarshal(t *testing.T) {
 	c := qt.New(t)
-	defer c.Cleanup()
+	defer c.Done()
+
 	rev := vcsRevision{
 		Authors: []vcsAuthor{{
 			Email: "marco@ceppi.net",
@@ -392,7 +394,8 @@ func assertEqualRevisions(c *qt.C, got, want []vcsRevision) {
 
 func TestUpdateExtraInfoGit(t *testing.T) {
 	c := qt.New(t)
-	defer c.Cleanup()
+	defer c.Done()
+
 	tempDir := c.Mkdir()
 	git(c, tempDir, "init")
 
@@ -412,7 +415,8 @@ func TestUpdateExtraInfoGit(t *testing.T) {
 
 func TestUpdateExtraInfoHg(t *testing.T) {
 	c := qt.New(t)
-	defer c.Cleanup()
+	defer c.Done()
+
 	tempDir := c.Mkdir()
 	hg(c, tempDir, "init")
 
@@ -430,7 +434,8 @@ func TestUpdateExtraInfoHg(t *testing.T) {
 
 func TestUpdateExtraInfoBzr(t *testing.T) {
 	c := qt.New(t)
-	defer c.Cleanup()
+	defer c.Done()
+
 	tempDir := c.Mkdir()
 	bzr(c, tempDir, "init")
 

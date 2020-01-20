@@ -29,9 +29,9 @@ func (s *whoamiSuite) Init(c *qt.C) {
 
 func (s *whoamiSuite) TestNotLoggedIn(c *qt.C) {
 	stdout, stderr, exitCode := run(c.Mkdir(), "whoami")
-	c.Assert(stderr, qt.Equals, "")
-	c.Assert(exitCode, qt.Equals, 0)
-	c.Assert(stdout, qt.Matches, "not logged into "+charmcmd.ServerURL()+"\n")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(exitCode, qt.Equals, 1)
+	c.Assert(stderr, qt.Equals, "ERROR not logged into "+charmcmd.ServerURL()+"\n")
 }
 
 func (s *whoamiSuite) TestLoggedIn(c *qt.C) {
@@ -99,9 +99,10 @@ func (s *whoamiSuite) TestBadCookieFile(c *qt.C) {
 
 func (s *whoamiSuite) TestNoCookieFile(c *qt.C) {
 	stdout, stderr, exitCode := run(c.Mkdir(), "whoami")
-	c.Assert(stdout, qt.Equals, "not logged into "+charmcmd.ServerURL()+"\n")
-	c.Assert(exitCode, qt.Equals, 0)
-	c.Assert(stderr, qt.Equals, "")
+	c.Assert(stdout, qt.Equals, "")
+	c.Assert(exitCode, qt.Equals, 1)
+	c.Assert(stderr, qt.Equals, "ERROR not logged into "+charmcmd.ServerURL()+"\n")
+
 }
 
 func (s *whoamiSuite) login(c *qt.C, username string, groups ...string) {
