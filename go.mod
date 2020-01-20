@@ -45,6 +45,7 @@ require (
 	github.com/joyent/gosign v0.0.0-20161114191744-9abcee278795 // indirect
 	github.com/json-iterator/go v0.0.0-20180806060727-1624edc4454b // indirect
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
+	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a // indirect
 	github.com/juju/bundlechanges v0.0.0-20180718043943-bc5b7e5db166 // indirect
 	github.com/juju/cmd v0.0.0-20180518100108-c766ef3f2a82
 	github.com/juju/description v0.0.0-20180530031750-25349c35a6b1 // indirect
@@ -79,10 +80,13 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161021065934-cf70aae60f5b // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20180223064246-8204d40bbcd7 // indirect
+	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/lxc/lxd v0.0.0-20180820201306-caf879a891bf // indirect
 	github.com/marstr/guid v1.1.0 // indirect
 	github.com/masterzen/simplexml v0.0.0-20160608183007-4572e39b1ab9 // indirect
 	github.com/masterzen/winrm v0.0.0-20180702085143-58761a495ca4 // indirect
+	github.com/mattn/go-colorable v0.1.4 // indirect
+	github.com/mattn/go-isatty v0.0.11 // indirect
 	github.com/mattn/go-runewidth v0.0.0-20151118072159-d96d1bd051f2 // indirect
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
 	github.com/modern-go/reflect2 v0.0.0-20180718012357-94122c33edd3 // indirect
@@ -105,7 +109,6 @@ require (
 	golang.org/x/net v0.0.0-20180724234803-3673e40ba225
 	golang.org/x/oauth2 v0.0.0-20180820191322-f720f1faee02 // indirect
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
-	golang.org/x/sys v0.0.0-20180202135801-37707fdb30a5 // indirect
 	golang.org/x/text v0.3.0 // indirect
 	golang.org/x/time v0.0.0-20180412165947-fbb02b2291d2 // indirect
 	google.golang.org/api v0.0.0-20180818000503-e21acd801f91 // indirect
@@ -144,3 +147,5 @@ require (
 	k8s.io/apimachinery v0.0.0-20180821071423-9dbc9b6e0d60 // indirect
 	k8s.io/client-go v8.0.0+incompatible // indirect
 )
+
+go 1.13
