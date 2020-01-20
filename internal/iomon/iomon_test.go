@@ -11,7 +11,7 @@ import (
 	"time"
 
 	qt "github.com/frankban/quicktest"
-	jujutesting "github.com/juju/testing"
+	"github.com/juju/clock/testclock"
 
 	"github.com/juju/charmstore-client/internal/iomon"
 )
@@ -20,7 +20,7 @@ func TestMonitor(t *testing.T) {
 	c := qt.New(t)
 	setterCh := make(statusSetter)
 	t0 := time.Now()
-	clock := jujutesting.NewClock(t0)
+	clock := testclock.NewClock(t0)
 	m := iomon.New(iomon.Params{
 		Size:           1000,
 		Setter:         setterCh,
