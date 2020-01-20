@@ -94,10 +94,10 @@ func TestChannelString(t *testing.T) {
 
 func TestChannelDevelopmentDeprecated(t *testing.T) {
 	c := qt.New(t)
-	defer c.Cleanup()
+	defer c.Done()
 	w := &testWriter{}
 	loggo.RegisterWriter("test", w)
-	c.AddCleanup(loggo.ResetWriters)
+	c.Defer(loggo.ResetWriters)
 
 	ch := parseChannel(c, "development")
 	c.Assert(ch, qt.Equals, params.EdgeChannel)

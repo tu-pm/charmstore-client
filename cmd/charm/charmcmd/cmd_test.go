@@ -61,7 +61,7 @@ func run(dir string, args ...string) (stdout, stderr string, exitCode int) {
 func fakeHome(c *qt.C) {
 	oldHome := utils.Home()
 	utils.SetHome(c.Mkdir())
-	c.AddCleanup(func() {
+	c.Defer(func() {
 		utils.SetHome(oldHome)
 	})
 	err := os.MkdirAll(osenv.JujuXDGDataHomeDir(), 0755)
@@ -100,18 +100,18 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 		c.Skip(err)
 	}
 	c.Assert(err, qt.Equals, nil)
-	c.AddCleanup(func() {
+	c.Defer(func() {
 		env.database.Close()
 	})
 	env.dockerHandler = newDockerHandler()
 	env.dockerSrv = httptest.NewServer(env.dockerHandler)
-	c.AddCleanup(env.dockerSrv.Close)
+	c.Defer(env.dockerSrv.Close)
 	env.dockerAuthHandler = newDockerAuthHandler()
 	env.dockerAuthServer = httptest.NewServer(env.dockerAuthHandler)
-	c.AddCleanup(env.dockerAuthServer.Close)
+	c.Defer(env.dockerAuthServer.Close)
 	env.dockerRegistryHandler = newDockerRegistryHandler(env.dockerAuthServer.URL)
 	env.dockerRegistry = httptest.NewTLSServer(env.dockerRegistryHandler)
-	c.AddCleanup(env.dockerRegistry.Close)
+	c.Defer(env.dockerRegistry.Close)
 
 	dockerURL, err := url.Parse(env.dockerSrv.URL)
 	c.Assert(err, qt.Equals, nil)
@@ -120,7 +120,7 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 	c.Setenv("DOCKER_HOST", env.dockerSrv.URL)
 
 	env.discharger = idmtest.NewServer()
-	c.AddCleanup(env.discharger.Close)
+	c.Defer(env.discharger.Close)
 	env.discharger.AddUser("charmstoreuser")
 	env.serverParams = charmstore.ServerParams{
 		AuthUsername:          "test-user",
@@ -135,9 +135,9 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 	}
 	env.handler, err = charmstore.NewServer(env.database.Database, nil, "", env.serverParams, charmstore.V5)
 	c.Assert(err, qt.Equals, nil)
-	c.AddCleanup(env.handler.Close)
+	c.Defer(env.handler.Close)
 	env.srv = httptest.NewServer(env.handler)
-	c.AddCleanup(env.srv.Close)
+	c.Defer(env.srv.Close)
 	env.client = csclient.New(csclient.Params{
 		URL:      env.srv.URL,
 		User:     env.serverParams.AuthUsername,

@@ -20,14 +20,14 @@ require (
 	github.com/docker/go-units v0.3.3 // indirect
 	github.com/docker/libtrust v0.0.0-20160708172513-aabc10ec26b7 // indirect
 	github.com/dustin/go-humanize v0.0.0-20180713052910-9f541cc9db5d // indirect
-	github.com/frankban/quicktest v1.1.0
+	github.com/frankban/quicktest v1.7.2
 	github.com/fsnotify/fsnotify v1.4.7 // indirect
 	github.com/ghodss/yaml v1.0.0 // indirect
 	github.com/godbus/dbus v4.1.0+incompatible // indirect
 	github.com/gogo/protobuf v1.1.1 // indirect
 	github.com/golang/glog v0.0.0-20160126235308-23def4e6c14b // indirect
 	github.com/golang/mock v1.1.1 // indirect
-	github.com/google/go-cmp v0.2.1-0.20180328201512-5411ab924f9f
+	github.com/google/go-cmp v0.3.1
 	github.com/google/go-querystring v0.0.0-20170111101155-53e6ce116135 // indirect
 	github.com/google/gofuzz v0.0.0-20170612174753-24818f796faf // indirect
 	github.com/gopherjs/gopherjs v0.0.0-20180820052304-89baedc74dd7 // indirect
@@ -115,7 +115,7 @@ require (
 	google.golang.org/appengine v1.1.0 // indirect
 	gopkg.in/airbrake/gobrake.v2 v2.0.9 // indirect
 	gopkg.in/amz.v3 v3.0.0-20161215130849-8c3190dff075 // indirect
-	gopkg.in/errgo.v1 v1.0.0
+	gopkg.in/errgo.v1 v1.0.1
 	gopkg.in/fsnotify.v1 v1.4.7 // indirect
 	gopkg.in/gemnasium/logrus-airbrake-hook.v2 v2.1.2 // indirect
 	gopkg.in/httprequest.v1 v1.0.0-20180319131214-7d6c4413c5fe // indirect
@@ -141,7 +141,7 @@ require (
 	gopkg.in/macaroon.v2 v2.0.0
 	gopkg.in/natefinch/npipe.v2 v2.0.0-20160621034901-c1b8fa8bdcce // indirect
 	gopkg.in/tomb.v2 v2.0.0-20161208151619-d5d1b5820637
-	gopkg.in/yaml.v2 v2.2.1
+	gopkg.in/yaml.v2 v2.2.7
 	gotest.tools v2.1.0+incompatible // indirect
 	k8s.io/api v0.0.0-20180817212534-2315b41a07e8 // indirect
 	k8s.io/apimachinery v0.0.0-20180821071423-9dbc9b6e0d60 // indirect
