@@ -9,6 +9,7 @@ github.com/golang/protobuf	git	925541529c1fa6821df4e44ce2723319eb2be768	2018-01-
 github.com/google/go-cmp	git	5411ab924f9ffa6566244a9e504bc347edacffd3	2018-03-28T20:15:12Z
 github.com/gosuri/uitable	git	36ee7e946282a3fb1cfecd476ddc9b35d8847e42	2016-04-04T20:39:58Z
 github.com/juju/ansiterm	git	b99631de12cf04a906c1d4e4ec54fb86eae5863d	2016-09-07T23:45:32Z
+github.com/juju/clock	git	d293bb356ca441f16b59562295cca74478966757	2018-05-24T02:22:03Z
 github.com/juju/cmd	git	c766ef3f2a8296463b28a65e2ef388447efe212c	2018-05-18T10:01:08Z
 github.com/juju/collections	git	90152009b5f349bb218a9bf4a6034dd8437c031b	2018-05-16T02:26:42Z
 github.com/juju/errors	git	812b06ada1776ad4dd95d575e18ffffe3a9ac34a	2018-07-26T00:54:33Z

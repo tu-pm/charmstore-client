@@ -40,6 +40,11 @@ func (b *Bundle) ReadMe() string {
 	return b.readMe
 }
 
+// ContainsOverlays implements charm.Bundle.ContainsOverlays.
+func (b *Bundle) ContainsOverlays() bool {
+	return false
+}
+
 // NewBundle returns a bundle implementation
 // that contains the given bundle data.
 func NewBundle(data *charm.BundleData) *Bundle {

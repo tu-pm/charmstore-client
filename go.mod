@@ -11,6 +11,7 @@ require (
 	github.com/Nvveen/Gotty v0.0.0-20120604004816-cd527374f1e5 // indirect
 	github.com/altoros/gosigma v0.0.0-20150408145232-31228935eec6 // indirect
 	github.com/bmizerany/pat v0.0.0-20170815010413-6226ea591a40 // indirect
+	github.com/cloud-green/monitoring v0.0.0-20171127132220-666e3beca3cb // indirect
 	github.com/coreos/go-systemd v0.0.0-20180705093442-88bfeed483d3 // indirect
 	github.com/dnaeon/go-vcr v0.0.0-20180814043457-aafff18a5cc2 // indirect
 	github.com/docker/distribution v0.0.0-20180522175653-f0cc92778478
@@ -47,6 +48,8 @@ require (
 	github.com/jtolds/gls v4.2.1+incompatible // indirect
 	github.com/juju/ansiterm v0.0.0-20180109212912-720a0952cc2a // indirect
 	github.com/juju/bundlechanges v0.0.0-20180718043943-bc5b7e5db166 // indirect
+	github.com/juju/charmstore v0.0.0-20140730122416-f46f7d8ba959 // indirect
+	github.com/juju/clock v0.0.0-20180808021310-bab88fc67299
 	github.com/juju/cmd v0.0.0-20180518100108-c766ef3f2a82
 	github.com/juju/description v0.0.0-20180530031750-25349c35a6b1 // indirect
 	github.com/juju/gnuflag v0.0.0-20171113085948-2ce1bb71843d
@@ -70,7 +73,6 @@ require (
 	github.com/juju/rfc v0.0.0-20180510112117-b058ad085c94 // indirect
 	github.com/juju/romulus v0.0.0-20180724155144-958d8b71e5ff // indirect
 	github.com/juju/terms-client v0.0.0-20171204175331-68c3a74aeab3
-	github.com/juju/testing v0.0.0-20180517134105-72703b1e95eb
 	github.com/juju/txn v0.0.0-20180820125751-43be63df1fb6 // indirect
 	github.com/juju/usso v0.0.0-20160418121039-5b79b358f4bb
 	github.com/juju/utils v0.0.0-20180619112806-c746c6e86f4f
@@ -80,6 +82,7 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161021065934-cf70aae60f5b // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20180223064246-8204d40bbcd7 // indirect
+	github.com/lib/pq v0.0.0-20180822103908-55f6f2718ccb // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/lxc/lxd v0.0.0-20180820201306-caf879a891bf // indirect
 	github.com/marstr/guid v1.1.0 // indirect
@@ -106,7 +109,7 @@ require (
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v0.0.0-20180816142147-da425ebb7609 // indirect
 	golang.org/x/crypto v0.0.0-20180723164146-c126467f60eb
-	golang.org/x/net v0.0.0-20180724234803-3673e40ba225
+	golang.org/x/net v0.0.0-20181029044818-c44066c5c816
 	golang.org/x/oauth2 v0.0.0-20180820191322-f720f1faee02 // indirect
 	golang.org/x/sync v0.0.0-20180314180146-1d60e4601c6f
 	golang.org/x/text v0.3.0 // indirect
@@ -122,17 +125,17 @@ require (
 	gopkg.in/inf.v0 v0.9.1 // indirect
 	gopkg.in/ini.v1 v1.38.1 // indirect
 	gopkg.in/juju/blobstore.v2 v2.0.0-20160125023703-51fa6e26128d // indirect
-	gopkg.in/juju/charm.v6 v6.0.0-20181107032505-3469d139dfb3
+	gopkg.in/juju/charm.v2 v2.0.0-20140730145410-ffe7392a3c61 // indirect
+	gopkg.in/juju/charm.v6 v6.0.0-20190729113111-40ffcf7d10e5
 	gopkg.in/juju/charm.v6-unstable v6.0.0-20170728194100-514bb811b021 // indirect
 	gopkg.in/juju/charmrepo.v2 v2.0.0-20180628053430-0252517febee // indirect
 	gopkg.in/juju/charmrepo.v2-unstable v2.0.0-20161117152528-e79aa298df89 // indirect
-	gopkg.in/juju/charmrepo.v4 v4.1.1
-	gopkg.in/juju/charmstore.v5 v5.6.4
+	gopkg.in/juju/charmrepo.v4 v4.1.2
+	gopkg.in/juju/charmstore.v5 v5.7.1
 	gopkg.in/juju/charmstore.v5-unstable v5.0.0-20180220120900-925d3c2cb8b8 // indirect
 	gopkg.in/juju/environschema.v1 v1.0.0-20151104115810-7359fc7857ab
 	gopkg.in/juju/idmclient.v1 v1.0.0-20180320161856-203d20774ce8
 	gopkg.in/juju/jujusvg.v2 v2.0.0-20160609105215-d82160011935 // indirect
-	gopkg.in/juju/names.v2 v2.0.0-20180516010414-c43e8bdf2f49 // indirect
 	gopkg.in/juju/worker.v1 v1.0.0-20170308002458-6965b9d82671
 	gopkg.in/macaroon-bakery.v1 v1.0.0-20161115160213-b5d9ce5682b6 // indirect
 	gopkg.in/macaroon-bakery.v2 v2.0.0-20180423133735-a0743b6619d6
@@ -146,6 +149,8 @@ require (
 	k8s.io/api v0.0.0-20180817212534-2315b41a07e8 // indirect
 	k8s.io/apimachinery v0.0.0-20180821071423-9dbc9b6e0d60 // indirect
 	k8s.io/client-go v8.0.0+incompatible // indirect
+	launchpad.net/goyaml v0.0.0-20140305200416-000000000051 // indirect
+	launchpad.net/lpad v0.0.0-20131113112110-000000000065 // indirect
 )
 
 go 1.13

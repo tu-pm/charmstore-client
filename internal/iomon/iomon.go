@@ -7,7 +7,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/juju/utils/clock"
+	"github.com/juju/clock"
 	tomb "gopkg.in/tomb.v2"
 )
 
