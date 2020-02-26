@@ -195,6 +195,13 @@ var grantSuccessTests = []struct {
 	initWrite:     []string{"foo"},
 	expectedRead:  []string{"no-one"},
 	expectedWrite: []string{"dalek", "cyberman"},
+}, {
+	about:         "can grant to external names",
+	args:          []string{"user@domain"},
+	initRead:      []string{"no-one"},
+	initWrite:     []string{"foo"},
+	expectedRead:  []string{"no-one", "user@domain"},
+	expectedWrite: []string{"foo"},
 }}
 
 func (s *grantSuite) TestRunSuccess(c *qt.C) {
