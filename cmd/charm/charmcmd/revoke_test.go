@@ -139,6 +139,13 @@ var revokeSuccessTests = []struct {
 	args:          []string{"--acl=write", "bar"},
 	expectedRead:  []string{"foo", "bar"},
 	expectedWrite: []string{"foo"},
+}, {
+	about:         "can revoke from external names",
+	args:          []string{"user@domain"},
+	initRead:      []string{"no-one", "user@domain"},
+	initWrite:     []string{"foo"},
+	expectedRead:  []string{"no-one"},
+	expectedWrite: []string{"foo"},
 }}
 
 func (s *revokeSuite) TestRunSuccess(c *qt.C) {

@@ -212,7 +212,7 @@ func remove(s []string, r []string) []string {
 
 func validateNames(list []string) error {
 	for _, item := range list {
-		if !names.IsValidUserName(item) {
+		if !names.IsValidUser(item) {
 			return errgo.Newf("invalid name '%q'", item)
 		}
 	}
