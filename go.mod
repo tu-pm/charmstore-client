@@ -7,7 +7,6 @@ require (
 	github.com/Azure/go-autorest/autorest/to v0.3.0 // indirect
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
 	github.com/Azure/go-ntlmssp v0.0.0-20180810175552-4a21cbd618b4 // indirect
-	github.com/CanonicalLtd/omniutils v0.0.0-20190211124129-eee3d329b4bc // indirect
 	github.com/ChrisTrenkamp/goxpath v0.0.0-20170922090931-c385f95c6022 // indirect
 	github.com/DataDog/datadog-go v3.2.0+incompatible // indirect
 	github.com/EvilSuperstars/go-cidrman v0.0.0-20190607145828-28e79e32899a // indirect
@@ -21,7 +20,7 @@ require (
 	github.com/cespare/xxhash/v2 v2.1.1 // indirect
 	github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible // indirect
 	github.com/circonus-labs/circonusllhist v0.1.3 // indirect
-	github.com/cloud-green/monitoring v0.0.0-20171127132220-666e3beca3cb // indirect
+	github.com/cloud-green/monitoring v0.0.0-20190128175558-b31a260dee4e // indirect
 	github.com/coreos/go-systemd v0.0.0-20190321100706-95778dfbb74e // indirect
 	github.com/coreos/pkg v0.0.0-20180928190104-399ea9e2e55f // indirect
 	github.com/dnaeon/go-vcr v0.0.0-20180814043457-aafff18a5cc2 // indirect
@@ -83,6 +82,7 @@ require (
 	github.com/juju/packaging v0.0.0-20180516203043-ba21344fff20 // indirect
 	github.com/juju/persistent-cookiejar v0.0.0-20170428161559-d67418f14c93
 	github.com/juju/plans-client v0.0.0-20171205165323-e9ac8ae4f906
+	github.com/juju/postgrestest v1.1.0 // indirect
 	github.com/juju/proxy v0.0.0-20180523025733-5f8741c297b4 // indirect
 	github.com/juju/pubsub v0.0.0-20180819205824-ad5dc02599e0 // indirect
 	github.com/juju/ratelimit v1.0.1 // indirect
@@ -94,6 +94,7 @@ require (
 	github.com/juju/txn v0.0.0-20190416045819-5f348e78887d // indirect
 	github.com/juju/usso v0.0.0-20160418121039-5b79b358f4bb
 	github.com/juju/utils v0.0.0-20180820210520-bf9cc5bdd62d
+	github.com/juju/zaputil v0.0.0-20190326175239-ef53049637ac // indirect
 	github.com/julienschmidt/httprouter v1.2.0 // indirect
 	github.com/lestrrat/go-jspointer v0.0.0-20180109105637-d5f7c71bfd03 // indirect
 	github.com/lestrrat/go-jsref v0.0.0-20170215062819-50df7b2d07d7 // indirect
@@ -101,7 +102,6 @@ require (
 	github.com/lestrrat/go-jsval v0.0.0-20161021065934-cf70aae60f5b // indirect
 	github.com/lestrrat/go-pdebug v0.0.0-20180220043741-569c97477ae8 // indirect
 	github.com/lestrrat/go-structinfo v0.0.0-20180223064246-8204d40bbcd7 // indirect
-	github.com/lib/pq v0.0.0-20180822103908-55f6f2718ccb // indirect
 	github.com/lunixbochs/vtclean v1.0.0 // indirect
 	github.com/lxc/lxd v0.0.0-20200225225949-571044654a6c // indirect
 	github.com/marstr/guid v1.1.0 // indirect
@@ -119,7 +119,6 @@ require (
 	github.com/oracle/oci-go-sdk v15.7.0+incompatible // indirect
 	github.com/pascaldekloe/goe v0.1.0 // indirect
 	github.com/peterbourgon/diskv v2.0.1+incompatible // indirect
-	github.com/pkg/errors v0.8.1 // indirect
 	github.com/prometheus/client_model v0.2.0 // indirect
 	github.com/prometheus/procfs v0.0.8 // indirect
 	github.com/satori/go.uuid v1.2.0 // indirect
@@ -131,6 +130,7 @@ require (
 	github.com/xeipuuv/gojsonpointer v0.0.0-20180127040702-4e3ac2762d5f // indirect
 	github.com/xeipuuv/gojsonreference v0.0.0-20180127040603-bd5ef7bd5415 // indirect
 	github.com/xeipuuv/gojsonschema v0.0.0-20180816142147-da425ebb7609 // indirect
+	go.uber.org/zap v1.14.0 // indirect
 	golang.org/x/crypto v0.0.0-20191206172530-e9b2fee46413
 	golang.org/x/net v0.0.0-20191209160850-c0dbc17a3553
 	golang.org/x/oauth2 v0.0.0-20190604053449-0f29369cfe45 // indirect
