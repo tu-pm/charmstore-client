@@ -102,10 +102,10 @@ func (s *pushSuite) TestUploadWithNonDirectoryCharm(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	dir := c.Mkdir()
 	path := entitytesting.Repo.CharmArchivePath(dir, "wordpress")
-	stdout, stderr, code := run(dir, "push", path, "~bob/trusty/wordpress")
-	c.Assert(stdout, qt.Equals, "")
-	c.Assert(stderr, qt.Matches, "ERROR open .*: not a directory\n")
-	c.Assert(code, qt.Equals, 1)
+	stdout, stderr, code := run(dir, "push", path, "~bob/trusty/archive")
+	c.Assert(stderr, qt.Matches, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/trusty/archive-0\nchannel: unpublished\n")
+	c.Assert(code, qt.Equals, 0)
 }
 
 func (s *pushSuite) TestUploadWithInvalidDirName(c *qt.C) {
@@ -139,7 +139,7 @@ func (s *pushSuite) TestUploadWithBadBundleNoReadme(c *qt.C) {
 	path := entitytesting.Repo.ClonedBundleDirPath(dir, "wordpress-simple")
 	err := os.Remove(filepath.Join(path, "README.md"))
 	c.Assert(err, qt.IsNil)
-	stdout, stderr, code := run(dir, "push", path, "~bob/simple")
+	stdout, stderr, code := run(dir, "push", path, "~bob/bundle/simple")
 	c.Assert(stdout, qt.Equals, "")
 	c.Assert(stderr, qt.Matches, "ERROR cannot read README file: open .*/wordpress-simple/README.md: no such file or directory\n")
 	c.Assert(code, qt.Equals, 1)
@@ -148,11 +148,23 @@ func (s *pushSuite) TestUploadWithBadBundleNoReadme(c *qt.C) {
 func (s *pushSuite) TestUploadWithNonDirectoryBundle(c *qt.C) {
 	s.discharger.SetDefaultUser("bob")
 	dir := c.Mkdir()
-	path := entitytesting.Repo.BundleArchivePath(dir, "wordpress-simple")
-	stdout, stderr, code := run(dir, "push", path, "~bob/trusty/wordpress")
-	c.Assert(stdout, qt.Equals, "")
-	c.Assert(stderr, qt.Matches, "ERROR open .*: not a directory\n")
-	c.Assert(code, qt.Equals, 1)
+	repo := entitytesting.Repo
+	path := repo.BundleArchivePath(dir, "wordpress-simple")
+
+	// Upload the charms contained in the bundle, so that the bundle upload
+	// succeeds.
+	url := charm.MustParseURL("~charmers/trusty/mysql-0")
+	s.uploadCharmDir(c, url, 0, repo.CharmDir("mysql"))
+	s.publish(c, url, params.StableChannel)
+	url = charm.MustParseURL("~charmers/trusty/wordpress-0")
+	s.uploadCharmDir(c, url, 0, repo.CharmDir("wordpress"))
+	s.publish(c, url, params.StableChannel)
+
+	// Run the command.
+	stdout, stderr, code := run(dir, "push", path, "~bob/bundle/archive")
+	c.Assert(stderr, qt.Equals, "")
+	c.Assert(stdout, qt.Equals, "url: cs:~bob/bundle/archive-0\nchannel: unpublished\n")
+	c.Assert(code, qt.Equals, 0)
 }
 
 func (s *pushSuite) TestUploadBundleFailure(c *qt.C) {

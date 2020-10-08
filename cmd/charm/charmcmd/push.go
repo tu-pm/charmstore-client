@@ -108,15 +108,15 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	defer client.jar.Save()
 
 	// Retrieve the source directory where the charm or bundle lives.
-	srcDir := ctxt.AbsPath(c.srcDir)
-	if _, err := os.Stat(srcDir); err != nil {
+	src := ctxt.AbsPath(c.srcDir)
+	if _, err := os.Stat(src); err != nil {
 		return errgo.Notef(err, "cannot access charm or bundle")
 	}
 
 	// Complete the charm or bundle URL by retrieving the source directory
 	// name and the current user if necessary.
 	if c.id == nil {
-		name := filepath.Base(srcDir)
+		name := filepath.Base(src)
 		c.id, err = charm.ParseURL(name)
 		if err != nil {
 			return errgo.Newf("cannot use %q as charm or bundle name, please specify a name explicitly", name)
@@ -130,22 +130,24 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 		c.id.User = resp.User
 	}
 
-	var ch *charm.CharmDir
-	var b *charm.BundleDir
+	var ch charm.Charm
+	var b charm.Bundle
 	// Find the entity we want to upload. If the series is
 	// specified in the id, we know the kind of entity we
 	// need to upload; otherwise we fall back to trying
 	// both kinds of entity.
 	switch {
 	case c.id.Series == "bundle":
-		b, err = charm.ReadBundleDir(srcDir)
+		b, err = charm.ReadBundle(src)
 	case c.id.Series != "":
-		ch, err = charm.ReadCharmDir(srcDir)
+		ch, err = charm.ReadCharm(src)
 	default:
-		if charm.IsCharmDir(srcDir) {
-			ch, err = charm.ReadCharmDir(srcDir)
-		} else {
-			b, err = charm.ReadBundleDir(srcDir)
+		ch, err = charm.ReadCharm(src)
+		if err != nil {
+			b, err = charm.ReadBundle(src)
+			if err != nil {
+				return errgo.Newf("cannot read %q as valid charm or bundle", c.srcDir)
+			}
 		}
 	}
 
@@ -177,7 +179,7 @@ func (c *pushCommand) Run(ctxt *cmd.Context) error {
 	fmt.Fprintln(ctxt.Stdout, "channel: unpublished")
 
 	// Update the new charm or bundle with VCS extra information.
-	if err := updateExtraInfo(c.id, srcDir, client); err != nil {
+	if err := updateExtraInfo(c.id, src, client); err != nil {
 		return errgo.Notef(err, "cannot add extra information")
 	}
 
