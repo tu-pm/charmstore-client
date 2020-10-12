@@ -10,9 +10,10 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
+	"github.com/juju/charm/v8/resource"
+	charmtesting "github.com/juju/charmrepo/v6/testing"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 func TestPullResource(t *testing.T) {

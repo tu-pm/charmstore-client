@@ -11,11 +11,11 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
-	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient/params"
+	charmtesting "github.com/juju/charmrepo/v6/testing"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -94,7 +94,7 @@ func (s *pushSuite) TestUploadWithBadCharm(c *qt.C) {
 	stdout, stderr, code := run(dir, "push", path, "~bob/trusty/wordpress")
 	c.Assert(stdout, qt.Equals, "")
 	//
-	c.Assert(stderr, qt.Matches, "ERROR open .*/wordpress/metadata.yaml: no such file or directory\n")
+	c.Assert(stderr, qt.Matches, "ERROR issue reading \"metadata.yaml\" file: open .*/wordpress/metadata.yaml: no such file or directory\n")
 	c.Assert(code, qt.Equals, 1)
 }
 

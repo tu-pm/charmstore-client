@@ -22,13 +22,14 @@ import (
 	dockertypes "github.com/docker/docker/api/types"
 	dockerclient "github.com/docker/docker/client"
 	"github.com/docker/docker/pkg/jsonmessage"
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"golang.org/x/crypto/ssh/terminal"
 	errgo "gopkg.in/errgo.v1"
-	charm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 const uploadIdCacheExpiryDuration = 48 * time.Hour

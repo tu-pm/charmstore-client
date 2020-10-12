@@ -4,7 +4,7 @@
 package entitytesting
 
 import (
-	"gopkg.in/juju/charmrepo.v4/testing"
+	"github.com/juju/charmrepo/v6/testing"
 )
 
 var Repo = testing.NewRepo("repo", "quantal")

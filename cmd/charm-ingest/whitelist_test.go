@@ -8,8 +8,8 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/charmstore-client/internal/ingest"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 var whiteListTests = []struct {

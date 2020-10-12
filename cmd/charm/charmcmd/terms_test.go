@@ -11,8 +11,8 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"gopkg.in/juju/charm.v6"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -34,7 +34,7 @@ func (s *termsSuite) TestInvalidServerURL(c *qt.C) {
 	stdout, stderr, exitCode := run(c.Mkdir(), "terms-used")
 	c.Assert(stdout, qt.Equals, "")
 	c.Assert(exitCode, qt.Equals, 1)
-	c.Assert(stderr, qt.Equals, "ERROR cannot retrieve identity: parse #%zz/v5/whoami: invalid URL escape \"%zz\"\n")
+	c.Assert(stderr, qt.Equals, "ERROR cannot retrieve identity: parse \"#%zz/v5/whoami\": invalid URL escape \"%zz\"\n")
 }
 
 func (s *termsSuite) TestTermsUserProvidedYAML(c *qt.C) {

@@ -8,19 +8,20 @@ import (
 	"net/http/httptest"
 	"sort"
 	"strings"
+	"time"
 
+	"github.com/canonical/candid/candidtest"
 	qt "github.com/frankban/quicktest"
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/mgotest"
 	"gopkg.in/errgo.v1"
-	charm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
-	"gopkg.in/juju/idmclient.v1/idmtest"
 	bakery2u "gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/charmtest"
 )
 
@@ -32,7 +33,7 @@ type testCharmstore struct {
 
 	client       *csclient.Client
 	serverParams charmstore.ServerParams
-	discharger   *idmtest.Server
+	discharger   *candidtest.Server
 }
 
 const minUploadPartSize = 100 * 1024
@@ -40,17 +41,24 @@ const minUploadPartSize = 100 * 1024
 func newTestCharmstore(c *qt.C) *testCharmstore {
 	var cs testCharmstore
 	var err error
-	cs.database, err = mgotest.New()
+	cs.database, err = mgotest.NewExclusive()
 	if errgo.Cause(err) == mgotest.ErrDisabled {
 		c.Skip(err)
 	}
 	c.Assert(err, qt.Equals, nil)
-	c.Defer(func() {
+	c.Cleanup(func() {
 		cs.database.Close()
 	})
+	cs.database.Session.SetSyncTimeout(10 * time.Second)
+	cs.database.Session.SetSocketTimeout(1 * time.Minute)
+	session := cs.database.Session.Copy()
+	c.Cleanup(func() {
+		session.Close()
+	})
+	db := cs.database.Database.With(session)
 
-	cs.discharger = idmtest.NewServer()
-	c.Defer(cs.discharger.Close)
+	cs.discharger = candidtest.NewServer()
+	c.Cleanup(cs.discharger.Close)
 	cs.discharger.AddUser("charmstoreuser")
 	cs.serverParams = charmstore.ServerParams{
 		AuthUsername:      "test-user",
@@ -62,11 +70,11 @@ func newTestCharmstore(c *qt.C) *testCharmstore {
 		MinUploadPartSize: minUploadPartSize,
 		NoIndexes:         true,
 	}
-	cs.handler, err = charmstore.NewServer(cs.database.Database, nil, "", cs.serverParams, charmstore.V5)
+	cs.handler, err = charmstore.NewServer(db, nil, "", cs.serverParams, charmstore.V5)
 	c.Assert(err, qt.Equals, nil)
-	c.Defer(cs.handler.Close)
+	c.Cleanup(cs.handler.Close)
 	cs.srv = httptest.NewServer(cs.handler)
-	c.Defer(cs.srv.Close)
+	c.Cleanup(cs.srv.Close)
 	cs.client = csclient.New(csclient.Params{
 		URL:      cs.srv.URL,
 		User:     cs.serverParams.AuthUsername,

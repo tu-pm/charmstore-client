@@ -10,7 +10,8 @@ import (
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 type attachCommand struct {

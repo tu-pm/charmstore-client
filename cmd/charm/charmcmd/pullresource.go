@@ -14,12 +14,13 @@ import (
 
 	"github.com/docker/distribution/reference"
 	dockertypes "github.com/docker/docker/api/types"
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 type pullResourceCommand struct {

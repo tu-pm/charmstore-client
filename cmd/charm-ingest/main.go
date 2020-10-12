@@ -9,11 +9,11 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charmrepo/v6/csclient"
 	"github.com/juju/charmstore-client/internal/ingest"
 	"github.com/juju/gnuflag"
 	"github.com/juju/persistent-cookiejar"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v4/csclient"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 )
 

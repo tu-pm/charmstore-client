@@ -12,10 +12,11 @@ import (
 	"strings"
 	"sync"
 
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"gopkg.in/errgo.v1"
-	charm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 // baseEntitySpec holds an easy-to-write-for-tests

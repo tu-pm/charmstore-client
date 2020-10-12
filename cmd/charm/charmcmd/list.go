@@ -9,10 +9,10 @@ import (
 	"net/url"
 	"strings"
 
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 type listCommand struct {

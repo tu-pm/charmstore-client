@@ -4,11 +4,12 @@
 package charmcmd
 
 import (
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/gnuflag"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 type revokeCommand struct {
@@ -122,12 +123,16 @@ func (c *revokeCommand) changePerms(client *csClient) error {
 	}
 	perms := &params.PermRequest{
 		Read:  read,
-		Write: write,
+		Write: make([]string, len(write)),
 	}
+	copy(perms.Write, write)
 	perms.Read = remove(perms.Read, c.removeReads)
 	perms.Write = remove(perms.Write, c.removeWrites)
 
-	if len(perms.Read) == 0 || len(perms.Write) == 0 {
+	if len(perms.Read) == 0 || (len(write) > 0 && len(perms.Write) == 0) {
+		// The write ACL returned in getExistingPerms will be zero length
+		// if the user doesn't have write access. In this case it is better
+		// to attempt the query and get a permission denied error.
 		return errgo.New("need at least one user with read|write access")
 	}
 	path := "/" + c.id.Path() + "/meta/perm"

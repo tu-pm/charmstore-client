@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"gopkg.in/yaml.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -338,8 +338,8 @@ Subordinate		false
 Promulgated		false
 Home page		
 Bugs url		
-Read			everyone, charmers
-Write			charmers
+Read			everyone
+Write			
  			 
 Not released to any channel.
 
@@ -370,8 +370,8 @@ Subordinate		false
 Promulgated		false
 Home page		
 Bugs url		
-Read			everyone, charmers
-Write			charmers
+Read			everyone
+Write			
  			 
 CHANNEL			CURRENT
 stable			true		
