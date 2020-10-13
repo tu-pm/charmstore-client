@@ -12,7 +12,8 @@ import (
 
 	"github.com/juju/utils"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 type UploadIdCache struct {

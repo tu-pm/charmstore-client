@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charmrepo/v6/csclient/params"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -35,7 +35,7 @@ var setInitErrorTests = []struct {
 	err: "no charm or bundle id specified",
 }, {
 	args: []string{"homepage=value"},
-	err:  `invalid charm or bundle id: cannot parse URL "homepage=value": name "homepage=value" not valid`,
+	err:  `invalid charm or bundle id: cannot parse URL "cs:homepage=value": name "homepage=value" not valid`,
 }, {
 	args: []string{"invalid:entity", "homepage=value"},
 	err:  `invalid charm or bundle id: cannot parse URL "invalid:entity": schema "invalid" not valid`,

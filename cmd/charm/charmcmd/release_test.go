@@ -9,11 +9,11 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
+	"github.com/juju/charmrepo/v6/csclient/params"
+	charmtesting "github.com/juju/charmrepo/v6/testing"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
-	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 

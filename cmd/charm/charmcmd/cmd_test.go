@@ -17,8 +17,12 @@ import (
 	"path/filepath"
 	"strings"
 	"testing"
+	"time"
 
+	"github.com/canonical/candid/candidtest"
 	qt "github.com/frankban/quicktest"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"github.com/juju/juju/juju/osenv"
 	"github.com/juju/loggo"
@@ -26,17 +30,14 @@ import (
 	"github.com/juju/usso"
 	"github.com/juju/utils"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/juju/charmstore.v5"
-	"gopkg.in/juju/idmclient.v1/idmtest"
 	bakery2u "gopkg.in/macaroon-bakery.v2-unstable/bakery"
 	"gopkg.in/macaroon-bakery.v2/bakery"
 	"gopkg.in/macaroon-bakery.v2/httpbakery"
 	yaml "gopkg.in/yaml.v2"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 // run runs a charm plugin subcommand with the given arguments,
@@ -61,7 +62,7 @@ func run(dir string, args ...string) (stdout, stderr string, exitCode int) {
 func fakeHome(c *qt.C) {
 	oldHome := utils.Home()
 	utils.SetHome(c.Mkdir())
-	c.Defer(func() {
+	c.Cleanup(func() {
 		utils.SetHome(oldHome)
 	})
 	err := os.MkdirAll(osenv.JujuXDGDataHomeDir(), 0755)
@@ -86,7 +87,7 @@ type charmstoreEnv struct {
 	cookieFile   string
 	client       *csclient.Client
 	serverParams charmstore.ServerParams
-	discharger   *idmtest.Server
+	discharger   *candidtest.Server
 }
 
 const minUploadPartSize = 100 * 1024
@@ -100,18 +101,26 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 		c.Skip(err)
 	}
 	c.Assert(err, qt.Equals, nil)
-	c.Defer(func() {
+	c.Cleanup(func() {
 		env.database.Close()
 	})
+	env.database.Session.SetSyncTimeout(10 * time.Second)
+	env.database.Session.SetSocketTimeout(1 * time.Minute)
+	session := env.database.Session.Copy()
+	c.Cleanup(func() {
+		session.Close()
+	})
+	db := env.database.Database.With(session)
+
 	env.dockerHandler = newDockerHandler()
 	env.dockerSrv = httptest.NewServer(env.dockerHandler)
-	c.Defer(env.dockerSrv.Close)
+	c.Cleanup(env.dockerSrv.Close)
 	env.dockerAuthHandler = newDockerAuthHandler()
 	env.dockerAuthServer = httptest.NewServer(env.dockerAuthHandler)
-	c.Defer(env.dockerAuthServer.Close)
+	c.Cleanup(env.dockerAuthServer.Close)
 	env.dockerRegistryHandler = newDockerRegistryHandler(env.dockerAuthServer.URL)
 	env.dockerRegistry = httptest.NewTLSServer(env.dockerRegistryHandler)
-	c.Defer(env.dockerRegistry.Close)
+	c.Cleanup(env.dockerRegistry.Close)
 
 	dockerURL, err := url.Parse(env.dockerSrv.URL)
 	c.Assert(err, qt.Equals, nil)
@@ -119,8 +128,8 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 
 	c.Setenv("DOCKER_HOST", env.dockerSrv.URL)
 
-	env.discharger = idmtest.NewServer()
-	c.Defer(env.discharger.Close)
+	env.discharger = candidtest.NewServer()
+	c.Cleanup(env.discharger.Close)
 	env.discharger.AddUser("charmstoreuser")
 	env.serverParams = charmstore.ServerParams{
 		AuthUsername:          "test-user",
@@ -133,11 +142,11 @@ func initCharmstoreEnv(c *qt.C) *charmstoreEnv {
 		DockerRegistryAddress: env.dockerHost,
 		NoIndexes:             true,
 	}
-	env.handler, err = charmstore.NewServer(env.database.Database, nil, "", env.serverParams, charmstore.V5)
+	env.handler, err = charmstore.NewServer(db, nil, "", env.serverParams, charmstore.V5)
 	c.Assert(err, qt.Equals, nil)
-	c.Defer(env.handler.Close)
+	c.Cleanup(env.handler.Close)
 	env.srv = httptest.NewServer(env.handler)
-	c.Defer(env.srv.Close)
+	c.Cleanup(env.srv.Close)
 	env.client = csclient.New(csclient.Params{
 		URL:      env.srv.URL,
 		User:     env.serverParams.AuthUsername,
@@ -234,7 +243,7 @@ func (s *cmdSuite) TestServerURLFromEnvContext(c *qt.C) {
 
 	// A first call fails.
 	_, stderr, code := run(c.Mkdir(), "show", "--list")
-	c.Assert(stderr, qt.Matches, "ERROR cannot get metadata endpoints: Get invalid-url/v5/meta/: .*\n")
+	c.Assert(stderr, qt.Matches, "ERROR cannot get metadata endpoints: Get \"invalid-url/v5/meta/\": .*\n")
 	c.Assert(code, qt.Equals, 1)
 
 	// After setting the JUJU_CHARMSTORE variable, the call succeeds.

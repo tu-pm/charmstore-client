@@ -14,11 +14,11 @@ import (
 
 	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 

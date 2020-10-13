@@ -11,12 +11,13 @@ import (
 	"sort"
 	"sync"
 
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"golang.org/x/sync/semaphore"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 // IngestParams holds information about the charmstores to use for ingestion and the entities to whitelist
@@ -273,6 +274,9 @@ func ingest(p ingestParams) IngestStats {
 	if p.concurrency <= 0 {
 		p.concurrency = DefaultConcurrency
 	}
+	if p.owner == "" {
+		p.owner = "admin"
+	}
 	ing := &ingester{
 		params:  p,
 		limiter: newLimiter(p.concurrency),
@@ -411,10 +415,7 @@ func (ing *ingester) transferBaseEntity(e *whitelistBaseEntity) {
 			return
 		}
 	}
-	var writeACL []string
-	if ing.params.owner != "" {
-		writeACL = []string{ing.params.owner}
-	}
+	writeACL := []string{ing.params.owner}
 	// In general, we can only set permissions on channels that the charm has been
 	// published to already
 	doneChannels := make(map[params.Channel]bool)

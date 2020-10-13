@@ -9,9 +9,9 @@ import (
 	"io"
 	"strings"
 
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/charmstore-client/internal/ingest"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 // parseError is the error returned when a whitelist cannot be parsed.

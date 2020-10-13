@@ -12,9 +12,9 @@ import (
 	"os"
 	"strings"
 
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/cmd"
 	"gopkg.in/errgo.v1"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 	"gopkg.in/macaroon.v2"
 )
 

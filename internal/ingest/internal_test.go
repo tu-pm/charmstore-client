@@ -5,8 +5,9 @@ import (
 
 	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp"
-	charm "gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charmrepo/v6/csclient/params"
+
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 var parseURL = charm.MustParseURL
@@ -486,7 +487,7 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}},
 }, {
 	testName: "copy_one_already_exists",
@@ -516,7 +517,7 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}},
 }, {
 	testName: "copy_one_already_exists_with_different_published",
@@ -546,7 +547,7 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}},
 }, {
 	testName: "copy_one_already_exists_with_different_extra_info",
@@ -579,7 +580,7 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}},
 }, {
 	testName: "copy_with_resources",
@@ -619,7 +620,7 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 		resources: map[string]string{
 			"bar:2": "bar:2 content",
 			"foo:0": "foo:0 content",
@@ -687,10 +688,10 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"beta everyone -", "edge everyone -", "stable everyone -"},
+		perms: []string{"beta everyone admin", "edge everyone admin", "stable everyone admin"},
 	}, {
 		id:    "cs:~bob/foo",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}},
 }, {
 	testName: "bundle",
@@ -736,13 +737,13 @@ var ingestTests = []struct {
 	}},
 	expectBaseEntityContents: []baseEntitySpec{{
 		id:    "cs:~charmers/wordpress",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}, {
 		id:    "cs:~charmers/wordpressbundle",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}, {
 		id:    "cs:~bob/foo",
-		perms: []string{"stable everyone -"},
+		perms: []string{"stable everyone admin"},
 	}},
 }}
 

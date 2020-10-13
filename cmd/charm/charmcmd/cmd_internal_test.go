@@ -8,9 +8,9 @@ import (
 
 	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp"
+	"github.com/juju/charmrepo/v6/csclient/params"
 	"github.com/juju/gnuflag"
 	"github.com/juju/loggo"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
 )
 
 var authFlagTests = []struct {
@@ -97,7 +97,7 @@ func TestChannelDevelopmentDeprecated(t *testing.T) {
 	defer c.Done()
 	w := &testWriter{}
 	loggo.RegisterWriter("test", w)
-	c.Defer(loggo.ResetWriters)
+	c.Cleanup(loggo.ResetWriters)
 
 	ch := parseChannel(c, "development")
 	c.Assert(ch, qt.Equals, params.EdgeChannel)

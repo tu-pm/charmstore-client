@@ -10,10 +10,10 @@ import (
 
 	qt "github.com/frankban/quicktest"
 	"github.com/google/go-cmp/cmp/cmpopts"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -276,36 +276,32 @@ func (s *grantSuite) TestSuccessfulWithChannel(c *qt.C) {
 	c.Assert(s.getWritePerms(c, url), qt.DeepEquals, []string{"foo"})
 }
 
-func mustGetPerms(client *csclient.Client, id *charm.URL) params.PermResponse {
+func assertGetPerms(c *qt.C, client *csclient.Client, id *charm.URL) params.PermResponse {
 	var grant params.PermResponse
 	path := "/" + id.Path() + "/meta/perm"
 	err := client.Get(path, &grant)
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, qt.IsNil)
 	return grant
 }
 
-func mustSetPerms(client *csclient.Client, key string, id *charm.URL, p []string) {
+func assertSetPerms(c *qt.C, client *csclient.Client, key string, id *charm.URL, p []string) {
 	path := "/" + id.Path() + "/meta/perm/" + key
 	err := client.Put(path, p)
-	if err != nil {
-		panic(err)
-	}
+	c.Assert(err, qt.IsNil)
 }
 
 func (s *grantSuite) getReadPerms(c *qt.C, id *charm.URL) []string {
-	return mustGetPerms(s.client, id).Read
+	return assertGetPerms(c, s.client, id).Read
 }
 
 func (s *grantSuite) getWritePerms(c *qt.C, id *charm.URL) []string {
-	return mustGetPerms(s.client, id).Write
+	return assertGetPerms(c, s.client, id).Write
 }
 
 func (s *grantSuite) setReadPerms(c *qt.C, id *charm.URL, p []string) {
-	mustSetPerms(s.client, "read", id, p)
+	assertSetPerms(c, s.client, "read", id, p)
 }
 
 func (s *grantSuite) setWritePerms(c *qt.C, id *charm.URL, p []string) {
-	mustSetPerms(s.client, "write", id, p)
+	assertSetPerms(c, s.client, "write", id, p)
 }

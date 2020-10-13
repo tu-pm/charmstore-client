@@ -1,12 +1,8 @@
 language: go
 go_import_path: github.com/juju/charmstore-client
 go: 
-  - "1.9"
-  - "1.10"
-before_install:
-  - "go get github.com/rogpeppe/godeps"
-install:
-  - "godeps -u $GOPATH/src/github.com/juju/charmstore-client/dependencies.tsv"
-script: go test ./...
+  - "1.14.x"
+  - "1.15.x"
+script: GO111MODULE=on go test ./...
 services:
   - mongodb

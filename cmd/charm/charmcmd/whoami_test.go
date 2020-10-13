@@ -85,7 +85,7 @@ func (s *whoamiSuite) TestInvalidServerURL(c *qt.C) {
 	stdout, stderr, exitCode := run(c.Mkdir(), "whoami")
 	c.Assert(stdout, qt.Equals, "")
 	c.Assert(exitCode, qt.Equals, 1)
-	c.Assert(stderr, qt.Equals, "ERROR invalid URL \"#%zz\" for JUJU_CHARMSTORE: parse #%zz: invalid URL escape \"%zz\"\n")
+	c.Assert(stderr, qt.Equals, "ERROR invalid URL \"#%zz\" for JUJU_CHARMSTORE: parse \"#%zz\": invalid URL escape \"%zz\"\n")
 }
 
 func (s *whoamiSuite) TestBadCookieFile(c *qt.C) {

@@ -23,14 +23,14 @@ import (
 	"time"
 
 	qt "github.com/frankban/quicktest"
+	"github.com/juju/charm/v8/resource"
+	"github.com/juju/charmrepo/v6/csclient"
+	"github.com/juju/charmrepo/v6/csclient/params"
+	charmtesting "github.com/juju/charmrepo/v6/testing"
 	"github.com/juju/juju/juju/osenv"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charm.v6/resource"
-	"gopkg.in/juju/charmrepo.v4/csclient"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
-	charmtesting "gopkg.in/juju/charmrepo.v4/testing"
 
 	"github.com/juju/charmstore-client/cmd/charm/charmcmd"
+	"github.com/juju/charmstore-client/internal/charm"
 )
 
 func TestAttach(t *testing.T) {

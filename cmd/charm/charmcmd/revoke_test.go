@@ -9,9 +9,9 @@ import (
 	"testing"
 
 	qt "github.com/frankban/quicktest"
-	"gopkg.in/juju/charm.v6"
-	"gopkg.in/juju/charmrepo.v4/csclient/params"
+	"github.com/juju/charmrepo/v6/csclient/params"
 
+	"github.com/juju/charmstore-client/internal/charm"
 	"github.com/juju/charmstore-client/internal/entitytesting"
 )
 
@@ -251,17 +251,17 @@ func (s *revokeSuite) TestSuccessfulWithChannel(c *qt.C) {
 }
 
 func (s *revokeSuite) getReadPerms(c *qt.C, id *charm.URL) []string {
-	return mustGetPerms(s.client, id).Read
+	return assertGetPerms(c, s.client, id).Read
 }
 
 func (s *revokeSuite) getWritePerms(c *qt.C, id *charm.URL) []string {
-	return mustGetPerms(s.client, id).Write
+	return assertGetPerms(c, s.client, id).Write
 }
 
 func (s *revokeSuite) setReadPerms(c *qt.C, id *charm.URL, p []string) {
-	mustSetPerms(s.client, "read", id, p)
+	assertSetPerms(c, s.client, "read", id, p)
 }
 
 func (s *revokeSuite) setWritePerms(c *qt.C, id *charm.URL, p []string) {
-	mustSetPerms(s.client, "write", id, p)
+	assertSetPerms(c, s.client, "write", id, p)
 }
